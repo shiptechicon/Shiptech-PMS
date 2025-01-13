@@ -6,3 +6,9 @@ input{
   border: 2px solid black;
   padding-left: .5rem;
 }
+
+textarea{
+  border: 2px solid black;
+  padding-left: .5rem;
+  padding-right: .5rem;
+}
