@@ -1,33 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEnquiryStore } from '../store/enquiryStore';
 import { useProjectStore } from '../store/projectStore';
-import { Loader2, Pencil, FileDown, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Loader2, Pencil, FileDown, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
 
-export default function EnquiryDetails() {
+export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { fetchEnquiry, deleteEnquiry } = useEnquiryStore();
-  const { createProject } = useProjectStore();
-  const [enquiry, setEnquiry] = useState<any>(null);
+  const { fetchProject } = useProjectStore();
+  const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuthStore();
 
   useEffect(() => {
-    const loadEnquiry = async () => {
+    const loadProject = async () => {
       if (id) {
-        const data = await fetchEnquiry(id);
+        const data = await fetchProject(id);
         if (data) {
-          setEnquiry(data);
+          setProject(data);
         } else {
-          toast.error('Enquiry not found');
-          navigate('/dashboard/enquiries');
+          toast.error('Project not found');
+          navigate('/dashboard/projects');
         }
         setLoading(false);
       }
@@ -41,43 +39,20 @@ export default function EnquiryDetails() {
       }
     };
 
-    loadEnquiry();
+    loadProject();
     checkUserRole();
-  }, [id, user, fetchEnquiry, navigate]);
-
-  const handleConvertToProject = async () => {
-    try {
-      if (!enquiry) return;
-      
-      // Create new project
-      const projectData = {
-        ...enquiry,
-        type: 'project'
-      };
-      await createProject(projectData);
-      
-      // Delete original enquiry
-      if (id) {
-        await deleteEnquiry(id);
-      }
-      
-      toast.success('Successfully converted to project');
-      navigate('/dashboard/projects');
-    } catch (error) {
-      toast.error('Failed to convert to project');
-    }
-  };
+  }, [id, user, fetchProject, navigate]);
 
   const downloadInvoice = () => {
-    if (!enquiry) return;
+    if (!project) return;
 
-    const totalAmount = enquiry.deliverables.reduce((sum: number, d: any) => sum + d.total, 0);
+    const totalAmount = project.deliverables.reduce((sum: number, d: any) => sum + d.total, 0);
 
     const content = `
       <div style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
         <div style="text-align: center; margin-bottom: 40px;">
-          <h1 style="color: #2563eb;">INVOICE</h1>
-          <p style="color: #666;">Enquiry ID: ${enquiry.__id}</p>
+          <h1 style="color: #2563eb;">PROJECT INVOICE</h1>
+          <p style="color: #666;">Project ID: ${project.__id}</p>
         </div>
         
         <div style="margin-bottom: 30px;">
@@ -88,9 +63,9 @@ export default function EnquiryDetails() {
 
         <div style="margin-bottom: 30px;">
           <h3>Bill To:</h3>
-          <p><strong>${enquiry.customer.name}</strong></p>
-          <p>${enquiry.customer.address}</p>
-          <p>Phone: ${enquiry.customer.phone}</p>
+          <p><strong>${project.customer.name}</strong></p>
+          <p>${project.customer.address}</p>
+          <p>Phone: ${project.customer.phone}</p>
         </div>
 
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
@@ -101,7 +76,7 @@ export default function EnquiryDetails() {
             </tr>
           </thead>
           <tbody>
-            ${enquiry.deliverables.map((d: any) => `
+            ${project.deliverables.map((d: any) => `
               <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${d.name}</td>
                 <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${d.total}</td>
@@ -115,9 +90,9 @@ export default function EnquiryDetails() {
         </table>
 
         <div style="margin-top: 30px;">
-          <h3>Customer Requirements:</h3>
+          <h3>Project Requirements:</h3>
           <ul>
-            ${enquiry.requirements.map((r: any) => `
+            ${project.requirements.map((r: any) => `
               <li style="margin-bottom: 8px;">${r.text}</li>
             `).join('')}
           </ul>
@@ -127,7 +102,7 @@ export default function EnquiryDetails() {
 
     const opt = {
       margin: 1,
-      filename: `invoice-${enquiry.__id}.pdf`,
+      filename: `project-invoice-${project.__id}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
@@ -150,10 +125,10 @@ export default function EnquiryDetails() {
     );
   }
 
-  if (!enquiry) {
+  if (!project) {
     return (
       <div className="p-6">
-        <p className="text-red-500">Enquiry not found</p>
+        <p className="text-red-500">Project not found</p>
       </div>
     );
   }
@@ -163,13 +138,13 @@ export default function EnquiryDetails() {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => navigate('/dashboard/enquiries')}
+            onClick={() => navigate('/dashboard/projects')}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Enquiries
+            Back to Projects
           </button>
-          <h2 className="text-2xl font-bold">Enquiry Details</h2>
+          <h2 className="text-2xl font-bold">Project Details</h2>
         </div>
         <div className="flex space-x-4">
           <button
@@ -180,22 +155,13 @@ export default function EnquiryDetails() {
             Download Invoice
           </button>
           {isAdmin && (
-            <>
-              <button
-                onClick={() => navigate(`/dashboard/enquiries/${id}/edit`)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </button>
-              <button
-                onClick={handleConvertToProject}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
-              >
-                <ArrowRight className="mr-2 h-4 w-4" />
-                Move to Projects
-              </button>
-            </>
+            <button
+              onClick={() => navigate(`/dashboard/projects/${id}/edit`)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </button>
           )}
         </div>
       </div>
@@ -210,19 +176,19 @@ export default function EnquiryDetails() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-gray-500">ID</p>
-                <p className="mt-1">{enquiry.__id}</p>
+                <p className="mt-1">{project.__id}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Created At</p>
-                <p className="mt-1">{new Date(enquiry.createdAt).toLocaleDateString()}</p>
+                <p className="mt-1">{new Date(project.createdAt).toLocaleDateString()}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-sm font-medium text-gray-500">Name</p>
-                <p className="mt-1">{enquiry.name}</p>
+                <p className="mt-1">{project.name}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-sm font-medium text-gray-500">Description</p>
-                <p className="mt-1">{enquiry.description}</p>
+                <p className="mt-1">{project.description}</p>
               </div>
             </div>
           </div>
@@ -237,15 +203,15 @@ export default function EnquiryDetails() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-gray-500">Name</p>
-                <p className="mt-1">{enquiry.customer.name}</p>
+                <p className="mt-1">{project.customer.name}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Phone</p>
-                <p className="mt-1">{enquiry.customer.phone}</p>
+                <p className="mt-1">{project.customer.phone}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-sm font-medium text-gray-500">Address</p>
-                <p className="mt-1">{enquiry.customer.address}</p>
+                <p className="mt-1">{project.customer.address}</p>
               </div>
             </div>
           </div>
@@ -275,7 +241,7 @@ export default function EnquiryDetails() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {enquiry.deliverables.map((deliverable: any) => (
+                {project.deliverables.map((deliverable: any) => (
                   <tr key={deliverable.id}>
                     <td className="px-3 py-4 text-sm text-gray-900">
                       {deliverable.name}
@@ -296,7 +262,7 @@ export default function EnquiryDetails() {
                     Grand Total
                   </td>
                   <td className="px-3 py-4 text-sm font-medium text-gray-900 text-right">
-                    ₹{enquiry.deliverables.reduce((sum: number, d: any) => sum + d.total, 0)}
+                    ₹{project.deliverables.reduce((sum: number, d: any) => sum + d.total, 0)}
                   </td>
                 </tr>
               </tbody>
@@ -304,14 +270,14 @@ export default function EnquiryDetails() {
           </div>
         </div>
 
-        {/* Customer Requirements Section */}
+        {/* Project Requirements Section */}
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="border-b border-gray-200 bg-gray-50 px-6 py-3">
-            <h3 className="text-lg font-medium text-gray-900">Customer Requirements</h3>
+            <h3 className="text-lg font-medium text-gray-900">Project Requirements</h3>
           </div>
           <div className="px-6 py-4">
             <ul className="space-y-2">
-              {enquiry.requirements.map((requirement: any) => (
+              {project.requirements.map((requirement: any) => (
                 <li key={requirement.id} className="text-gray-700 flex items-start">
                   <span className="text-gray-400 mr-2">•</span>
                   <span>{requirement.text}</span>

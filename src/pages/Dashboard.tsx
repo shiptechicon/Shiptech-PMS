@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import Enquiries from './Enquiries';
 import Projects from './Projects';
+import ProjectDetails from './ProjectDetails';
+import ProjectForm from './ProjectForm';
 
 const Basics = () => (
   <div className="p-6">
@@ -103,6 +105,9 @@ export default function Dashboard() {
           <Route path="/" element={<Basics />} />
           <Route path="/enquiries/*" element={<Enquiries />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetails />} />
+          <Route path="/projects/:id/edit" element={<ProjectForm />} />
+          <Route path="/projects/new" element={<ProjectForm />} />
         </Routes>
       </div>
     </div>
