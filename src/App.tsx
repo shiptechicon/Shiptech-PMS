@@ -5,7 +5,6 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import AdminPanel from './pages/AdminPanel';
-import TaskDetails from './pages/TaskDetails';
 import Navbar from './components/Navbar';
 import { useAuthStore } from './store/authStore';
 import { doc, getDoc } from 'firebase/firestore';
@@ -81,7 +80,6 @@ function App() {
           await signIn(email, password);
         } catch (error) {
           console.error('Auto-login failed:', error);
-          // Remove invalid credentials
           localStorage.removeItem('userCredentials');
         }
       }
@@ -130,14 +128,6 @@ function App() {
             element={
               <PrivateRoute>
                 <AdminPanel />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/dashboard/projects/:projectId/task/:taskPath"
-            element={
-              <PrivateRoute>
-                <TaskDetails />
               </PrivateRoute>
             }
           />

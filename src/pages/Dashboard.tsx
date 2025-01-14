@@ -12,7 +12,7 @@ import Enquiries from './Enquiries';
 import Projects from './Projects';
 import ProjectDetails from './ProjectDetails';
 import ProjectForm from './ProjectForm';
-import DeliverableDetails from './DeliverableDetails';
+import TaskDetails from './TaskDetails';
 
 const Basics = () => (
   <div className="p-6">
@@ -103,7 +103,7 @@ export default function Dashboard() {
           <Route path="/enquiries/*" element={<Enquiries />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetails />} />
-          <Route path="/projects/:projectId/deliverable/:path" element={<DeliverableDetails />} />
+          <Route path="/projects/:projectId/task/:taskPath" element={<TaskDetails />} />
           <Route path="/projects/:id/edit" element={<ProjectForm />} />
           <Route path="/projects/new" element={<ProjectForm />} />
         </Routes>
