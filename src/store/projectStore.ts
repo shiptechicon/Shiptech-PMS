@@ -71,7 +71,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const projects = querySnapshot.docs.map(doc => ({
         ...doc.data(),
         id: doc.id,
-        tasks: doc.data().tasks || [] // Ensure tasks array exists
+        tasks: doc.data().tasks || []
       })) as Project[];
       set({ projects, loading: false });
     } catch (error) {
@@ -89,7 +89,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         const project = {
           ...docSnap.data(),
           id: docSnap.id,
-          tasks: docSnap.data().tasks || [] // Ensure tasks array exists
+          tasks: docSnap.data().tasks || []
         } as Project;
         set({ loading: false });
         return project;
@@ -112,7 +112,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         __id: internalId,
         createdAt: new Date().toISOString(),
         type: 'project' as const,
-        tasks: [] // Initialize empty tasks array
+        tasks: []
       };
       const docRef = await addDoc(collection(db, 'projects'), newProject);
       const projectWithId = { ...newProject, id: docRef.id };
@@ -129,10 +129,52 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       const docRef = doc(db, 'projects', id);
-      await updateDoc(docRef, projectData);
+      
+      // Clean and validate task data
+      const cleanTasks = (tasks: Task[]): any[] => {
+        return tasks.map(task => ({
+          id: task.id,
+          name: task.name || '',
+          description: task.description || '',
+          hours: task.hours || 0,
+          costPerHour: task.costPerHour || 0,
+          assignedTo: task.assignedTo ? {
+            id: task.assignedTo.id,
+            fullName: task.assignedTo.fullName,
+            email: task.assignedTo.email
+          } : null,
+          deadline: task.deadline || null,
+          completed: Boolean(task.completed),
+          children: task.children ? cleanTasks(task.children) : []
+        }));
+      };
+
+      // Create a clean version of the project data for Firestore
+      const cleanProjectData = {
+        name: projectData.name || '',
+        description: projectData.description || '',
+        customer: {
+          name: projectData.customer?.name || '',
+          phone: projectData.customer?.phone || '',
+          address: projectData.customer?.address || ''
+        },
+        tasks: cleanTasks(projectData.tasks || []),
+        type: 'project' as const
+      };
+
+      await updateDoc(docRef, cleanProjectData);
+      
+      // Update local state
       const updatedProjects = get().projects.map(project =>
-        project.id === id ? { ...projectData, id, __id: project.__id } : project
+        project.id === id ? { 
+          ...project,
+          ...cleanProjectData,
+          id,
+          __id: project.__id,
+          createdAt: project.createdAt
+        } : project
       );
+      
       set({ projects: updatedProjects, loading: false });
     } catch (error) {
       console.error('Error updating project:', error);
@@ -185,11 +227,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const newTask: Task = {
         ...taskData,
         id: crypto.randomUUID(),
+        name: taskData.name || '',
+        description: taskData.description || '',
         completed: false,
         children: []
       };
 
-      const updateNestedTasks = (tasks: Task[] = [], currentPath: PathItem[]): Task[] => {
+      const updateNestedTasks = (tasks: Task[], currentPath: PathItem[]): Task[] => {
         if (currentPath.length === 0) {
           return [...tasks, newTask];
         }
@@ -227,7 +271,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const updateNestedTask = (tasks: Task[]): Task[] => {
         return tasks.map(task => {
           if (task.id === taskId) {
-            return { ...task, ...data };
+            return {
+              ...task,
+              ...data,
+              name: data.name || task.name,
+              description: data.description || task.description,
+              children: task.children || []
+            };
           }
           if (task.children && task.children.length > 0) {
             return {

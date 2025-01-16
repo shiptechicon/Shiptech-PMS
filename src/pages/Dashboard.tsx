@@ -103,7 +103,7 @@ export default function Dashboard() {
           <Route path="/enquiries/*" element={<Enquiries />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetails />} />
-          <Route path="/projects/:projectId/task/:taskPath" element={<TaskDetails />} />
+          <Route path="/projects/:projectId/task/*" element={<TaskDetails />} />
           <Route path="/projects/:id/edit" element={<ProjectForm />} />
           <Route path="/projects/new" element={<ProjectForm />} />
         </Routes>

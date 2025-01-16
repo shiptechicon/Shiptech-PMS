@@ -11,37 +11,45 @@ import TaskList from '../components/TaskList';
 import ItemDetails from '../components/ItemDetails';
 
 export default function TaskDetails() {
-  const { projectId, taskPath } = useParams<{ projectId: string; taskPath: string }>();
+  const { projectId, '*': taskPath } = useParams<{ projectId: string; '*': string }>();
   const navigate = useNavigate();
-  const { 
-    getTaskByPath, 
-    addTask, 
-    updateTask, 
+  const {
+    getTaskByPath,
+    addTask,
+    updateTask,
     deleteTask,
     currentPath,
-    setCurrentPath
+    setCurrentPath,
   } = useProjectStore();
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isEditingCurrentTask, setIsEditingCurrentTask] = useState(false);
   const { user } = useAuthStore();
 
   useEffect(() => {
     const loadTask = async () => {
-      if (!projectId || !taskPath) return;
+      if (!projectId || !taskPath) {
+        navigate(`/dashboard/projects/${projectId}`);
+        return;
+      }
 
       try {
         setLoading(true);
-        const pathArray = taskPath.split('/').map(id => ({ id }));
-        setCurrentPath(pathArray);
+        // Create path array from taskPath
+        const pathArray = taskPath.split('/').filter(Boolean).map(id => ({ id }));
         
+        // Update current path in store
+        setCurrentPath(pathArray);
+
+        // Fetch task data
         const data = await getTaskByPath(projectId, pathArray);
         if (data) {
           setTask({
             ...data,
-            children: data.children || [] // Ensure children array exists
+            children: data.children || [],
           });
         } else {
           toast.error('Task not found');
@@ -66,17 +74,29 @@ export default function TaskDetails() {
 
     loadTask();
     checkUserRole();
+
+    // Cleanup function to reset state when component unmounts
+    return () => {
+      setTask(null);
+      setLoading(true);
+      setIsAdmin(false);
+      setCurrentPath([]);
+    };
   }, [projectId, taskPath, user, getTaskByPath, navigate, setCurrentPath]);
 
   const handleAddTask = async (data: any) => {
     if (!projectId || !taskPath) return;
     try {
-      await addTask(projectId, currentPath, data);
-      const updatedTask = await getTaskByPath(projectId, currentPath);
+      // Create path array from current taskPath
+      const pathArray = taskPath.split('/').filter(Boolean).map(id => ({ id }));
+      await addTask(projectId, pathArray, data);
+      
+      // Refresh task data
+      const updatedTask = await getTaskByPath(projectId, pathArray);
       if (updatedTask) {
         setTask({
           ...updatedTask,
-          children: updatedTask.children || [] // Ensure children array exists
+          children: updatedTask.children || [],
         });
         toast.success('Task added successfully');
       }
@@ -87,14 +107,27 @@ export default function TaskDetails() {
   };
 
   const handleEditTask = async (data: any) => {
-    if (!projectId || !taskPath || !editingTask) return;
+    if (!projectId || !taskPath) return;
     try {
-      await updateTask(projectId, currentPath, editingTask.id, data);
-      const updatedTask = await getTaskByPath(projectId, currentPath);
+      // Create path array from current taskPath
+      const pathArray = taskPath.split('/').filter(Boolean).map(id => ({ id }));
+      
+      if (isEditingCurrentTask) {
+        // Get the current task's ID from the path
+        const currentTaskId = pathArray[pathArray.length - 1].id;
+        // Update the current task
+        await updateTask(projectId, pathArray.slice(0, -1), currentTaskId, data);
+      } else if (editingTask) {
+        // Update a subtask
+        await updateTask(projectId, pathArray, editingTask.id, data);
+      }
+      
+      // Refresh task data
+      const updatedTask = await getTaskByPath(projectId, pathArray);
       if (updatedTask) {
         setTask({
           ...updatedTask,
-          children: updatedTask.children || [] // Ensure children array exists
+          children: updatedTask.children || [],
         });
         toast.success('Task updated successfully');
       }
@@ -108,12 +141,16 @@ export default function TaskDetails() {
     if (!projectId || !taskPath) return;
     if (window.confirm('Are you sure you want to delete this task?')) {
       try {
-        await deleteTask(projectId, currentPath, taskId);
-        const updatedTask = await getTaskByPath(projectId, currentPath);
+        // Create path array from current taskPath
+        const pathArray = taskPath.split('/').filter(Boolean).map(id => ({ id }));
+        await deleteTask(projectId, pathArray, taskId);
+        
+        // Refresh task data
+        const updatedTask = await getTaskByPath(projectId, pathArray);
         if (updatedTask) {
           setTask({
             ...updatedTask,
-            children: updatedTask.children || [] // Ensure children array exists
+            children: updatedTask.children || [],
           });
           toast.success('Task deleted successfully');
         }
@@ -125,9 +162,17 @@ export default function TaskDetails() {
   };
 
   const handleTaskClick = (clickedTask: Task) => {
-    const newPath = [...currentPath, { id: clickedTask.id }];
-    setCurrentPath(newPath);
-    navigate(`/dashboard/projects/${projectId}/task/${newPath.map(p => p.id).join('/')}`);
+    // Build the new path by appending the clicked task's ID to the current path
+    const newPath = taskPath ? `${taskPath}/${clickedTask.id}` : clickedTask.id;
+    navigate(`/dashboard/projects/${projectId}/task/${newPath}`);
+  };
+
+  const handleEditCurrentTask = () => {
+    if (task) {
+      setIsEditingCurrentTask(true);
+      setEditingTask(null);
+      setIsModalOpen(true);
+    }
   };
 
   if (loading) {
@@ -159,16 +204,22 @@ export default function TaskDetails() {
         <h1 className="text-2xl font-bold">{task.name}</h1>
       </div>
 
-      <ItemDetails item={task} />
+      <ItemDetails 
+        item={task} 
+        onEditClick={handleEditCurrentTask}
+        isAdmin={isAdmin}
+      />
 
       <TaskList
         tasks={task.children}
         onAddClick={() => {
           setEditingTask(null);
+          setIsEditingCurrentTask(false);
           setIsModalOpen(true);
         }}
         onEditClick={(task) => {
           setEditingTask(task);
+          setIsEditingCurrentTask(false);
           setIsModalOpen(true);
         }}
         onDeleteClick={handleDeleteTask}
@@ -181,9 +232,10 @@ export default function TaskDetails() {
         onClose={() => {
           setIsModalOpen(false);
           setEditingTask(null);
+          setIsEditingCurrentTask(false);
         }}
-        onSubmit={editingTask ? handleEditTask : handleAddTask}
-        initialData={editingTask}
+        onSubmit={handleEditTask}
+        initialData={isEditingCurrentTask ? task : editingTask}
       />
     </div>
   );

@@ -1,9 +1,23 @@
 import { create } from 'zustand';
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Task } from './projectStore';
+import toast from 'react-hot-toast';
 
-interface Enquiry {
+interface Deliverable {
+  id: string;
+  name: string;
+  description?: string;
+  hours?: number;
+  costPerHour?: number;
+  total: number;
+}
+
+interface CustomerRequirement {
+  id: string;
+  text: string;
+}
+
+export interface Enquiry {
   id?: string;
   __id: string;
   name: string;
@@ -13,7 +27,8 @@ interface Enquiry {
     phone: string;
     address: string;
   };
-  tasks: Task[];
+  deliverables: Deliverable[];
+  requirements: CustomerRequirement[];
   createdAt: string;
   type: 'enquiry';
 }
@@ -24,8 +39,8 @@ interface EnquiryState {
   error: string | null;
   fetchEnquiries: () => Promise<void>;
   fetchEnquiry: (id: string) => Promise<Enquiry | null>;
-  createEnquiry: (enquiry: Omit<Enquiry, 'id' | '__id' | 'createdAt' | 'tasks'>) => Promise<void>;
-  updateEnquiry: (id: string, enquiry: Omit<Enquiry, 'id' | '__id' | 'createdAt'>) => Promise<void>;
+  createEnquiry: (enquiry: Omit<Enquiry, 'id' | '__id' | 'createdAt' | 'type'>) => Promise<void>;
+  updateEnquiry: (id: string, enquiry: Omit<Enquiry, 'id' | '__id' | 'createdAt' | 'type'>) => Promise<void>;
   deleteEnquiry: (id: string) => Promise<void>;
   convertToProject: (enquiryId: string) => Promise<void>;
 }
@@ -45,12 +60,11 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       })) as Enquiry[];
       set({ enquiries, loading: false });
     } catch (error) {
-      console.error('Error fetching enquiries:', error);
       set({ error: (error as Error).message, loading: false });
     }
   },
 
-  fetchEnquiry: async (id) => {
+  fetchEnquiry: async (id: string) => {
     try {
       set({ loading: true, error: null });
       const docRef = doc(db, 'enquiries', id);
@@ -63,7 +77,6 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       set({ loading: false });
       return null;
     } catch (error) {
-      console.error('Error fetching enquiry:', error);
       set({ error: (error as Error).message, loading: false });
       return null;
     }
@@ -77,79 +90,89 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         ...enquiryData,
         __id: internalId,
         createdAt: new Date().toISOString(),
-        type: 'enquiry' as const,
-        tasks: [] // Initialize empty tasks array
+        type: 'enquiry' as const
       };
       const docRef = await addDoc(collection(db, 'enquiries'), newEnquiry);
       const enquiryWithId = { ...newEnquiry, id: docRef.id };
       const enquiries = [...get().enquiries, enquiryWithId];
       set({ enquiries, loading: false });
     } catch (error) {
-      console.error('Error creating enquiry:', error);
       set({ error: (error as Error).message, loading: false });
-      throw error;
     }
   },
 
-  updateEnquiry: async (id, enquiryData) => {
+  updateEnquiry: async (id: string, enquiryData) => {
     try {
       set({ loading: true, error: null });
       const docRef = doc(db, 'enquiries', id);
-      await updateDoc(docRef, enquiryData);
+      await updateDoc(docRef, { ...enquiryData, type: 'enquiry' });
       const updatedEnquiries = get().enquiries.map(enquiry =>
-        enquiry.id === id ? { ...enquiryData, id, __id: enquiry.__id } : enquiry
+        enquiry.id === id ? { ...enquiryData, id, __id: enquiry.__id, type: 'enquiry' } : enquiry
       );
       set({ enquiries: updatedEnquiries, loading: false });
     } catch (error) {
-      console.error('Error updating enquiry:', error);
       set({ error: (error as Error).message, loading: false });
-      throw error;
     }
   },
 
-  deleteEnquiry: async (id) => {
+  deleteEnquiry: async (id: string) => {
     try {
       set({ loading: true, error: null });
       await deleteDoc(doc(db, 'enquiries', id));
       const updatedEnquiries = get().enquiries.filter(enquiry => enquiry.id !== id);
       set({ enquiries: updatedEnquiries, loading: false });
     } catch (error) {
-      console.error('Error deleting enquiry:', error);
       set({ error: (error as Error).message, loading: false });
-      throw error;
     }
   },
 
-  convertToProject: async (enquiryId) => {
+  convertToProject: async (enquiryId: string) => {
     try {
       set({ loading: true, error: null });
+
       const enquiry = await get().fetchEnquiry(enquiryId);
       if (!enquiry) throw new Error('Enquiry not found');
 
-      const projectInternalId = 'p-' + enquiry.__id.split('-')[1];
+      // Convert deliverables to tasks
+      const tasks = enquiry.deliverables.map(deliverable => ({
+        id: crypto.randomUUID(),
+        name: deliverable.name,
+        description: deliverable.description || '',
+        hours: deliverable.hours || 0,
+        costPerHour: deliverable.costPerHour || 0,
+        completed: false,
+        children: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      // Create project data
       const projectData = {
         name: enquiry.name,
         description: enquiry.description,
         customer: enquiry.customer,
-        __id: projectInternalId,
+        tasks,
+        __id: 'p-' + enquiry.__id.split('-')[1],
         type: 'project' as const,
-        tasks: enquiry.tasks || [], // Convert tasks
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
-      // Create new project document
-      const docRef = await addDoc(collection(db, 'projects'), projectData);
-      
+      // Create project in Firestore
+      const projectRef = await addDoc(collection(db, 'projects'), projectData);
+
       // Delete original enquiry
       await deleteDoc(doc(db, 'enquiries', enquiryId));
-      
+
+      // Update local state
       const updatedEnquiries = get().enquiries.filter(e => e.id !== enquiryId);
       set({ enquiries: updatedEnquiries, loading: false });
-      
-      return { ...projectData, id: docRef.id };
+
+      toast.success('Successfully converted to project');
     } catch (error) {
       console.error('Error converting to project:', error);
       set({ error: (error as Error).message, loading: false });
+      toast.error('Failed to convert to project');
       throw error;
     }
   }

@@ -12,8 +12,7 @@ import toast from 'react-hot-toast';
 export default function EnquiryDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { fetchEnquiry, deleteEnquiry } = useEnquiryStore();
-  const { createProject } = useProjectStore();
+  const { fetchEnquiry, convertToProject } = useEnquiryStore();
   const [enquiry, setEnquiry] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -47,24 +46,11 @@ export default function EnquiryDetails() {
 
   const handleConvertToProject = async () => {
     try {
-      if (!enquiry) return;
-      
-      // Create new project
-      const projectData = {
-        ...enquiry,
-        type: 'project'
-      };
-      await createProject(projectData);
-      
-      // Delete original enquiry
-      if (id) {
-        await deleteEnquiry(id);
-      }
-      
-      toast.success('Successfully converted to project');
+      if (!id) return;
+      await convertToProject(id);
       navigate('/dashboard/projects');
     } catch (error) {
-      toast.error('Failed to convert to project');
+      console.error('Error converting to project:', error);
     }
   };
 
