@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 
 interface User {
   id: string;
@@ -14,10 +14,11 @@ export interface Task {
   description: string;
   hours?: number;
   costPerHour?: number;
-  assignedTo?: User;
+  assignedTo?: User[];
   deadline?: string;
   completed: boolean;
   children: Task[];
+  projectId?: string; // Used for navigation in user tasks
 }
 
 export interface Project {
@@ -41,6 +42,7 @@ interface PathItem {
 
 interface ProjectState {
   projects: Project[];
+  userTasks: Task[];
   loading: boolean;
   error: string | null;
   currentPath: PathItem[];
@@ -55,13 +57,16 @@ interface ProjectState {
   deleteTask: (projectId: string, path: PathItem[], taskId: string) => Promise<void>;
   getTaskByPath: (projectId: string, path: PathItem[]) => Promise<Task | null>;
   toggleTaskCompletion: (projectId: string, path: PathItem[]) => Promise<void>;
+  fetchUserTasks: () => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: [],
+  userTasks: [],
   loading: false,
   error: null,
   currentPath: [],
+
   setCurrentPath: (path) => set({ currentPath: path }),
 
   fetchProjects: async () => {
@@ -138,11 +143,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           description: task.description || '',
           hours: task.hours || 0,
           costPerHour: task.costPerHour || 0,
-          assignedTo: task.assignedTo ? {
-            id: task.assignedTo.id,
-            fullName: task.assignedTo.fullName,
-            email: task.assignedTo.email
-          } : null,
+          assignedTo: task.assignedTo?.map(user => ({
+            id: user.id,
+            fullName: user.fullName,
+            email: user.email
+          })) || [],
           deadline: task.deadline || null,
           completed: Boolean(task.completed),
           children: task.children ? cleanTasks(task.children) : []
@@ -291,6 +296,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       const updatedTasks = updateNestedTask(project.tasks);
       await get().updateProject(projectId, { ...project, tasks: updatedTasks });
+      
+      // Update userTasks if necessary
+      if (data.completed !== undefined || data.assignedTo !== undefined) {
+        await get().fetchUserTasks();
+      }
+      
       set({ loading: false });
     } catch (error) {
       console.error('Error updating task:', error);
@@ -317,6 +328,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       const updatedTasks = deleteNestedTask(project.tasks);
       await get().updateProject(projectId, { ...project, tasks: updatedTasks });
+      
+      // Update userTasks to remove deleted task
+      await get().fetchUserTasks();
+      
       set({ loading: false });
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -337,6 +352,44 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     } catch (error) {
       console.error('Error toggling task completion:', error);
       throw error;
+    }
+  },
+
+  fetchUserTasks: async () => {
+    try {
+      set({ loading: true, error: null });
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No user logged in');
+
+      const querySnapshot = await getDocs(collection(db, 'projects'));
+      const projects = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        tasks: doc.data().tasks || []
+      })) as Project[];
+
+      // Helper function to recursively find tasks assigned to user
+      const findUserTasks = (tasks: Task[], projectId: string): Task[] => {
+        return tasks.reduce((acc: Task[], task) => {
+          const isAssigned = task.assignedTo?.some(user => user.id === currentUser.uid);
+          const childTasks = task.children ? findUserTasks(task.children, projectId) : [];
+          
+          if (isAssigned) {
+            acc.push({ ...task, projectId }); // Add projectId to task for navigation
+          }
+          return [...acc, ...childTasks];
+        }, []);
+      };
+
+      const userTasks = projects.reduce((acc: Task[], project) => {
+        const projectTasks = findUserTasks(project.tasks, project.id!);
+        return [...acc, ...projectTasks];
+      }, []);
+
+      set({ userTasks, loading: false });
+    } catch (error) {
+      console.error('Error fetching user tasks:', error);
+      set({ error: (error as Error).message, loading: false });
     }
   }
 }));

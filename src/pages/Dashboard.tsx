@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route, NavLink } from 'react-router-dom';
 import { 
-  Calendar, 
   ChevronRight, 
   ChevronLeft,
   LayoutDashboard,
@@ -13,28 +12,7 @@ import Projects from './Projects';
 import ProjectDetails from './ProjectDetails';
 import ProjectForm from './ProjectForm';
 import TaskDetails from './TaskDetails';
-
-const Basics = () => (
-  <div className="p-6">
-    <h2 className="text-2xl font-bold mb-6">Basics</h2>
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4">Calendar</h3>
-        <div className="h-96 bg-gray-50 rounded-lg flex items-center justify-center">
-          Calendar Component Coming Soon
-        </div>
-      </div>
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4">Incoming Mails</h3>
-        <div className="space-y-4">
-          <div className="border-b pb-4">
-            <p className="font-medium">No new messages</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
+import Basics from './Basics';
 
 export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -66,7 +44,7 @@ export default function Dashboard() {
             }
           >
             <LayoutDashboard size={20} />
-            {!isCollapsed && <span>Basics</span>}
+            {!isCollapsed && <span>Dashboard</span>}
           </NavLink>
           <NavLink
             to="/dashboard/enquiries"

@@ -58,17 +58,19 @@ export default function TaskList({
                       {task.description && (
                         <p className="mt-1 text-gray-600">{task.description}</p>
                       )}
-                      <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                      <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-500">
                         {task.hours && (
                           <span>Hours: {task.hours}</span>
                         )}
                         {task.costPerHour && (
                           <span>Rate: ₹{task.costPerHour}/hr</span>
                         )}
-                        {task.assignedTo && (
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-1" />
-                            <span>{task.assignedTo.fullName}</span>
+                        {task.assignedTo && task.assignedTo.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            <User className="h-4 w-4" />
+                            <span>
+                              {task.assignedTo.map(user => user.fullName).join(', ')}
+                            </span>
                           </div>
                         )}
                         {task.deadline && (

@@ -17,7 +17,7 @@ interface TaskModalProps {
     description: string;
     hours?: number;
     costPerHour?: number;
-    assignedTo?: User;
+    assignedTo?: User[];
     deadline?: string;
   }) => void;
   initialData?: {
@@ -25,7 +25,7 @@ interface TaskModalProps {
     description: string;
     hours?: number;
     costPerHour?: number;
-    assignedTo?: User;
+    assignedTo?: User[];
     deadline?: string;
   };
 }
@@ -41,7 +41,7 @@ export default function TaskModal({
     description: '',
     hours: undefined as number | undefined,
     costPerHour: undefined as number | undefined,
-    assignedTo: undefined as User | undefined,
+    assignedTo: [] as User[],
     deadline: ''
   });
   const [users, setUsers] = useState<User[]>([]);
@@ -53,7 +53,7 @@ export default function TaskModal({
         description: initialData.description || '',
         hours: initialData.hours,
         costPerHour: initialData.costPerHour,
-        assignedTo: initialData.assignedTo,
+        assignedTo: initialData.assignedTo || [],
         deadline: initialData.deadline || ''
       });
     } else {
@@ -62,7 +62,7 @@ export default function TaskModal({
         description: '',
         hours: undefined,
         costPerHour: undefined,
-        assignedTo: undefined,
+        assignedTo: [],
         deadline: ''
       });
     }
@@ -87,6 +87,15 @@ export default function TaskModal({
     e.preventDefault();
     onSubmit(formData);
     onClose();
+  };
+
+  const handleAssignedToChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedOptions = Array.from(e.target.selectedOptions);
+    const selectedUsers = selectedOptions.map(option => 
+      users.find(user => user.id === option.value)
+    ).filter((user): user is User => user !== undefined);
+    
+    setFormData(prev => ({ ...prev, assignedTo: selectedUsers }));
   };
 
   return (
@@ -158,20 +167,19 @@ export default function TaskModal({
           <div>
             <label className="block text-sm font-medium text-gray-700">Assign To</label>
             <select
-              value={formData.assignedTo?.id || ''}
-              onChange={e => {
-                const user = users.find(u => u.id === e.target.value);
-                setFormData(prev => ({ ...prev, assignedTo: user }));
-              }}
+              multiple
+              value={formData.assignedTo.map(user => user.id)}
+              onChange={handleAssignedToChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              size={4}
             >
-              <option value="">Select user...</option>
               {users.map(user => (
                 <option key={user.id} value={user.id}>
                   {user.fullName}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-sm text-gray-500">Hold Ctrl/Cmd to select multiple users</p>
           </div>
 
           <div>

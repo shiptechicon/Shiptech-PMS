@@ -7,7 +7,7 @@ interface ItemDetailsProps {
     description?: string;
     assignedTo?: {
       fullName: string;
-    };
+    }[];
     deadline?: string;
     completed: boolean;
     hours?: number;
@@ -38,12 +38,16 @@ export default function ItemDetails({ item, onEditClick, isAdmin }: ItemDetailsP
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {item.assignedTo && (
+            {item.assignedTo && item.assignedTo.length > 0 && (
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-1">Assigned To</h3>
-                <div className="flex items-center">
-                  <User className="h-4 w-4 text-gray-400 mr-2" />
-                  <p>{item.assignedTo.fullName}</p>
+                <div className="flex flex-col gap-2">
+                  {item.assignedTo.map((user, index) => (
+                    <div key={index} className="flex items-center">
+                      <User className="h-4 w-4 text-gray-400 mr-2" />
+                      <p>{user.fullName}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
