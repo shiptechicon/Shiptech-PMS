@@ -5,7 +5,8 @@ import {
   ChevronLeft,
   LayoutDashboard,
   FileQuestion,
-  Briefcase
+  Briefcase,
+  UserCheck
 } from 'lucide-react';
 import Enquiries from './Enquiries';
 import Projects from './Projects';
@@ -13,6 +14,7 @@ import ProjectDetails from './ProjectDetails';
 import ProjectForm from './ProjectForm';
 import TaskDetails from './TaskDetails';
 import Basics from './Basics';
+import Attendance from './Attendance';
 
 export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -72,6 +74,19 @@ export default function Dashboard() {
             <Briefcase size={20} />
             {!isCollapsed && <span>Projects</span>}
           </NavLink>
+          <NavLink
+            to="/dashboard/attendance"
+            className={({ isActive }) =>
+              `flex items-center space-x-3 p-2 rounded-lg mt-2 ${
+                isActive
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-700 hover:bg-gray-50'
+              } ${isCollapsed ? 'justify-center' : ''}`
+            }
+          >
+            <UserCheck size={20} />
+            {!isCollapsed && <span>Attendance</span>}
+          </NavLink>
         </nav>
       </div>
 
@@ -84,6 +99,7 @@ export default function Dashboard() {
           <Route path="/projects/:projectId/task/*" element={<TaskDetails />} />
           <Route path="/projects/:id/edit" element={<ProjectForm />} />
           <Route path="/projects/new" element={<ProjectForm />} />
+          <Route path="/attendance" element={<Attendance />} />
         </Routes>
       </div>
     </div>

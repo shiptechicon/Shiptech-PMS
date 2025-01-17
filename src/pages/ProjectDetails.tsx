@@ -6,7 +6,9 @@ import {
   Pencil, 
   FileDown, 
   ArrowLeft,
-  Calendar
+  Calendar,
+  Check,
+  X
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { doc, getDoc } from 'firebase/firestore';
@@ -35,6 +37,8 @@ export default function ProjectDetails() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
+  const [tempDueDate, setTempDueDate] = useState<string>('');
+  const [showDueDateConfirm, setShowDueDateConfirm] = useState(false);
   const { user } = useAuthStore();
 
   useEffect(() => {
@@ -42,12 +46,16 @@ export default function ProjectDetails() {
       if (!id) return;
 
       try {
+        setLoading(true);
         const data = await fetchProject(id);
         if (data) {
           setProject({
             ...data,
             tasks: data.tasks || []
           });
+          if (data.project_due_date) {
+            setTempDueDate(data.project_due_date);
+          }
         } else {
           toast.error('Project not found');
           navigate('/dashboard/projects');
@@ -136,19 +144,32 @@ export default function ProjectDetails() {
   };
 
   const handleDueDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value;
+    setTempDueDate(newDate);
+    setShowDueDateConfirm(true);
+  };
+
+  const confirmDueDateChange = async () => {
     if (!id) return;
     try {
-      await updateProjectDueDate(id, e.target.value || null);
+      await updateProjectDueDate(id, tempDueDate || null);
       const updatedProject = await fetchProject(id);
       if (updatedProject) {
         setProject(updatedProject);
         toast.success('Project due date updated successfully');
       }
       setIsEditingDueDate(false);
+      setShowDueDateConfirm(false);
     } catch (error) {
       console.error('Failed to update due date:', error);
       toast.error('Failed to update due date');
     }
+  };
+
+  const cancelDueDateChange = () => {
+    setTempDueDate(project.project_due_date || '');
+    setShowDueDateConfirm(false);
+    setIsEditingDueDate(false);
   };
 
   const downloadInvoice = () => {
@@ -328,12 +349,30 @@ export default function ProjectDetails() {
                   )}
                 </div>
                 {isEditingDueDate ? (
-                  <input
-                    type="datetime-local"
-                    value={project.project_due_date || ''}
-                    onChange={handleDueDateChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
+                  <div className="mt-1 flex items-center space-x-2">
+                    <input
+                      type="datetime-local"
+                      value={tempDueDate}
+                      onChange={handleDueDateChange}
+                      className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    {showDueDateConfirm && (
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={confirmDueDateChange}
+                          className="p-1 text-green-600 hover:text-green-700"
+                        >
+                          <Check className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={cancelDueDateChange}
+                          className="p-1 text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="mt-1 flex items-center text-gray-900">
                     <Calendar className="h-4 w-4 mr-2 text-gray-400" />

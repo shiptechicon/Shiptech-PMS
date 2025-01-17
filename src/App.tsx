@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
@@ -6,7 +6,9 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import AdminPanel from './pages/AdminPanel';
 import Navbar from './components/Navbar';
+import AttendanceModal from './components/AttendanceModal';
 import { useAuthStore } from './store/authStore';
+import { useAttendanceStore } from './store/attendanceStore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 
@@ -66,7 +68,9 @@ function AuthenticatedRedirect() {
 
 function App() {
   const { initialize, signIn } = useAuthStore();
+  const { checkAttendance } = useAttendanceStore();
   const [initializing, setInitializing] = React.useState(true);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -89,6 +93,20 @@ function App() {
 
     initAuth();
   }, [initialize, signIn]);
+
+  // Check attendance when user is authenticated
+  useEffect(() => {
+    const checkUserAttendance = async () => {
+      const hasMarkedAttendance = await checkAttendance();
+      if (!hasMarkedAttendance) {
+        setShowAttendanceModal(true);
+      }
+    };
+
+    if (!initializing) {
+      checkUserAttendance();
+    }
+  }, [initializing, checkAttendance]);
 
   if (initializing) {
     return (
@@ -135,6 +153,10 @@ function App() {
         </Routes>
       </Router>
       <Toaster position="top-right" />
+      <AttendanceModal 
+        isOpen={showAttendanceModal} 
+        onClose={() => setShowAttendanceModal(false)} 
+      />
     </>
   );
 }

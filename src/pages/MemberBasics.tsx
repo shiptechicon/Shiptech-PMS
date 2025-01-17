@@ -1,15 +1,26 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from '../store/projectStore';
-import { Calendar, Clock, AlertCircle } from 'lucide-react';
+import { useAttendanceStore } from '../store/attendanceStore';
+import { Calendar, Clock, AlertCircle, UserCheck } from 'lucide-react';
 
 export default function MemberBasics() {
   const navigate = useNavigate();
   const { userTasks, fetchUserTasks, loading } = useProjectStore();
+  const { checkAttendance } = useAttendanceStore();
+  const [hasMarkedAttendance, setHasMarkedAttendance] = React.useState(true);
 
   useEffect(() => {
     fetchUserTasks();
   }, [fetchUserTasks]);
+
+  useEffect(() => {
+    const checkUserAttendance = async () => {
+      const marked = await checkAttendance();
+      setHasMarkedAttendance(marked);
+    };
+    checkUserAttendance();
+  }, [checkAttendance]);
 
   const handleTaskClick = (projectId: string, taskPath: string) => {
     navigate(`/dashboard/projects/${projectId}/task/${taskPath}`);
@@ -25,6 +36,21 @@ export default function MemberBasics() {
 
   return (
     <div className="p-6">
+      {!hasMarkedAttendance && (
+        <div 
+          onClick={() => navigate('/dashboard/attendance')}
+          className="mb-6 bg-red-50 border-l-4 border-red-400 p-4 cursor-pointer hover:bg-red-100 transition-colors duration-200"
+        >
+          <div className="flex items-center">
+            <UserCheck className="h-6 w-6 text-red-400 mr-3" />
+            <div>
+              <h3 className="text-red-800 font-medium">Mark Your Attendance</h3>
+              <p className="text-red-700 text-sm">Please mark your attendance for today. Click here to mark attendance.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h2 className="text-2xl font-bold mb-6">My Tasks</h2>
       <div className="bg-white rounded-lg shadow">
         {userTasks.length === 0 ? (

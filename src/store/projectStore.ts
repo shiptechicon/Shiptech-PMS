@@ -8,7 +8,7 @@ interface User {
   email: string;
 }
 
-export interface TimeEntry {
+interface TimeEntry {
   id: string;
   userId: string;
   userName: string;
@@ -95,59 +95,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   setCurrentPath: (path) => set({ currentPath: path }),
-
-  checkActiveTimer: async () => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      const querySnapshot = await getDocs(collection(db, 'projects'));
-      const projects = querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id,
-        tasks: doc.data().tasks || []
-      })) as Project[];
-
-      const findActiveTimer = (tasks: Task[]): { taskId: string; projectId: string; startTime: string } | null => {
-        for (const task of tasks) {
-          const timeEntries = task.timeEntries || [];
-          const lastEntry = timeEntries[timeEntries.length - 1];
-          
-          if (lastEntry && 
-              lastEntry.userId === currentUser.uid && 
-              !lastEntry.endTime) {
-            return {
-              taskId: task.id,
-              projectId: task.projectId || '',
-              startTime: lastEntry.startTime
-            };
-          }
-
-          if (task.children && task.children.length > 0) {
-            const childTimer = findActiveTimer(task.children);
-            if (childTimer) return childTimer;
-          }
-        }
-        return null;
-      };
-
-      for (const project of projects) {
-        const activeTimer = findActiveTimer(project.tasks);
-        if (activeTimer) {
-          set({ 
-            activeTimer: {
-              taskId: activeTimer.taskId,
-              projectId: project.id,
-              startTime: activeTimer.startTime
-            }
-          });
-          break;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking active timer:', error);
-    }
-  },
 
   fetchProjects: async () => {
     try {
@@ -618,6 +565,81 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     } catch (error) {
       console.error('Error getting task time entries:', error);
       return [];
+    }
+  },
+
+  checkActiveTimer: async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        set({ 
+          activeTimer: {
+            taskId: null,
+            projectId: null,
+            startTime: null
+          }
+        });
+        return;
+      }
+
+      const querySnapshot = await getDocs(collection(db, 'projects'));
+      let foundActiveTimer = false;
+
+      for (const projectDoc of querySnapshot.docs) {
+        const projectData = projectDoc.data();
+        const tasks = projectData.tasks || [];
+
+        const findActiveTimer = (tasks: Task[]): boolean => {
+          for (const task of tasks) {
+            const timeEntries = task.timeEntries || [];
+            const lastEntry = timeEntries[timeEntries.length - 1];
+            
+            if (lastEntry && 
+                lastEntry.userId === currentUser.uid && 
+                !lastEntry.endTime) {
+              set({ 
+                activeTimer: {
+                  taskId: task.id,
+                  projectId: projectDoc.id,
+                  startTime: lastEntry.startTime
+                }
+              });
+              return true;
+            }
+
+            if (task.children && task.children.length > 0) {
+              if (findActiveTimer(task.children)) {
+                return true;
+              }
+            }
+          }
+          return false;
+        };
+
+        if (findActiveTimer(tasks)) {
+          foundActiveTimer = true;
+          break;
+        }
+      }
+
+      if (!foundActiveTimer) {
+        set({
+          activeTimer: {
+            taskId: null,
+            projectId: null,
+            startTime: null
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error checking active timer:', error);
+      set({
+        activeTimer: {
+          taskId: null,
+          projectId: null,
+          startTime: null
+        }
+      });
     }
   }
 }));

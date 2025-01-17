@@ -1,17 +1,13 @@
 import React from 'react';
-import { Calendar } from 'lucide-react';
+import ProjectCalendar from '../components/ProjectCalendar';
 
 export default function AdminBasics() {
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">Calendar</h3>
-          <div className="h-96 bg-gray-50 rounded-lg flex items-center justify-center">
-            <Calendar className="h-8 w-8 text-gray-400" />
-            <span className="ml-2 text-gray-500">Calendar Component Coming Soon</span>
-          </div>
+        <div className="lg:col-span-2">
+          <ProjectCalendar />
         </div>
         
         <div className="bg-white rounded-lg shadow p-6">
