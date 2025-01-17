@@ -6,6 +6,7 @@ import {
   Pencil, 
   FileDown, 
   ArrowLeft,
+  Calendar
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { doc, getDoc } from 'firebase/firestore';
@@ -25,13 +26,15 @@ export default function ProjectDetails() {
     updateTask, 
     deleteTask,
     currentPath,
-    setCurrentPath
+    setCurrentPath,
+    updateProjectDueDate
   } = useProjectStore();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const { user } = useAuthStore();
 
   useEffect(() => {
@@ -43,7 +46,7 @@ export default function ProjectDetails() {
         if (data) {
           setProject({
             ...data,
-            tasks: data.tasks || [] // Ensure tasks array exists
+            tasks: data.tasks || []
           });
         } else {
           toast.error('Project not found');
@@ -78,7 +81,7 @@ export default function ProjectDetails() {
       if (updatedProject) {
         setProject({
           ...updatedProject,
-          tasks: updatedProject.tasks || [] // Ensure tasks array exists
+          tasks: updatedProject.tasks || []
         });
         toast.success('Task added successfully');
       }
@@ -96,7 +99,7 @@ export default function ProjectDetails() {
       if (updatedProject) {
         setProject({
           ...updatedProject,
-          tasks: updatedProject.tasks || [] // Ensure tasks array exists
+          tasks: updatedProject.tasks || []
         });
         toast.success('Task updated successfully');
       }
@@ -115,7 +118,7 @@ export default function ProjectDetails() {
         if (updatedProject) {
           setProject({
             ...updatedProject,
-            tasks: updatedProject.tasks || [] // Ensure tasks array exists
+            tasks: updatedProject.tasks || []
           });
           toast.success('Task deleted successfully');
         }
@@ -130,6 +133,22 @@ export default function ProjectDetails() {
     const newPath = [...currentPath, { id: task.id }];
     setCurrentPath(newPath);
     navigate(`/dashboard/projects/${id}/task/${newPath.map(p => p.id).join('/')}`);
+  };
+
+  const handleDueDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!id) return;
+    try {
+      await updateProjectDueDate(id, e.target.value || null);
+      const updatedProject = await fetchProject(id);
+      if (updatedProject) {
+        setProject(updatedProject);
+        toast.success('Project due date updated successfully');
+      }
+      setIsEditingDueDate(false);
+    } catch (error) {
+      console.error('Failed to update due date:', error);
+      toast.error('Failed to update due date');
+    }
   };
 
   const downloadInvoice = () => {
@@ -176,6 +195,7 @@ export default function ProjectDetails() {
           <h3>Project Information</h3>
           <p><strong>Name:</strong> ${project.name}</p>
           <p><strong>Description:</strong> ${project.description}</p>
+          ${project.project_due_date ? `<p><strong>Due Date:</strong> ${new Date(project.project_due_date).toLocaleDateString()}</p>` : ''}
         </div>
 
         <div style="margin-bottom: 30px;">
@@ -294,6 +314,36 @@ export default function ProjectDetails() {
               <div className="col-span-2">
                 <p className="text-sm font-medium text-gray-500">Description</p>
                 <p className="mt-1">{project.description}</p>
+              </div>
+              <div className="col-span-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-500">Due Date</p>
+                  {isAdmin && !isEditingDueDate && (
+                    <button
+                      onClick={() => setIsEditingDueDate(true)}
+                      className="text-blue-600 hover:text-blue-700 text-sm"
+                    >
+                      {project.project_due_date ? 'Change' : 'Set Due Date'}
+                    </button>
+                  )}
+                </div>
+                {isEditingDueDate ? (
+                  <input
+                    type="datetime-local"
+                    value={project.project_due_date || ''}
+                    onChange={handleDueDateChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                ) : (
+                  <div className="mt-1 flex items-center text-gray-900">
+                    <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                    {project.project_due_date ? (
+                      new Date(project.project_due_date).toLocaleString()
+                    ) : (
+                      <span className="text-gray-500">No due date set</span>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Customer Name</p>

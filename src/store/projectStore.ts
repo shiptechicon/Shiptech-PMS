@@ -8,6 +8,15 @@ interface User {
   email: string;
 }
 
+export interface TimeEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  startTime: string;
+  endTime?: string;
+  duration?: number; // in minutes
+}
+
 export interface Task {
   id: string;
   name: string;
@@ -18,7 +27,9 @@ export interface Task {
   deadline?: string;
   completed: boolean;
   children: Task[];
-  projectId?: string; // Used for navigation in user tasks
+  projectId?: string;
+  path?: string;
+  timeEntries?: TimeEntry[];
 }
 
 export interface Project {
@@ -34,6 +45,7 @@ export interface Project {
   tasks: Task[];
   createdAt: string;
   type: 'project';
+  project_due_date?: string | null;
 }
 
 interface PathItem {
@@ -46,18 +58,28 @@ interface ProjectState {
   loading: boolean;
   error: string | null;
   currentPath: PathItem[];
+  activeTimer: {
+    taskId: string | null;
+    projectId: string | null;
+    startTime: string | null;
+  };
   setCurrentPath: (path: PathItem[]) => void;
   fetchProjects: () => Promise<void>;
   fetchProject: (id: string) => Promise<Project | null>;
-  createProject: (project: Omit<Project, 'id' | '__id' | 'createdAt' | 'tasks'>) => Promise<void>;
-  updateProject: (id: string, project: Omit<Project, 'id' | '__id' | 'createdAt'>) => Promise<void>;
+  createProject: (project: Omit<Project, 'id' | '__id' | 'createdAt' | 'tasks' | 'type' | 'project_due_date'>) => Promise<void>;
+  updateProject: (id: string, project: Omit<Project, 'id' | '__id' | 'createdAt' | 'type'>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   addTask: (projectId: string, path: PathItem[], task: Omit<Task, 'id' | 'children' | 'completed'>) => Promise<void>;
   updateTask: (projectId: string, path: PathItem[], taskId: string, data: Partial<Task>) => Promise<void>;
   deleteTask: (projectId: string, path: PathItem[], taskId: string) => Promise<void>;
   getTaskByPath: (projectId: string, path: PathItem[]) => Promise<Task | null>;
   toggleTaskCompletion: (projectId: string, path: PathItem[]) => Promise<void>;
+  updateProjectDueDate: (projectId: string, dueDate: string | null) => Promise<void>;
   fetchUserTasks: () => Promise<void>;
+  startTimer: (projectId: string, taskId: string) => Promise<void>;
+  stopTimer: (projectId: string, taskId: string) => Promise<void>;
+  getTaskTimeEntries: (projectId: string, taskId: string) => Promise<TimeEntry[]>;
+  checkActiveTimer: () => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -66,8 +88,66 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   loading: false,
   error: null,
   currentPath: [],
+  activeTimer: {
+    taskId: null,
+    projectId: null,
+    startTime: null,
+  },
 
   setCurrentPath: (path) => set({ currentPath: path }),
+
+  checkActiveTimer: async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const querySnapshot = await getDocs(collection(db, 'projects'));
+      const projects = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        tasks: doc.data().tasks || []
+      })) as Project[];
+
+      const findActiveTimer = (tasks: Task[]): { taskId: string; projectId: string; startTime: string } | null => {
+        for (const task of tasks) {
+          const timeEntries = task.timeEntries || [];
+          const lastEntry = timeEntries[timeEntries.length - 1];
+          
+          if (lastEntry && 
+              lastEntry.userId === currentUser.uid && 
+              !lastEntry.endTime) {
+            return {
+              taskId: task.id,
+              projectId: task.projectId || '',
+              startTime: lastEntry.startTime
+            };
+          }
+
+          if (task.children && task.children.length > 0) {
+            const childTimer = findActiveTimer(task.children);
+            if (childTimer) return childTimer;
+          }
+        }
+        return null;
+      };
+
+      for (const project of projects) {
+        const activeTimer = findActiveTimer(project.tasks);
+        if (activeTimer) {
+          set({ 
+            activeTimer: {
+              taskId: activeTimer.taskId,
+              projectId: project.id,
+              startTime: activeTimer.startTime
+            }
+          });
+          break;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking active timer:', error);
+    }
+  },
 
   fetchProjects: async () => {
     try {
@@ -117,7 +197,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         __id: internalId,
         createdAt: new Date().toISOString(),
         type: 'project' as const,
-        tasks: []
+        tasks: [],
+        project_due_date: null
       };
       const docRef = await addDoc(collection(db, 'projects'), newProject);
       const projectWithId = { ...newProject, id: docRef.id };
@@ -135,7 +216,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ loading: true, error: null });
       const docRef = doc(db, 'projects', id);
       
-      // Clean and validate task data
       const cleanTasks = (tasks: Task[]): any[] => {
         return tasks.map(task => ({
           id: task.id,
@@ -143,18 +223,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           description: task.description || '',
           hours: task.hours || 0,
           costPerHour: task.costPerHour || 0,
-          assignedTo: task.assignedTo?.map(user => ({
+          assignedTo: task.assignedTo ? task.assignedTo.map(user => ({
             id: user.id,
             fullName: user.fullName,
             email: user.email
-          })) || [],
+          })) : [],
           deadline: task.deadline || null,
           completed: Boolean(task.completed),
-          children: task.children ? cleanTasks(task.children) : []
+          children: task.children ? cleanTasks(task.children) : [],
+          timeEntries: task.timeEntries || []
         }));
       };
 
-      // Create a clean version of the project data for Firestore
       const cleanProjectData = {
         name: projectData.name || '',
         description: projectData.description || '',
@@ -164,12 +244,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           address: projectData.customer?.address || ''
         },
         tasks: cleanTasks(projectData.tasks || []),
-        type: 'project' as const
+        type: 'project' as const,
+        project_due_date: projectData.project_due_date || null
       };
 
       await updateDoc(docRef, cleanProjectData);
       
-      // Update local state
       const updatedProjects = get().projects.map(project =>
         project.id === id ? { 
           ...project,
@@ -235,7 +315,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         name: taskData.name || '',
         description: taskData.description || '',
         completed: false,
-        children: []
+        children: [],
+        timeEntries: []
       };
 
       const updateNestedTasks = (tasks: Task[], currentPath: PathItem[]): Task[] => {
@@ -281,7 +362,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
               ...data,
               name: data.name || task.name,
               description: data.description || task.description,
-              children: task.children || []
+              children: task.children || [],
+              timeEntries: task.timeEntries || []
             };
           }
           if (task.children && task.children.length > 0) {
@@ -296,12 +378,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       const updatedTasks = updateNestedTask(project.tasks);
       await get().updateProject(projectId, { ...project, tasks: updatedTasks });
-      
-      // Update userTasks if necessary
-      if (data.completed !== undefined || data.assignedTo !== undefined) {
-        await get().fetchUserTasks();
-      }
-      
       set({ loading: false });
     } catch (error) {
       console.error('Error updating task:', error);
@@ -328,10 +404,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       const updatedTasks = deleteNestedTask(project.tasks);
       await get().updateProject(projectId, { ...project, tasks: updatedTasks });
-      
-      // Update userTasks to remove deleted task
-      await get().fetchUserTasks();
-      
       set({ loading: false });
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -355,11 +427,33 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
+  updateProjectDueDate: async (projectId, dueDate) => {
+    try {
+      set({ loading: true, error: null });
+      const docRef = doc(db, 'projects', projectId);
+      await updateDoc(docRef, { project_due_date: dueDate });
+      
+      const updatedProjects = get().projects.map(project =>
+        project.id === projectId ? { ...project, project_due_date: dueDate } : project
+      );
+      
+      set({ projects: updatedProjects, loading: false });
+    } catch (error) {
+      console.error('Error updating project due date:', error);
+      set({ error: (error as Error).message, loading: false });
+      throw error;
+    }
+  },
+
   fetchUserTasks: async () => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('No user logged in');
+      
+      if (!currentUser) {
+        set({ userTasks: [], loading: false });
+        return;
+      }
 
       const querySnapshot = await getDocs(collection(db, 'projects'));
       const projects = querySnapshot.docs.map(doc => ({
@@ -368,21 +462,27 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         tasks: doc.data().tasks || []
       })) as Project[];
 
-      // Helper function to recursively find tasks assigned to user
-      const findUserTasks = (tasks: Task[], projectId: string): Task[] => {
+      const flattenTasks = (tasks: Task[], projectId: string, parentPath: string = ''): Task[] => {
         return tasks.reduce((acc: Task[], task) => {
-          const isAssigned = task.assignedTo?.some(user => user.id === currentUser.uid);
-          const childTasks = task.children ? findUserTasks(task.children, projectId) : [];
+          const currentPath = parentPath ? `${parentPath}/${task.id}` : task.id;
+          const isAssignedToUser = task.assignedTo?.some(user => user.id === currentUser.uid);
           
-          if (isAssigned) {
-            acc.push({ ...task, projectId }); // Add projectId to task for navigation
-          }
-          return [...acc, ...childTasks];
+          const flatTask = isAssignedToUser ? [{
+            ...task,
+            projectId,
+            path: currentPath
+          }] : [];
+
+          return [
+            ...acc,
+            ...flatTask,
+            ...flattenTasks(task.children || [], projectId, currentPath)
+          ];
         }, []);
       };
 
       const userTasks = projects.reduce((acc: Task[], project) => {
-        const projectTasks = findUserTasks(project.tasks, project.id!);
+        const projectTasks = flattenTasks(project.tasks, project.id);
         return [...acc, ...projectTasks];
       }, []);
 
@@ -390,6 +490,134 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     } catch (error) {
       console.error('Error fetching user tasks:', error);
       set({ error: (error as Error).message, loading: false });
+    }
+  },
+
+  startTimer: async (projectId: string, taskId: string) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('User not authenticated');
+
+      const project = await get().fetchProject(projectId);
+      if (!project) throw new Error('Project not found');
+
+      const updateTaskTimer = (tasks: Task[]): Task[] => {
+        return tasks.map(task => {
+          if (task.id === taskId) {
+            const timeEntry: TimeEntry = {
+              id: crypto.randomUUID(),
+              userId: currentUser.uid,
+              userName: currentUser.displayName || currentUser.email || 'Unknown User',
+              startTime: new Date().toISOString(),
+            };
+            return {
+              ...task,
+              timeEntries: [...(task.timeEntries || []), timeEntry]
+            };
+          }
+          if (task.children && task.children.length > 0) {
+            return {
+              ...task,
+              children: updateTaskTimer(task.children)
+            };
+          }
+          return task;
+        });
+      };
+
+      const updatedTasks = updateTaskTimer(project.tasks);
+      await get().updateProject(projectId, { ...project, tasks: updatedTasks });
+      
+      set({ 
+        activeTimer: {
+          taskId,
+          projectId,
+          startTime: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error('Error starting timer:', error);
+      throw error;
+    }
+  },
+
+  stopTimer: async (projectId: string, taskId: string) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('User not authenticated');
+
+      const project = await get().fetchProject(projectId);
+      if (!project) throw new Error('Project not found');
+
+      const updateTaskTimer = (tasks: Task[]): Task[] => {
+        return tasks.map(task => {
+          if (task.id === taskId) {
+            const timeEntries = task.timeEntries || [];
+            const lastEntry = timeEntries[timeEntries.length - 1];
+            if (lastEntry && !lastEntry.endTime && lastEntry.userId === currentUser.uid) {
+              const endTime = new Date().toISOString();
+              const duration = Math.round(
+                (new Date(endTime).getTime() - new Date(lastEntry.startTime).getTime()) / 60000
+              );
+              const updatedEntry = {
+                ...lastEntry,
+                endTime,
+                duration
+              };
+              return {
+                ...task,
+                timeEntries: [...timeEntries.slice(0, -1), updatedEntry]
+              };
+            }
+            return task;
+          }
+          if (task.children && task.children.length > 0) {
+            return {
+              ...task,
+              children: updateTaskTimer(task.children)
+            };
+          }
+          return task;
+        });
+      };
+
+      const updatedTasks = updateTaskTimer(project.tasks);
+      await get().updateProject(projectId, { ...project, tasks: updatedTasks });
+      
+      set({ 
+        activeTimer: {
+          taskId: null,
+          projectId: null,
+          startTime: null
+        }
+      });
+    } catch (error) {
+      console.error('Error stopping timer:', error);
+      throw error;
+    }
+  },
+
+  getTaskTimeEntries: async (projectId: string, taskId: string) => {
+    try {
+      const project = await get().fetchProject(projectId);
+      if (!project) throw new Error('Project not found');
+
+      const findTask = (tasks: Task[]): Task | null => {
+        for (const task of tasks) {
+          if (task.id === taskId) return task;
+          if (task.children && task.children.length > 0) {
+            const found = findTask(task.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const task = findTask(project.tasks);
+      return task?.timeEntries || [];
+    } catch (error) {
+      console.error('Error getting task time entries:', error);
+      return [];
     }
   }
 }));
