@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2, Copy } from 'lucide-react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import toast from 'react-hot-toast';
 
@@ -17,10 +17,19 @@ interface CustomerCredentials {
   password: string;
 }
 
+interface ExistingCustomer {
+  id: string;
+  email: string;
+  fullName: string;
+}
+
 export default function CreateCustomerModal({ isOpen, onClose, projectId }: CreateCustomerModalProps) {
   const [loading, setLoading] = useState(false);
   const [generatedCredentials, setGeneratedCredentials] = useState<CustomerCredentials | null>(null);
   const [createdCredentials, setCreatedCredentials] = useState<CustomerCredentials | null>(null);
+  const [existingCustomer, setExistingCustomer] = useState<ExistingCustomer | null>(null);
+  const [showConfirmNewCustomer, setShowConfirmNewCustomer] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(false);
 
   const generateRandomString = (length: number) => {
     const chars = '0123456789';
@@ -38,6 +47,36 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
       fullName: `ShipTech ${randomString}`,
       password: '123456'
     });
+  };
+
+  const checkExistingCustomer = async () => {
+    try {
+      setCheckingExisting(true);
+      const usersRef = collection(db, 'users');
+      const q = query(
+        usersRef,
+        where('projectId', '==', projectId),
+        where('role', '==', 'customer')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const customerDoc = querySnapshot.docs[0];
+        setExistingCustomer({
+          id: customerDoc.id,
+          email: customerDoc.data().email,
+          fullName: customerDoc.data().fullName
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking existing customer:', error);
+      toast.error('Failed to check existing customer');
+      return false;
+    } finally {
+      setCheckingExisting(false);
+    }
   };
 
   const handleCreateCustomer = async () => {
@@ -64,6 +103,7 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
 
       setCreatedCredentials(generatedCredentials);
       setGeneratedCredentials(null);
+      setShowConfirmNewCustomer(false);
       toast.success('Customer account created successfully');
     } catch (error) {
       console.error('Error creating customer:', error);
@@ -81,16 +121,35 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
   const handleClose = () => {
     setGeneratedCredentials(null);
     setCreatedCredentials(null);
+    setExistingCustomer(null);
+    setShowConfirmNewCustomer(false);
     onClose();
   };
 
-  React.useEffect(() => {
-    if (isOpen && !generatedCredentials && !createdCredentials) {
-      generateCredentials();
-    }
-  }, [isOpen, generatedCredentials, createdCredentials]);
+  useEffect(() => {
+    const initializeModal = async () => {
+      if (isOpen) {
+        const hasExisting = await checkExistingCustomer();
+        if (!hasExisting) {
+          generateCredentials();
+        }
+      }
+    };
+
+    initializeModal();
+  }, [isOpen, projectId]);
 
   if (!isOpen) return null;
+
+  if (checkingExisting) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg w-full max-w-md p-6 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -103,7 +162,45 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
         </div>
 
         <div className="space-y-4">
-          {createdCredentials ? (
+          {existingCustomer && !showConfirmNewCustomer && !createdCredentials ? (
+            // Show existing customer info
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                <h3 className="text-yellow-800 font-medium mb-2">Existing Customer Found</h3>
+                <p className="text-yellow-700 text-sm mb-4">
+                  This project already has a customer account:
+                </p>
+                <div className="space-y-3">
+                  <div className="bg-white p-3 rounded border border-yellow-200">
+                    <p className="text-xs text-gray-500">Full Name</p>
+                    <p className="font-medium">{existingCustomer.fullName}</p>
+                  </div>
+                  <div className="bg-white p-3 rounded border border-yellow-200">
+                    <p className="text-xs text-gray-500">Email</p>
+                    <p className="font-medium">{existingCustomer.email}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowConfirmNewCustomer(true);
+                    generateCredentials();
+                  }}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700"
+                >
+                  Create Another Account
+                </button>
+              </div>
+            </div>
+          ) : createdCredentials ? (
             // Show created account details
             <div className="space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-md p-4">
@@ -162,6 +259,11 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
             <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                 <h3 className="text-blue-800 font-medium mb-2">Review Customer Account Details</h3>
+                {showConfirmNewCustomer && (
+                  <p className="text-red-600 text-sm mb-4">
+                    Warning: You are creating an additional customer account for this project.
+                  </p>
+                )}
                 <p className="text-blue-700 text-sm mb-4">
                   Please review the following credentials before creating the account:
                 </p>
