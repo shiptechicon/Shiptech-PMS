@@ -18,6 +18,7 @@ import toast from 'react-hot-toast';
 import TaskModal from '../components/TaskModal';
 import TaskList from '../components/TaskList';
 import ProjectComments from '../components/ProjectComments';
+import CreateCustomerModal from '../components/CreateCustomerModal'
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +40,7 @@ export default function ProjectDetails() {
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const [tempDueDate, setTempDueDate] = useState<string>('');
   const [showDueDateConfirm, setShowDueDateConfirm] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
   const { user } = useAuthStore();
 
   useEffect(() => {
@@ -293,6 +295,21 @@ export default function ProjectDetails() {
           <h2 className="text-2xl font-bold">Project Details</h2>
         </div>
         <div className="flex space-x-4">
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => setShowCustomerModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+              >
+                Create Customer Account
+              </button>
+              <CreateCustomerModal
+                isOpen={showCustomerModal}
+                onClose={() => setShowCustomerModal(false)}
+                projectId={id}
+              />
+            </>
+          )}
           <button
             onClick={downloadInvoice}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"

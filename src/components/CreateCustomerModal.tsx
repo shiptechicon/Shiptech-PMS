@@ -23,7 +23,7 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
   const [createdCredentials, setCreatedCredentials] = useState<CustomerCredentials | null>(null);
 
   const generateRandomString = (length: number) => {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const chars = '0123456789';
     let result = '';
     for (let i = 0; i < length; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -32,10 +32,10 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
   };
 
   const generateCredentials = () => {
-    const randomString = generateRandomString(8);
+    const randomString = generateRandomString(4);
     setGeneratedCredentials({
-      email: `shiptech.${randomString}@gmail.com`,
-      fullName: `ShipTech ${randomString.toUpperCase()}`,
+      email: `shiptech-${randomString}@gmail.com`,
+      fullName: `ShipTech ${randomString}`,
       password: '123456'
     });
   };
