@@ -69,17 +69,17 @@ export default function TaskModal({
   }, [initialData, isOpen]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      const querySnapshot = await getDocs(collection(db, 'users'));
-      const verifiedUsers = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(user => user.verified) as User[];
-      setUsers(verifiedUsers);
-    };
-    if (isOpen) {
-      fetchUsers();
-    }
-  }, [isOpen]);
+  const fetchUsers = async () => {
+    const querySnapshot = await getDocs(collection(db, 'users'));
+    const verifiedUsers = querySnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(user => user.verified && user.role !== 'customer') as User[]; // Add condition for role
+    setUsers(verifiedUsers);
+  };
+  if (isOpen) {
+    fetchUsers();
+  }
+}, [isOpen]);
 
   if (!isOpen) return null;
 
