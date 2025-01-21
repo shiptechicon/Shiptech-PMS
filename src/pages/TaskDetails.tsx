@@ -33,6 +33,7 @@ export default function TaskDetails() {
     stopTimer,
     getTaskTimeEntries,
     activeTimer,
+    toggleTaskCompletion,
     checkActiveTimer
   } = useProjectStore();
   const [task, setTask] = useState<Task | null>(null);
@@ -55,9 +56,6 @@ export default function TaskDetails() {
         setLoading(true);
         const pathArray = taskPath.split('/').filter(Boolean).map(id => ({ id }));
         setCurrentPath(pathArray);
-
-        // Check for active timer when component mounts
-        await checkActiveTimer();
 
         const data = await getTaskByPath(projectId, pathArray);
         if (data) {
@@ -90,8 +88,17 @@ export default function TaskDetails() {
       }
     };
 
+    const initializeActiveTimer = async () => {
+      try {
+        await checkActiveTimer();
+      } catch (error) {
+        console.error('Error checking active timer:', error);
+      }
+    };
+
     loadTask();
     checkUserRole();
+    initializeActiveTimer();
 
     return () => {
       setTask(null);
@@ -101,24 +108,32 @@ export default function TaskDetails() {
     };
   }, [projectId, taskPath, user, getTaskByPath, navigate, setCurrentPath, getTaskTimeEntries, checkActiveTimer]);
 
-  // Add timer update effect
+  // Timer effect
   useEffect(() => {
-    let intervalId: number;
+    let intervalId: NodeJS.Timeout;
 
-    if (activeTimer.taskId === task?.id && activeTimer.startTime) {
-      intervalId = window.setInterval(() => {
+    if (activeTimer.startTime && activeTimer.taskId === task?.id) {
+      const updateElapsedTime = () => {
         const start = new Date(activeTimer.startTime!).getTime();
         const now = new Date().getTime();
-        const diff = Math.floor((now - start) / 1000); // difference in seconds
+        const elapsed = Math.floor((now - start) / 1000); // elapsed seconds
 
-        const hours = Math.floor(diff / 3600);
-        const minutes = Math.floor((diff % 3600) / 60);
-        const seconds = diff % 60;
+        const hours = Math.floor(elapsed / 3600);
+        const minutes = Math.floor((elapsed % 3600) / 60);
+        const seconds = elapsed % 60;
 
         setElapsedTime(
-          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+          `${hours.toString().padStart(2, '0')}:${minutes
+            .toString()
+            .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
         );
-      }, 1000);
+      };
+
+      // Update immediately and then every second
+      updateElapsedTime();
+      intervalId = setInterval(updateElapsedTime, 1000);
+    } else {
+      setElapsedTime('00:00:00');
     }
 
     return () => {
@@ -126,7 +141,40 @@ export default function TaskDetails() {
         clearInterval(intervalId);
       }
     };
-  }, [activeTimer.taskId, activeTimer.startTime, task?.id]);
+  }, [activeTimer.startTime, activeTimer.taskId, task?.id]);
+
+  const handleToggleComplete = async () => {
+    if (!projectId || !task) return;
+    
+    // Check if task has subtasks and if they're all complete
+    const hasSubtasks = task.children && task.children.length > 0;
+    const allSubtasksComplete = hasSubtasks 
+      ? task.children.every(subtask => subtask.completed)
+      : true;
+
+    if (hasSubtasks && !allSubtasksComplete && !task.completed) {
+      toast.error('Cannot complete task - some subtasks are still pending');
+      return;
+    }
+
+    try {
+      const pathArray = taskPath.split('/').filter(Boolean).map(id => ({ id }));
+      await toggleTaskCompletion(projectId, pathArray);
+      
+      // Refresh task data
+      const updatedTask = await getTaskByPath(projectId, pathArray);
+      if (updatedTask) {
+        setTask({
+          ...updatedTask,
+          children: updatedTask.children || [],
+        });
+        toast.success(updatedTask.completed ? 'Task marked as complete' : 'Task marked as incomplete');
+      }
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
+      toast.error('Failed to update task status');
+    }
+  };
 
   const handleAddTask = async (data: any) => {
     if (!projectId || !taskPath) return;
@@ -218,7 +266,6 @@ export default function TaskDetails() {
     try {
       await stopTimer(projectId, task.id);
       toast.success('Timer stopped');
-      setElapsedTime('00:00:00');
       
       // Refresh time entries
       const entries = await getTaskTimeEntries(projectId, task.id);
@@ -232,9 +279,6 @@ export default function TaskDetails() {
   const aggregateTimeByUser = (entries: TimeEntry[]): { email: string; totalMinutes: number }[] => {
     const userTimes = entries.reduce((acc, entry) => {
       if (!entry.duration) return acc;
-      
-      // For non-admin users, only show their own time
-      if (!isAdmin && entry.userId !== user?.uid) return acc;
       
       const key = entry.userName;
       if (!acc[key]) {
@@ -250,14 +294,14 @@ export default function TaskDetails() {
     return Object.values(userTimes);
   };
 
-  const isTimerActive = activeTimer.taskId === task?.id;
-  const isAssignedToCurrentUser = task?.assignedTo?.some(u => u.id === user?.uid);
-
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     return `${hours}h ${remainingMinutes}m`;
   };
+
+  const isTimerActive = activeTimer.taskId === task?.id;
+  const isAssignedToCurrentUser = task?.assignedTo?.some(u => u.id === user?.uid);
 
   if (loading) {
     return (
@@ -291,27 +335,31 @@ export default function TaskDetails() {
         {isAssignedToCurrentUser && (
           <div className="flex items-center space-x-4">
             {isTimerActive && (
-              <div className="text-lg font-mono bg-gray-100 px-3 py-1 rounded">
-                {elapsedTime}
+              <div className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-md">
+                <Clock className="h-4 w-4" />
+                <span className="font-mono">{elapsedTime}</span>
               </div>
             )}
-            {isTimerActive ? (
-              <button
-                onClick={handleStopTimer}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
-              >
-                <Square className="mr-2 h-4 w-4" />
-                Stop Timer
-              </button>
-            ) : (
-              <button
-                onClick={handleStartTimer}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
-              >
-                <Play className="mr-2 h-4 w-4" />
-                Start Timer
-              </button>
-            )}
+            <button
+              onClick={isTimerActive ? handleStopTimer : handleStartTimer}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
+                isTimerActive 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : 'bg-green-600 hover:bg-green-700'
+              }`}
+            >
+              {isTimerActive ? (
+                <>
+                  <Square className="mr-2 h-4 w-4" />
+                  Stop Timer
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Start Timer
+                </>
+              )}
+            </button>
           </div>
         )}
       </div>
@@ -322,7 +370,9 @@ export default function TaskDetails() {
           setEditingTask(task);
           setIsModalOpen(true);
         }}
+        onToggleComplete={handleToggleComplete}
         isAdmin={isAdmin}
+        canComplete={isAdmin || task.assignedTo?.some(u => u.id === user?.uid)}
       />
 
       {timeEntries.length > 0 && (

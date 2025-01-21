@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import AdminPanel from './pages/AdminPanel';
+import CustomerProject from './pages/CustomerProject';
 import Navbar from './components/Navbar';
 import AttendanceModal from './components/AttendanceModal';
 import { useAuthStore } from './store/authStore';
@@ -12,9 +13,10 @@ import { useAttendanceStore } from './store/attendanceStore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
+function PrivateRoute({ children, allowedRoles = ['admin', 'member'] }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { user } = useAuthStore();
   const [isVerified, setIsVerified] = React.useState<boolean | null>(null);
+  const [userRole, setUserRole] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -23,6 +25,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         const userData = userDoc.data();
         setIsVerified(userData?.verified || false);
+        setUserRole(userData?.role || null);
       }
       setLoading(false);
     };
@@ -37,6 +40,12 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" />;
   }
 
+  // If user is a customer, only allow access to customer route
+  if (userRole === 'customer') {
+    return allowedRoles.includes('customer') ? <>{children}</> : <Navigate to="/customer" />;
+  }
+
+  // For non-customer users, check verification
   if (!isVerified) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -50,38 +59,60 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (!allowedRoles.includes(userRole || '')) {
+    return <Navigate to="/" />;
+  }
+
   return <>{children}</>;
 }
 
 function AuthenticatedRedirect() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
-    }
+    const checkUserRole = async () => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
+        setUserRole(userData?.role || null);
+        
+        if (userData?.role === 'customer') {
+          navigate('/customer');
+        } else {
+          navigate('/dashboard');
+        }
+      }
+    };
+    
+    checkUserRole();
   }, [user, navigate]);
 
   return null;
 }
 
 function App() {
-  const { initialize, signIn } = useAuthStore();
+  const { initialize, signIn, user } = useAuthStore();
   const { checkAttendance } = useAttendanceStore();
   const [initializing, setInitializing] = React.useState(true);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const initAuth = async () => {
       await initialize();
       
-      // Try to auto-login if credentials exist
       const storedCredentials = localStorage.getItem('userCredentials');
       if (storedCredentials) {
         try {
           const { email, password } = JSON.parse(storedCredentials);
-          await signIn(email, password);
+          const userCredential = await signIn(email, password);
+          if (userCredential) {
+            const userDoc = await getDoc(doc(db, 'users', userCredential.uid));
+            const userData = userDoc.data();
+            setUserRole(userData?.role || null);
+          }
         } catch (error) {
           console.error('Auto-login failed:', error);
           localStorage.removeItem('userCredentials');
@@ -94,19 +125,20 @@ function App() {
     initAuth();
   }, [initialize, signIn]);
 
-  // Check attendance when user is authenticated
   useEffect(() => {
     const checkUserAttendance = async () => {
-      const hasMarkedAttendance = await checkAttendance();
-      if (!hasMarkedAttendance) {
-        setShowAttendanceModal(true);
+      if (user) { // Only check attendance if the user is logged in
+        const hasMarkedAttendance = await checkAttendance();
+        if (!hasMarkedAttendance && userRole !== 'customer') {
+          setShowAttendanceModal(true);
+        }
       }
     };
 
     if (!initializing) {
       checkUserAttendance();
     }
-  }, [initializing, checkAttendance]);
+  }, [initializing, checkAttendance, userRole, user]);
 
   if (initializing) {
     return (
@@ -136,7 +168,7 @@ function App() {
           <Route
             path="/dashboard/*"
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={['admin', 'member']}>
                 <Dashboard />
               </PrivateRoute>
             }
@@ -144,19 +176,30 @@ function App() {
           <Route
             path="/admin"
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={['admin']}>
                 <AdminPanel />
               </PrivateRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/dashboard" />} />
+          <Route
+            path="/customer"
+            element={
+              <PrivateRoute allowedRoles={['customer']}>
+                <CustomerProject />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to={userRole === 'customer' ? '/customer' : '/dashboard'} />} />
+          <Route path="*" element={<Navigate to={userRole === 'customer' ? '/customer' : '/dashboard'} />} />
         </Routes>
       </Router>
       <Toaster position="top-right" />
-      <AttendanceModal 
-        isOpen={showAttendanceModal} 
-        onClose={() => setShowAttendanceModal(false)} 
-      />
+      {user && userRole !== 'customer' && ( // Only show the modal if the user is logged in and not a customer
+        <AttendanceModal 
+          isOpen={showAttendanceModal} 
+          onClose={() => setShowAttendanceModal(false)} 
+        />
+      )}
     </>
   );
 }

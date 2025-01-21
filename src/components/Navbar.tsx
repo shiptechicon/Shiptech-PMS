@@ -10,6 +10,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [isCustomer, setIsCustomer] = React.useState(false);
 
   React.useEffect(() => {
     const checkUserRole = async () => {
@@ -17,6 +18,7 @@ export default function Navbar() {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         const userData = userDoc.data();
         setIsAdmin(userData?.role === 'admin');
+        setIsCustomer(userData?.role === 'customer');
       }
     };
     checkUserRole();
@@ -44,40 +46,40 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center space-x-4">
-            {user ? (
-              <>
-                <Link
-                  to="/dashboard"
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${
-                    location.pathname === '/dashboard'
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
-                  }`}
-                >
-                  Dashboard
-                </Link>
-                
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      location.pathname === '/admin'
-                        ? 'text-blue-600 bg-blue-50'
-                        : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
-                    }`}
-                  >
-                    Admin Panel
-                  </Link>
-                )}
+            {user && !isCustomer && (
+              <Link
+                to="/dashboard"
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  location.pathname === '/dashboard'
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                Dashboard
+              </Link>
+            )}
+            
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  location.pathname === '/admin'
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                Admin Panel
+              </Link>
+            )}
 
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Sign Out</span>
-                </button>
-              </>
+            {user ? (
+              <button
+                onClick={handleSignOut}
+                className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </button>
             ) : (
               <Link
                 to="/login"

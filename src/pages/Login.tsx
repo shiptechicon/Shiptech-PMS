@@ -26,6 +26,8 @@ export default function Login() {
         // Route based on user role
         if (userData?.role === 'admin') {
           navigate('/admin');
+        } else if (userData?.role === 'customer') {
+          navigate('/customer');
         } else {
           navigate('/dashboard');
         }

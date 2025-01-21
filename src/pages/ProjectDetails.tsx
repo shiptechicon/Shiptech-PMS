@@ -17,7 +17,7 @@ import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
 import TaskModal from '../components/TaskModal';
 import TaskList from '../components/TaskList';
-import { Task } from '../store/projectStore';
+import ProjectComments from '../components/ProjectComments';
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -35,7 +35,7 @@ export default function ProjectDetails() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<any>(null);
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const [tempDueDate, setTempDueDate] = useState<string>('');
   const [showDueDateConfirm, setShowDueDateConfirm] = useState(false);
@@ -137,7 +137,7 @@ export default function ProjectDetails() {
     }
   };
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = (task: any) => {
     const newPath = [...currentPath, { id: task.id }];
     setCurrentPath(newPath);
     navigate(`/dashboard/projects/${id}/task/${newPath.map(p => p.id).join('/')}`);
@@ -175,16 +175,16 @@ export default function ProjectDetails() {
   const downloadInvoice = () => {
     if (!project) return;
 
-    const calculateTaskTotal = (task: Task): number => {
+    const calculateTaskTotal = (task: any): number => {
       const taskTotal = (task.hours || 0) * (task.costPerHour || 0);
-      const childrenTotal = task.children.reduce((sum, child) => sum + calculateTaskTotal(child), 0);
+      const childrenTotal = task.children.reduce((sum: number, child: any) => sum + calculateTaskTotal(child), 0);
       return taskTotal + childrenTotal;
     };
 
-    const totalAmount = project.tasks.reduce((sum: number, task: Task) => 
+    const totalAmount = project.tasks.reduce((sum: number, task: any) => 
       sum + calculateTaskTotal(task), 0);
 
-    const renderTasksRecursively = (tasks: Task[], level = 0): string => {
+    const renderTasksRecursively = (tasks: any[], level = 0): string => {
       return tasks.map(task => `
         <tr>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
@@ -415,6 +415,11 @@ export default function ProjectDetails() {
           onTaskClick={handleTaskClick}
           isAdmin={isAdmin}
         />
+
+        {/* Comments Section */}
+        <div className="mt-6">
+          <ProjectComments projectId={id} />
+        </div>
       </div>
 
       <TaskModal
