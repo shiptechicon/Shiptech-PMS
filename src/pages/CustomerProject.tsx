@@ -5,6 +5,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ProjectComments from '../components/ProjectComments';
 
 interface Task {
   id: string;
@@ -179,6 +180,11 @@ export default function CustomerProject() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Comments Section */}
+        <div className="mt-6">
+          <ProjectComments projectId={project.id} />
         </div>
       </div>
     </div>

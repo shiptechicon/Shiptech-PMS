@@ -3,6 +3,9 @@ import { useCommentStore } from '../store/commentStore';
 import { Loader2, Send, Paperclip, X, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToCloudinary } from '../lib/cloudinary';
+import { useAuthStore } from '../store/authStore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface ProjectCommentsProps {
   projectId: string;
@@ -10,15 +13,32 @@ interface ProjectCommentsProps {
 
 export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   const { comments, loading, fetchComments, addComment } = useCommentStore();
+  const { user } = useAuthStore();
   const [newComment, setNewComment] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isMember, setIsMember] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchComments(projectId);
+    if (projectId) {
+      fetchComments(projectId);
+    }
   }, [projectId, fetchComments]);
+
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
+        setIsAdmin(userData?.role === 'admin');
+        setIsMember(userData?.role === 'member');
+      }
+    };
+    checkUserRole();
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +48,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
       setSubmitting(true);
       let attachmentUrl: string | null = null;
 
-      if (selectedFile) {
+      if (selectedFile && (isAdmin || isMember)) {
         try {
           setUploadProgress(50);
           attachmentUrl = await uploadToCloudinary(selectedFile);
@@ -58,6 +78,11 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin && !isMember) {
+      toast.error('Only admin and members can add attachments');
+      return;
+    }
+
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
@@ -145,15 +170,17 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
           )}
 
           <div className="flex justify-between items-center">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              disabled={submitting}
-            >
-              <Paperclip className="h-4 w-4 mr-2" />
-              Attach File
-            </button>
+            {(isAdmin || isMember) && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                disabled={submitting}
+              >
+                <Paperclip className="h-4 w-4 mr-2" />
+                Attach File
+              </button>
+            )}
             <input
               type="file"
               ref={fileInputRef}
