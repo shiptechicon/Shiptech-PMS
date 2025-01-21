@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -98,6 +98,8 @@ function App() {
   const [initializing, setInitializing] = React.useState(true);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState<boolean>(false);
+  const location = useLocation();
 
   useEffect(() => {
     const initAuth = async () => {
@@ -112,6 +114,7 @@ function App() {
             const userDoc = await getDoc(doc(db, 'users', userCredential.uid));
             const userData = userDoc.data();
             setUserRole(userData?.role || null);
+            setIsVerified(userData?.verified || false);
           }
         } catch (error) {
           console.error('Auto-login failed:', error);
@@ -127,9 +130,20 @@ function App() {
 
   useEffect(() => {
     const checkUserAttendance = async () => {
-      if (user) { // Only check attendance if the user is logged in
+      // Only show attendance modal if:
+      // 1. User is logged in
+      // 2. User is verified
+      // 3. User is not a customer
+      // 4. Not on login/signup pages
+      const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
+      const shouldShowModal = user && 
+                            isVerified && 
+                            userRole !== 'customer' && 
+                            !isAuthPage;
+
+      if (shouldShowModal) {
         const hasMarkedAttendance = await checkAttendance();
-        if (!hasMarkedAttendance && userRole !== 'customer') {
+        if (!hasMarkedAttendance) {
           setShowAttendanceModal(true);
         }
       }
@@ -138,7 +152,7 @@ function App() {
     if (!initializing) {
       checkUserAttendance();
     }
-  }, [initializing, checkAttendance, userRole, user]);
+  }, [initializing, checkAttendance, userRole, user, isVerified, location.pathname]);
 
   if (initializing) {
     return (
@@ -150,7 +164,6 @@ function App() {
 
   return (
     <>
-      <Router>
         <Navbar />
         <Routes>
           <Route path="/login" element={
@@ -192,9 +205,8 @@ function App() {
           <Route path="/" element={<Navigate to={userRole === 'customer' ? '/customer' : '/dashboard'} />} />
           <Route path="*" element={<Navigate to={userRole === 'customer' ? '/customer' : '/dashboard'} />} />
         </Routes>
-      </Router>
       <Toaster position="top-right" />
-      {user && userRole !== 'customer' && ( // Only show the modal if the user is logged in and not a customer
+      {user && isVerified && userRole !== 'customer' && (
         <AttendanceModal 
           isOpen={showAttendanceModal} 
           onClose={() => setShowAttendanceModal(false)} 
