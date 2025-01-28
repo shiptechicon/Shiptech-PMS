@@ -257,14 +257,14 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
           ) : generatedCredentials ? (
             // Show credentials for confirmation
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                <h3 className="text-blue-800 font-medium mb-2">Review Customer Account Details</h3>
+              <div >
+                <h3 className="text-black/70 font-medium mb-2">Review Customer Account Details</h3>
                 {showConfirmNewCustomer && (
                   <p className="text-red-600 text-sm mb-4">
                     Warning: You are creating an additional customer account for this project.
                   </p>
                 )}
-                <p className="text-blue-700 text-sm mb-4">
+                <p className="text-black/70 text-sm mb-4">
                   Please review the following credentials before creating the account:
                 </p>
                 <div className="space-y-3">
@@ -296,7 +296,7 @@ export default function CreateCustomerModal({ isOpen, onClose, projectId }: Crea
                 <button
                   onClick={handleCreateCustomer}
                   disabled={loading}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center"
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black/90 hover:bg-black/80 disabled:opacity-50 flex items-center"
                 >
                   {loading ? (
                     <>

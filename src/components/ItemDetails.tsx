@@ -33,7 +33,7 @@ export default function ItemDetails({
     : true;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm mb-6">
+    <div className="bg-white rounded-xl border-[1px] mb-6">
       <div className="p-6">
         <div className="grid grid-cols-1 gap-6">
           <div className="flex justify-between items-start">

@@ -32,7 +32,7 @@ export default function Basics() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="">
       <MemberBasics />
       {isAdmin && <AdminBasics />}
     </div>

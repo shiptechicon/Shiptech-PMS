@@ -111,7 +111,7 @@ export default function CustomerProject() {
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Project Header */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-2xl font-bold mb-2">{project.name}</h1>
+          <h1 className="text-2xl font-bold mb-2 capitalize">{project.name}</h1>
           <p className="text-gray-600 mb-4">{project.description}</p>
           
           {/* Progress Bar */}
@@ -122,7 +122,7 @@ export default function CustomerProject() {
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div 
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                className="bg-green-600 h-2.5 rounded-full transition-all duration-300"
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>

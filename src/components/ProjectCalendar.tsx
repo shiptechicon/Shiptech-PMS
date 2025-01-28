@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from '../store/projectStore';
 
 interface Project {
-  id: string;
+  id?: string;
   name: string;
-  project_due_date: string | null;
+  project_due_date?: string | null | undefined;
 }
 
 interface CalendarDay {
@@ -127,7 +127,7 @@ export default function ProjectCalendar() {
             </button>
             <button
               onClick={goToToday}
-              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
+              className="px-3 py-1 text-sm bg-black/90 text-white rounded-md hover:bg-black/80"
             >
               Today
             </button>
@@ -170,7 +170,7 @@ export default function ProjectCalendar() {
                 <div
                   key={project.id}
                   onClick={() => navigate(`/dashboard/projects/${project.id}`)}
-                  className="text-xs bg-blue-100 text-blue-800 rounded px-2 py-1 truncate cursor-pointer hover:bg-blue-200"
+                  className="text-xs bg-black/90 text-white rounded px-2 py-1 truncate cursor-pointer hover:bg-black/80"
                   title={project.name}
                 >
                   {project.name}

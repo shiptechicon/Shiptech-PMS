@@ -67,14 +67,14 @@ export default function TaskList({
   };
 
   return (
-    <div className="bg-white shadow rounded-lg overflow-hidden">
-      <div className="border-b border-gray-200 bg-gray-50 px-6 py-3">
+    <div className="bg-white border-[1px] rounded-lg overflow-hidden">
+      <div className="border-b border-gray-200 px-6 py-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-900">Tasks</h3>
           {isAdmin && (
             <button
               onClick={onAddClick}
-              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              className="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium text-white bg-black/90 hover:bg-black/80"
             >
               <Plus className="h-4 w-4 mr-1" />
               Add Task
@@ -95,7 +95,7 @@ export default function TaskList({
               return (
                 <div 
                   key={task.id}
-                  className={`border rounded-lg hover:border-blue-500 transition-colors duration-200 ${status.borderColor}`}
+                  className={`border rounded-lg hover:border-black transition-colors duration-200 ${status.borderColor}`}
                 >
                   <div className="p-4">
                     <div className="flex justify-between items-start">

@@ -33,7 +33,7 @@ const EnquiriesList = () => {
         <h2 className="text-2xl font-bold">Enquiries</h2>
         <button
           onClick={() => navigate('new')}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black/90 hover:bg-black/80"
         >
           <Plus size={20} className="mr-2" />
           New Enquiry

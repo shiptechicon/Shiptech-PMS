@@ -1,36 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useProjectStore } from '../store/projectStore';
-import { 
-  Loader2, 
-  Pencil, 
-  FileDown, 
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useProjectStore } from "../store/projectStore";
+import {
+  Loader2,
+  Pencil,
+  FileDown,
   ArrowLeft,
   Calendar,
   Check,
-  X
-} from 'lucide-react';
-import { useAuthStore } from '../store/authStore';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import html2pdf from 'html2pdf.js';
-import toast from 'react-hot-toast';
-import TaskModal from '../components/TaskModal';
-import TaskList from '../components/TaskList';
-import ProjectComments from '../components/ProjectComments';
-import CreateCustomerModal from '../components/CreateCustomerModal'
+  X,
+} from "lucide-react";
+import { useAuthStore } from "../store/authStore";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import html2pdf from "html2pdf.js";
+import toast from "react-hot-toast";
+import TaskModal from "../components/TaskModal";
+import TaskList from "../components/TaskList";
+import ProjectComments from "../components/ProjectComments";
+import CreateCustomerModal from "../components/CreateCustomerModal";
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { 
-    fetchProject, 
-    addTask, 
-    updateTask, 
+  const {
+    fetchProject,
+    addTask,
+    updateTask,
     deleteTask,
     currentPath,
     setCurrentPath,
-    updateProjectDueDate
+    updateProjectDueDate,
   } = useProjectStore();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +38,7 @@ export default function ProjectDetails() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
-  const [tempDueDate, setTempDueDate] = useState<string>('');
+  const [tempDueDate, setTempDueDate] = useState<string>("");
   const [showDueDateConfirm, setShowDueDateConfirm] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const { user } = useAuthStore();
@@ -53,19 +53,19 @@ export default function ProjectDetails() {
         if (data) {
           setProject({
             ...data,
-            tasks: data.tasks || []
+            tasks: data.tasks || [],
           });
           if (data.project_due_date) {
             setTempDueDate(data.project_due_date);
           }
         } else {
-          toast.error('Project not found');
-          navigate('/dashboard/projects');
+          toast.error("Project not found");
+          navigate("/dashboard/projects");
         }
       } catch (error) {
-        console.error('Error loading project:', error);
-        toast.error('Failed to load project');
-        navigate('/dashboard/projects');
+        console.error("Error loading project:", error);
+        toast.error("Failed to load project");
+        navigate("/dashboard/projects");
       } finally {
         setLoading(false);
       }
@@ -73,9 +73,9 @@ export default function ProjectDetails() {
 
     const checkUserRole = async () => {
       if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
-        setIsAdmin(userData?.role === 'admin');
+        setIsAdmin(userData?.role === "admin");
       }
     };
 
@@ -91,13 +91,13 @@ export default function ProjectDetails() {
       if (updatedProject) {
         setProject({
           ...updatedProject,
-          tasks: updatedProject.tasks || []
+          tasks: updatedProject.tasks || [],
         });
-        toast.success('Task added successfully');
+        toast.success("Task added successfully");
       }
     } catch (error) {
-      console.error('Failed to add task:', error);
-      toast.error('Failed to add task');
+      console.error("Failed to add task:", error);
+      toast.error("Failed to add task");
     }
   };
 
@@ -109,32 +109,32 @@ export default function ProjectDetails() {
       if (updatedProject) {
         setProject({
           ...updatedProject,
-          tasks: updatedProject.tasks || []
+          tasks: updatedProject.tasks || [],
         });
-        toast.success('Task updated successfully');
+        toast.success("Task updated successfully");
       }
     } catch (error) {
-      console.error('Failed to update task:', error);
-      toast.error('Failed to update task');
+      console.error("Failed to update task:", error);
+      toast.error("Failed to update task");
     }
   };
 
   const handleDeleteTask = async (taskId: string) => {
     if (!id) return;
-    if (window.confirm('Are you sure you want to delete this task?')) {
+    if (window.confirm("Are you sure you want to delete this task?")) {
       try {
         await deleteTask(id, currentPath, taskId);
         const updatedProject = await fetchProject(id);
         if (updatedProject) {
           setProject({
             ...updatedProject,
-            tasks: updatedProject.tasks || []
+            tasks: updatedProject.tasks || [],
           });
-          toast.success('Task deleted successfully');
+          toast.success("Task deleted successfully");
         }
       } catch (error) {
-        console.error('Failed to delete task:', error);
-        toast.error('Failed to delete task');
+        console.error("Failed to delete task:", error);
+        toast.error("Failed to delete task");
       }
     }
   };
@@ -142,10 +142,14 @@ export default function ProjectDetails() {
   const handleTaskClick = (task: any) => {
     const newPath = [...currentPath, { id: task.id }];
     setCurrentPath(newPath);
-    navigate(`/dashboard/projects/${id}/task/${newPath.map(p => p.id).join('/')}`);
+    navigate(
+      `/dashboard/projects/${id}/task/${newPath.map((p) => p.id).join("/")}`
+    );
   };
 
-  const handleDueDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDueDateChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const newDate = e.target.value;
     setTempDueDate(newDate);
     setShowDueDateConfirm(true);
@@ -158,18 +162,18 @@ export default function ProjectDetails() {
       const updatedProject = await fetchProject(id);
       if (updatedProject) {
         setProject(updatedProject);
-        toast.success('Project due date updated successfully');
+        toast.success("Project due date updated successfully");
       }
       setIsEditingDueDate(false);
       setShowDueDateConfirm(false);
     } catch (error) {
-      console.error('Failed to update due date:', error);
-      toast.error('Failed to update due date');
+      console.error("Failed to update due date:", error);
+      toast.error("Failed to update due date");
     }
   };
 
   const cancelDueDateChange = () => {
-    setTempDueDate(project.project_due_date || '');
+    setTempDueDate(project.project_due_date || "");
     setShowDueDateConfirm(false);
     setIsEditingDueDate(false);
   };
@@ -179,26 +183,45 @@ export default function ProjectDetails() {
 
     const calculateTaskTotal = (task: any): number => {
       const taskTotal = (task.hours || 0) * (task.costPerHour || 0);
-      const childrenTotal = task.children.reduce((sum: number, child: any) => sum + calculateTaskTotal(child), 0);
+      const childrenTotal = task.children.reduce(
+        (sum: number, child: any) => sum + calculateTaskTotal(child),
+        0
+      );
       return taskTotal + childrenTotal;
     };
 
-    const totalAmount = project.tasks.reduce((sum: number, task: any) => 
-      sum + calculateTaskTotal(task), 0);
+    const totalAmount = project.tasks.reduce(
+      (sum: number, task: any) => sum + calculateTaskTotal(task),
+      0
+    );
 
     const renderTasksRecursively = (tasks: any[], level = 0): string => {
-      return tasks.map(task => `
+      return tasks
+        .map(
+          (task) => `
         <tr>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-            ${'&nbsp;'.repeat(level * 4)}${task.name}
-            ${task.description ? `<br><span style="color: #666; font-size: 0.9em;">${task.description}</span>` : ''}
+            ${"&nbsp;".repeat(level * 4)}${task.name}
+            ${
+              task.description
+                ? `<br><span style="color: #666; font-size: 0.9em;">${task.description}</span>`
+                : ""
+            }
           </td>
-          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">${task.hours || 0}</td>
-          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${task.costPerHour || 0}</td>
-          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${(task.hours || 0) * (task.costPerHour || 0)}</td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">${
+            task.hours || 0
+          }</td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${
+            task.costPerHour || 0
+          }</td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${
+            (task.hours || 0) * (task.costPerHour || 0)
+          }</td>
         </tr>
         ${renderTasksRecursively(task.children, level + 1)}
-      `).join('');
+      `
+        )
+        .join("");
     };
 
     const content = `
@@ -218,7 +241,13 @@ export default function ProjectDetails() {
           <h3>Project Information</h3>
           <p><strong>Name:</strong> ${project.name}</p>
           <p><strong>Description:</strong> ${project.description}</p>
-          ${project.project_due_date ? `<p><strong>Due Date:</strong> ${new Date(project.project_due_date).toLocaleDateString()}</p>` : ''}
+          ${
+            project.project_due_date
+              ? `<p><strong>Due Date:</strong> ${new Date(
+                  project.project_due_date
+                ).toLocaleDateString()}</p>`
+              : ""
+          }
         </div>
 
         <div style="margin-bottom: 30px;">
@@ -251,18 +280,22 @@ export default function ProjectDetails() {
     const opt = {
       margin: 1,
       filename: `project-invoice-${project.__id}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
     };
 
-    const element = document.createElement('div');
+    const element = document.createElement("div");
     element.innerHTML = content;
     document.body.appendChild(element);
 
-    html2pdf().set(opt).from(element).save().then(() => {
-      document.body.removeChild(element);
-    });
+    html2pdf()
+      .set(opt)
+      .from(element)
+      .save()
+      .then(() => {
+        document.body.removeChild(element);
+      });
   };
 
   if (loading) {
@@ -282,15 +315,11 @@ export default function ProjectDetails() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/dashboard/projects')}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Projects
+          <button onClick={() => navigate("/dashboard/projects")}>
+            <ArrowLeft className=" h-7 w-7" />
           </button>
           <h2 className="text-2xl font-bold">Project Details</h2>
         </div>
@@ -299,20 +328,20 @@ export default function ProjectDetails() {
             <>
               <button
                 onClick={() => setShowCustomerModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+                className="inline-flex items-center px-4 py-2  font-medium rounded-md text-black bg-white border-[1px]  hover:opacity-70"
               >
                 Create Customer Account
               </button>
               <CreateCustomerModal
                 isOpen={showCustomerModal}
                 onClose={() => setShowCustomerModal(false)}
-                projectId={id}
+                projectId={id || ""}
               />
             </>
           )}
           <button
             onClick={downloadInvoice}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+            className="inline-flex items-center px-4 py-2   font-medium rounded-md text-black bg-white border-[1px]  hover:opacity-70"
           >
             <FileDown className="mr-2 h-4 w-4" />
             Download Invoice
@@ -320,7 +349,7 @@ export default function ProjectDetails() {
           {isAdmin && (
             <button
               onClick={() => navigate(`/dashboard/projects/${id}/edit`)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2   font-medium rounded-md text-black bg-white border-[1px] hover:opacity-70"
             >
               <Pencil className="mr-2 h-4 w-4" />
               Edit Project
@@ -329,94 +358,110 @@ export default function ProjectDetails() {
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="mt-7 flex flex-col gap-5 px-[10%]">
         {/* Project Information */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="border-b border-gray-200 bg-gray-50 px-6 py-3">
-            <h3 className="text-lg font-medium text-gray-900">Project Information</h3>
+        <div className="bg-white border-[1px] rounded-lg overflow-hidden">
+          <div className="border-b border-gray-200 bg-white px-6 py-3">
+            <h3 className="text-lg font-medium text-gray-900">
+              Project Information
+            </h3>
           </div>
           <div className="px-6 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">ID</p>
-                <p className="mt-1">{project.__id}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Created At</p>
-                <p className="mt-1">{new Date(project.createdAt).toLocaleDateString()}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-sm font-medium text-gray-500">Name</p>
-                <p className="mt-1">{project.name}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-sm font-medium text-gray-500">Description</p>
-                <p className="mt-1">{project.description}</p>
-              </div>
-              <div className="col-span-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-500">Due Date</p>
-                  {isAdmin && !isEditingDueDate && (
-                    <button
-                      onClick={() => setIsEditingDueDate(true)}
-                      className="text-blue-600 hover:text-blue-700 text-sm"
-                    >
-                      {project.project_due_date ? 'Change' : 'Set Due Date'}
-                    </button>
-                  )}
-                </div>
-                {isEditingDueDate ? (
-                  <div className="mt-1 flex items-center space-x-2">
-                    <input
-                      type="datetime-local"
-                      value={tempDueDate}
-                      onChange={handleDueDateChange}
-                      className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                    {showDueDateConfirm && (
-                      <div className="flex space-x-2">
+            <table className="w-full">
+              <tbody>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">ID</td>
+                  <td className="py-2">{project.__id}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">Created At</td>
+                  <td className="py-2">
+                    {new Date(project.createdAt).toLocaleDateString()}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">Name</td>
+                  <td className="py-2">{project.name}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">
+                    Description
+                  </td>
+                  <td className="py-2">{project.description}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">Due Date</td>
+                  <td className="py-2">
+                    <div className="flex items-center justify-start gap-5">
+                      {isEditingDueDate ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="datetime-local"
+                            value={tempDueDate}
+                            onChange={handleDueDateChange}
+                            className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          />
+                          {showDueDateConfirm && (
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={confirmDueDateChange}
+                                className="p-1 text-green-600 hover:text-green-700"
+                              >
+                                <Check className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={cancelDueDateChange}
+                                className="p-1 text-red-600 hover:text-red-700"
+                              >
+                                <X className="h-5 w-5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-gray-900">
+                          <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                          {project.project_due_date ? (
+                            new Date(project.project_due_date).toLocaleString()
+                          ) : (
+                            <span className="text-gray-500">
+                              No due date set
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {isAdmin && !isEditingDueDate && (
                         <button
-                          onClick={confirmDueDateChange}
-                          className="p-1 text-green-600 hover:text-green-700"
+                          onClick={() => setIsEditingDueDate(true)}
+                          className="text-blue-600 hover:text-blue-700 text-[12px]"
                         >
-                          <Check className="h-5 w-5" />
+                          {project.project_due_date ? "Change" : "Set Due Date"}
                         </button>
-                        <button
-                          onClick={cancelDueDateChange}
-                          className="p-1 text-red-600 hover:text-red-700"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-1 flex items-center text-gray-900">
-                    <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                    {project.project_due_date ? (
-                      new Date(project.project_due_date).toLocaleString()
-                    ) : (
-                      <span className="text-gray-500">No due date set</span>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Customer Name</p>
-                <p className="mt-1">{project.customer.name}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Phone</p>
-                <p className="mt-1">{project.customer.phone}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-sm font-medium text-gray-500">Address</p>
-                <p className="mt-1">{project.customer.address}</p>
-              </div>
-            </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">
+                    Customer Name
+                  </td>
+                  <td className="py-2">{project.customer.name}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">Phone</td>
+                  <td className="py-2">{project.customer.phone}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">Address</td>
+                  <td className="py-2">
+                    {project.customer.address}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-
+        
         {/* Tasks Section */}
         <TaskList
           tasks={project.tasks}
@@ -434,9 +479,7 @@ export default function ProjectDetails() {
         />
 
         {/* Comments Section */}
-        <div className="mt-6">
-          <ProjectComments projectId={id} />
-        </div>
+        <div className="mt-6">{id && <ProjectComments projectId={id} />}</div>
       </div>
 
       <TaskModal

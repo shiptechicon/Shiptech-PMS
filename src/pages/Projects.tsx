@@ -65,7 +65,7 @@ export default function Projects() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => navigate(`/dashboard/projects/${project.id}`)}
-                      className="text-blue-600 hover:text-blue-900"
+                      className="text-black/90 hover:text-black/80"
                     >
                       <ExternalLink size={18} />
                     </button>

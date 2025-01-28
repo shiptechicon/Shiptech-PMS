@@ -116,18 +116,20 @@ export default function TaskModal({
             <input
               type="text"
               required
+              placeholder='Enter task name'
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Description</label>
             <textarea
+              placeholder='Enter task description'
               value={formData.description}
               onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               rows={3}
             />
           </div>
@@ -139,12 +141,13 @@ export default function TaskModal({
                 type="number"
                 min="0"
                 step="0.5"
+                placeholder='0.0'
                 value={formData.hours || ''}
                 onChange={e => setFormData(prev => ({ 
                   ...prev, 
                   hours: e.target.value ? Number(e.target.value) : undefined 
                 }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
@@ -154,12 +157,13 @@ export default function TaskModal({
                 type="number"
                 min="0"
                 step="0.01"
+                placeholder='0.00'
                 value={formData.costPerHour || ''}
                 onChange={e => setFormData(prev => ({ 
                   ...prev, 
                   costPerHour: e.target.value ? Number(e.target.value) : undefined 
                 }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -170,11 +174,11 @@ export default function TaskModal({
               multiple
               value={formData.assignedTo.map(user => user.id)}
               onChange={handleAssignedToChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 border-2 border-gray-300 p-2 block w-full rounded-md  focus:border-blue-500 focus:ring-blue-500"
               size={4}
             >
               {users.map(user => (
-                <option key={user.id} value={user.id}>
+                <option key={user.id} value={user.id} className='capitalize'>
                   {user.fullName}
                 </option>
               ))}
@@ -188,7 +192,7 @@ export default function TaskModal({
               type="datetime-local"
               value={formData.deadline}
               onChange={e => setFormData(prev => ({ ...prev, deadline: e.target.value }))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
 
@@ -202,7 +206,7 @@ export default function TaskModal({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black/90 hover:bg-black/80"
             >
               {initialData ? 'Update' : 'Create'}
             </button>
