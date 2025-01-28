@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 
+interface Attachment {
+  url: string;
+  name: string;
+}
+
 interface Comment {
   id: string;
   text: string;
@@ -9,7 +14,7 @@ interface Comment {
     id: string;
     name: string;
   };
-  attachmentUrl?: string | null;
+  attachments?: Attachment[]; // Array of attachment objects (URL + name)
   createdAt: string;
 }
 
@@ -23,7 +28,7 @@ interface CommentState {
   loading: boolean;
   error: string | null;
   fetchComments: (projectId: string) => Promise<void>;
-  addComment: (projectId: string, text: string, attachmentUrl?: string | null) => Promise<void>;
+  addComment: (projectId: string, text: string, attachments?: Attachment[]) => Promise<void>;
 }
 
 export const useCommentStore = create<CommentState>((set, get) => ({
@@ -36,14 +41,14 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       set({ loading: true, error: null });
       const commentsRef = doc(db, 'project_comments', projectId);
       const commentsDoc = await getDoc(commentsRef);
-      
+
       if (commentsDoc.exists()) {
         const data = commentsDoc.data() as ProjectComments;
-        set({ 
-          comments: data.comments.sort((a, b) => 
+        set({
+          comments: data.comments.sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           ),
-          loading: false 
+          loading: false,
         });
       } else {
         // If no comments exist yet, initialize with empty array
@@ -55,7 +60,7 @@ export const useCommentStore = create<CommentState>((set, get) => ({
     }
   },
 
-  addComment: async (projectId: string, text: string, attachmentUrl: string | null = null) => {
+  addComment: async (projectId: string, text: string, attachments: Attachment[] = []) => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
@@ -71,7 +76,7 @@ export const useCommentStore = create<CommentState>((set, get) => ({
           id: currentUser.uid,
           name: currentUser.email || 'Anonymous',
         },
-        attachmentUrl: attachmentUrl,
+        attachments: attachments.length > 0 ? attachments : undefined, // Set to undefined if no attachments
         createdAt: new Date().toISOString(),
       };
 
@@ -79,13 +84,13 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         // Update existing document
         const currentData = commentsDoc.data() as ProjectComments;
         await updateDoc(commentsRef, {
-          comments: [...currentData.comments, newComment]
+          comments: [...currentData.comments, newComment],
         });
       } else {
         // Create new document
         await setDoc(commentsRef, {
           projectId,
-          comments: [newComment]
+          comments: [newComment],
         });
       }
 
@@ -94,7 +99,7 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       set({
         comments: [newComment, ...currentComments],
         loading: false,
-        error: null
+        error: null,
       });
     } catch (error) {
       console.error('Error adding comment:', error);

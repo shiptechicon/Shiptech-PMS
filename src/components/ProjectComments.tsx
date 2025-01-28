@@ -1,11 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useCommentStore } from '../store/commentStore';
-import { Loader2, Send, Paperclip, X, FileText } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { uploadToCloudinary } from '../lib/cloudinary';
-import { useAuthStore } from '../store/authStore';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import React, { useState, useEffect, useRef } from "react";
+import { useCommentStore } from "../store/commentStore";
+import {
+  Loader2,
+  Send,
+  Paperclip,
+  X,
+  // FileText,
+  Download,
+  Eye,
+} from "lucide-react";
+import toast from "react-hot-toast";
+// import { uploadToCloudinary } from "../lib/cloudinary";
+import { useAuthStore } from "../store/authStore";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { uploadToGitHub } from "@/lib/github";
 
 interface ProjectCommentsProps {
   projectId: string;
@@ -14,10 +23,10 @@ interface ProjectCommentsProps {
 export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   const { comments, loading, fetchComments, addComment } = useCommentStore();
   const { user } = useAuthStore();
-  const [newComment, setNewComment] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadProgress, setUploadProgress] = useState<number[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,10 +40,10 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   useEffect(() => {
     const checkUserRole = async () => {
       if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
-        setIsAdmin(userData?.role === 'admin');
-        setIsMember(userData?.role === 'member');
+        setIsAdmin(userData?.role === "admin");
+        setIsMember(userData?.role === "member");
       }
     };
     checkUserRole();
@@ -46,65 +55,105 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
 
     try {
       setSubmitting(true);
-      let attachmentUrl: string | null = null;
+      let attachments: { url: string; name: string }[] = [];
 
-      if (selectedFile && (isAdmin || isMember)) {
+      // Upload files one by one
+      if (selectedFiles.length > 0 && (isAdmin || isMember)) {
         try {
-          setUploadProgress(50);
-          attachmentUrl = await uploadToCloudinary(selectedFile);
-          setUploadProgress(100);
+          for (let index = 0; index < selectedFiles.length; index++) {
+            const file = selectedFiles[index];
+
+            // Update upload progress for the current file
+            setUploadProgress((prev) => {
+              const newProgress = [...prev];
+              newProgress[index] = 50; // Set progress to 50% for the current file
+              return newProgress;
+            });
+
+            // Upload the file
+            const path = `Projects/${projectId}/v${comments.length + 1}/${
+              file.name
+            }`;
+            const url = await uploadToGitHub(file, path);
+
+            // Update upload progress to 100% for the current file
+            setUploadProgress((prev) => {
+              const newProgress = [...prev];
+              newProgress[index] = 100;
+              return newProgress;
+            });
+
+            // Add the uploaded file URL and name to the attachments array
+            attachments.push({ url, name: file.name });
+          }
         } catch (uploadError) {
-          toast.error('Failed to upload file. Please try again.');
-          setUploadProgress(0);
+          toast.error("Failed to upload files. Please try again.");
+          setUploadProgress(selectedFiles.map(() => 0)); // Reset progress on error
           return;
         }
       }
 
+      // Add the comment with attachment URLs and names
       try {
-        await addComment(projectId, newComment, attachmentUrl);
-        setNewComment('');
-        setSelectedFile(null);
-        setUploadProgress(0);
-        toast.success('Comment added successfully');
+        await addComment(projectId, newComment, attachments);
+        setNewComment(""); // Clear the comment input
+        setSelectedFiles([]); // Clear the selected files
+        setUploadProgress([]); // Reset the upload progress
+        toast.success("Comment added successfully");
       } catch (commentError) {
-        toast.error('Failed to add comment. Please try again.');
+        toast.error("Failed to add comment. Please try again.");
       }
     } catch (error) {
-      console.error('Error in comment submission:', error);
-      toast.error('An error occurred. Please try again.');
+      console.error("Error in comment submission:", error);
+      toast.error("An error occurred. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSubmitting(false); // Reset the submitting state
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isAdmin && !isMember) {
-      toast.error('Only admin and members can add attachments');
+      toast.error("Only admin and members can add attachments");
       return;
     }
 
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File size should be less than 10MB');
-        return;
-      }
+    const files = e.target.files;
+    if (files) {
+      // if (files.length > 10) {
+      //   toast.error("You can upload a maximum of 5 files");
+      //   return;
+      // }
 
-      const allowedTypes = [
-        'application/pdf',
-        'image/jpeg',
-        'image/png',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain'
-      ];
+      const validFiles = Array.from(files).filter((file) => {
+        if (file.size > 50 * 1024 * 1024) {
+          toast.error(`File ${file.name} size should be less than 50MB`);
+          return false;
+        }
 
-      if (!allowedTypes.includes(file.type)) {
-        toast.error('Invalid file type. Please upload a PDF, image, or document.');
-        return;
-      }
+        const allowedTypes = [
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "text/plain",
+        ];
 
-      setSelectedFile(file);
+        if (!allowedTypes.includes(file.type)) {
+          toast.error(
+            `Invalid file type for ${file.name}. Please upload a PDF, image, or document.`
+          );
+          return false;
+        }
+
+        return true;
+      });
+
+      // Append new files to the existing selected files
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
+      setUploadProgress((prev) => [...prev, ...validFiles.map(() => 0)]);
     }
   };
 
@@ -113,16 +162,36 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
     return date.toLocaleString();
   };
 
-  const getFileIcon = (url: string) => {
-    const extension = url.split('.').pop()?.toLowerCase();
-    if (['pdf'].includes(extension || '')) {
-      return <FileText className="h-4 w-4" />;
-    }
-    return <Paperclip className="h-4 w-4" />;
+  // const getFileIcon = (url: string) => {
+  //   const extension = url.split(".").pop()?.toLowerCase();
+  //   if (["pdf"].includes(extension || "")) {
+  //     return <FileText className="h-4 w-4" />;
+  //   }
+  //   return <Paperclip className="h-4 w-4" />;
+  // };
+
+  // const handleOpenPdf = (url: string) => {
+  //   const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(
+  //     url
+  //   )}&embedded=true`;
+  //   window.open(viewerUrl, "_blank");
+  // };
+
+  const handleDownload = (url: string, fileName: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
   };
 
-  const handleDownload = (url: string) => {
-    window.open(url, '_blank');
+  const handleRemoveFile = (fileName: string) => {
+    setSelectedFiles((prev) => prev.filter((file) => file.name !== fileName));
+    setUploadProgress((prev) => {
+      const index = selectedFiles.findIndex((file) => file.name === fileName);
+      const newProgress = [...prev];
+      newProgress.splice(index, 1);
+      return newProgress;
+    });
   };
 
   return (
@@ -144,28 +213,33 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
             />
           </div>
 
-          {selectedFile && (
-            <div className="mb-4">
-              <div className="flex items-center space-x-2 bg-blue-50 p-2 rounded">
-                <span className="text-sm text-blue-700">{selectedFile.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedFile(null)}
-                  className="text-blue-700 hover:text-blue-900"
+          {selectedFiles.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {selectedFiles.map((file, index) => (
+                <div
+                  key={file.name}
+                  className="flex items-center space-x-2 bg-blue-50 p-2 rounded"
                 >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              {uploadProgress > 0 && (
-                <div className="mt-2">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
+                  <span className="text-sm text-blue-700">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFile(file.name)}
+                    className="text-blue-700 hover:text-blue-900"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  {uploadProgress[index] > 0 && (
+                    <div className="flex-1">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div
+                          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress[index]}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           )}
 
@@ -178,7 +252,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
                 disabled={submitting}
               >
                 <Paperclip className="h-4 w-4 mr-2" />
-                Attach File
+                Attach Files
               </button>
             )}
             <input
@@ -187,6 +261,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
               onChange={handleFileSelect}
               className="hidden"
               accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+              multiple
             />
 
             <button
@@ -214,7 +289,10 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
             <p className="text-center text-gray-500 py-4">No comments yet</p>
           ) : (
             comments.map((comment) => (
-              <div key={comment.id} className="border-b border-gray-200 pb-6 last:border-0">
+              <div
+                key={comment.id}
+                className="border-b border-gray-200 pb-6 last:border-0"
+              >
                 <div className="flex justify-between items-start">
                   <div className="flex items-center">
                     <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -223,22 +301,65 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
                       </span>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">{comment.user.name}</p>
-                      <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {comment.user.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatDate(comment.createdAt)}
+                      </p>
                     </div>
                   </div>
                 </div>
                 <div className="mt-2">
-                  <p className="text-gray-700 whitespace-pre-wrap">{comment.text}</p>
-                  {comment.attachmentUrl && (
-                    <div className="mt-2">
-                      <button
-                        onClick={() => handleDownload(comment.attachmentUrl!)}
-                        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-md"
-                      >
-                        {getFileIcon(comment.attachmentUrl)}
-                        <span className="ml-2">View Attachment</span>
-                      </button>
+                  <p className="text-gray-700 whitespace-pre-wrap">
+                    {comment.text}
+                  </p>
+                  {comment.attachments && comment.attachments.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {comment.attachments.map((attachment, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between bg-blue-50 p-2 rounded"
+                        >
+                          <span className="text-sm text-blue-700">
+                            {attachment.name}
+                          </span>
+                          <div className="flex space-x-2">
+                            <a
+                              target="_blank"
+                              href={
+                                (
+                                  !attachment.name
+                                    .toLowerCase()
+                                    .includes("png") &&
+                                  !attachment.name
+                                    .toLowerCase()
+                                    .includes("jpg") &&
+                                  !attachment.name
+                                    .toLowerCase()
+                                    .includes("jpeg")
+                                )
+                                  ? `https://docs.google.com/viewer?url=${encodeURIComponent(
+                                      attachment.url
+                                    )}&embedded=true`
+                                  : attachment.url
+                              }
+                              // onClick={() => handleOpenPdf(attachment.url)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </a>
+                            <button
+                              onClick={() =>
+                                handleDownload(attachment.url, attachment.name)
+                              }
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
