@@ -5,6 +5,7 @@ import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { Loader2, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import toast from "react-hot-toast";
+import AttendanceCalendar from "@/components/AttendanceCalendar";
 
 interface User {
   id: string;
@@ -13,7 +14,7 @@ interface User {
   verified?: boolean;
 }
 
-interface MonthlyAttendance {
+export interface MonthlyAttendance {
   month: string;
   records: {
     date: string;
@@ -200,8 +201,13 @@ export default function Attendance() {
               >
                 <option value="">Select employee...</option>
                 {Object.values(users).map((user) => (
-                  <option className="capitalize cursor-pointer" key={user.id} value={user.id}>
-                    <span className="font-bold">{user.fullName}</span> - {getTotalAttendance(user.id)} days present
+                  <option
+                    className="capitalize cursor-pointer"
+                    key={user.id}
+                    value={user.id}
+                  >
+                    <span className="font-bold">{user.fullName}</span> -{" "}
+                    {getTotalAttendance(user.id)} days present
                   </option>
                 ))}
               </select>
@@ -212,49 +218,7 @@ export default function Attendance() {
           </div>
         )}
 
-        <div className="space-y-4">
-          {monthlyAttendance.map(({ month, records }) => (
-            <div
-              key={month}
-              className="bg-white border-[1px] rounded-lg overflow-hidden"
-            >
-              <div
-                className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50"
-                onClick={() => toggleMonthExpansion(month)}
-              >
-                <div className="flex items-center space-x-3">
-                  <Calendar className="h-5 w-5 text-gray-400" />
-                  <span className="font-medium">{month}</span>
-                  <span className="text-gray-500">({records.length} days)</span>
-                </div>
-                {expandedMonths.includes(month) ? (
-                  <ChevronUp className="h-5 w-5 text-gray-400" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-400" />
-                )}
-              </div>
-
-              {expandedMonths.includes(month) && (
-                <div className="border-t">
-                  <div className="divide-y divide-gray-200">
-                    {records.map(({ date, time }) => (
-                      <div key={date} className="p-4 hover:bg-gray-50">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-900">
-                            {formatDate(date)}
-                          </span>
-                          <span className="text-gray-600">
-                            {formatTime(time)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <AttendanceCalendar monthlyAttendance={monthlyAttendance} />
       </div>
     </div>
   );
