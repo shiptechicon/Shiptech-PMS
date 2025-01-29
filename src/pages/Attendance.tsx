@@ -176,7 +176,7 @@ export default function Attendance() {
             {getTotalAttendance(selectedUser || user?.uid || "")}
           </p>
         </div>
-        {!isAdmin && !isTodayAttendanceMarked() && (
+        {!isTodayAttendanceMarked() && (
           <button
             onClick={handleMarkAttendance}
             className="px-4 py-2 text-white rounded-md bg-black/90 hover:bg-black/80"
