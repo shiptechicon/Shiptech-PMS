@@ -19,6 +19,7 @@ import TaskModal from "../components/TaskModal";
 import TaskList from "../components/TaskList";
 import ProjectComments from "../components/ProjectComments";
 import CreateCustomerModal from "../components/CreateCustomerModal";
+import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +32,8 @@ export default function ProjectDetails() {
     currentPath,
     setCurrentPath,
     updateProjectDueDate,
+    updateProjectStartDate,
+    updateProjectStatus,
   } = useProjectStore();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +43,9 @@ export default function ProjectDetails() {
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const [tempDueDate, setTempDueDate] = useState<string>("");
   const [showDueDateConfirm, setShowDueDateConfirm] = useState(false);
+  const [isEditingStartDate, setIsEditingStartDate] = useState(false);
+  const [tempStartDate, setTempStartDate] = useState<string>("");
+  const [showStartDateConfirm, setShowStartDateConfirm] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const { user } = useAuthStore();
 
@@ -57,6 +63,9 @@ export default function ProjectDetails() {
           });
           if (data.project_due_date) {
             setTempDueDate(data.project_due_date);
+          }
+          if (data.project_start_date) {
+            setTempStartDate(data.project_start_date);
           }
         } else {
           toast.error("Project not found");
@@ -155,6 +164,14 @@ export default function ProjectDetails() {
     setShowDueDateConfirm(true);
   };
 
+  const handleStartDateChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const newDate = e.target.value;
+    setTempStartDate(newDate);
+    setShowStartDateConfirm(true);
+  };
+
   const confirmDueDateChange = async () => {
     if (!id) return;
     try {
@@ -170,6 +187,29 @@ export default function ProjectDetails() {
       console.error("Failed to update due date:", error);
       toast.error("Failed to update due date");
     }
+  };
+
+  const confirmStartDateChange = async () => {
+    if (!id) return;
+    try {
+      await updateProjectStartDate(id, tempStartDate || null);
+      const updatedProject = await fetchProject(id);
+      if (updatedProject) {
+        setProject(updatedProject);
+        toast.success("Project start date updated successfully");
+      }
+      setIsEditingStartDate(false);
+      setShowStartDateConfirm(false);
+    } catch (error) {
+      console.error("Failed to update start date:", error);
+      toast.error("Failed to update start date");
+    }
+  };
+
+  const cancelStartDateChange = () => {
+    setTempStartDate(project.project_start_date || "");
+    setShowStartDateConfirm(false);
+    setIsEditingStartDate(false);
   };
 
   const cancelDueDateChange = () => {
@@ -360,7 +400,7 @@ export default function ProjectDetails() {
 
       <div className="mt-7 flex flex-col gap-5 px-[10%]">
         {/* Project Information */}
-        <div className="bg-white border-[1px] rounded-lg overflow-hidden">
+        <div className="bg-white border-[1px] rounded-lg ">
           <div className="border-b border-gray-200 bg-white px-6 py-3">
             <h3 className="text-lg font-medium text-gray-900">
               Project Information
@@ -388,6 +428,62 @@ export default function ProjectDetails() {
                     Description
                   </td>
                   <td className="py-2">{project.description}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">Start Date</td>
+                  <td className="py-2">
+                    <div className="flex items-center justify-start gap-5">
+                      {isEditingStartDate ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="datetime-local"
+                            value={tempStartDate}
+                            onChange={handleStartDateChange}
+                            className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          />
+                          {showStartDateConfirm && (
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={confirmStartDateChange}
+                                className="p-1 text-green-600 hover:text-green-700"
+                              >
+                                <Check className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={cancelStartDateChange}
+                                className="p-1 text-red-600 hover:text-red-700"
+                              >
+                                <X className="h-5 w-5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-gray-900">
+                          <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                          {project.project_start_date ? (
+                            new Date(
+                              project.project_start_date
+                            ).toLocaleString()
+                          ) : (
+                            <span className="text-gray-500">
+                              No start date set
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {isAdmin && !isEditingStartDate && (
+                        <button
+                          onClick={() => setIsEditingStartDate(true)}
+                          className="text-blue-600 hover:text-blue-700 text-[12px]"
+                        >
+                          {project.project_start_date
+                            ? "Change"
+                            : "Set Start Date"}
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-2 font-medium text-gray-500">Due Date</td>
@@ -453,15 +549,24 @@ export default function ProjectDetails() {
                 </tr>
                 <tr>
                   <td className="py-2 font-medium text-gray-500">Address</td>
+                  <td className="py-2">{project.customer.address}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">
+                    Project Status
+                  </td>
                   <td className="py-2">
-                    {project.customer.address}
+                    <ProjectStatusSelect
+                      project={project}
+                      updateProjectStatus={updateProjectStatus}
+                    />
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-        
+
         {/* Tasks Section */}
         <TaskList
           tasks={project.tasks}

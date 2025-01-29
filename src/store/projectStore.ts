@@ -44,8 +44,10 @@ export interface Project {
   };
   tasks: Task[];
   createdAt: string;
+  status: 'completed' | 'ongoing' | 'not-started';
   type: 'project';
   project_due_date?: string | null;
+  project_start_date?: string | null;
 }
 
 interface PathItem {
@@ -75,11 +77,13 @@ interface ProjectState {
   getTaskByPath: (projectId: string, path: PathItem[]) => Promise<Task | null>;
   toggleTaskCompletion: (projectId: string, path: PathItem[]) => Promise<void>;
   updateProjectDueDate: (projectId: string, dueDate: string | null) => Promise<void>;
+  updateProjectStartDate: (projectId: string, startDate: string | null) => Promise<void>;
   fetchUserTasks: () => Promise<void>;
   startTimer: (projectId: string, taskId: string) => Promise<void>;
   stopTimer: (projectId: string, taskId: string) => Promise<void>;
   getTaskTimeEntries: (projectId: string, taskId: string) => Promise<TimeEntry[]>;
   checkActiveTimer: () => Promise<void>;
+  updateProjectStatus: (status: 'completed' | 'ongoing' | 'not-started', projectId: string) => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -392,6 +396,24 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
+  updateProjectStartDate: async (projectId, startDate) => {
+    try {
+      set({ loading: true, error: null });
+      const docRef = doc(db, 'projects', projectId);
+      await updateDoc(docRef, { project_start_date: startDate });
+      
+      const updatedProjects = get().projects.map(project =>
+        project.id === projectId ? { ...project, project_start_date: startDate } : project
+      );
+      
+      set({ projects: updatedProjects, loading: false });
+    } catch (error) {
+      console.error('Error updating project due date:', error);
+      set({ error: (error as Error).message, loading: false });
+      throw error;
+    }
+  },
+
   fetchUserTasks: async () => {
     try {
       set({ loading: true, error: null });
@@ -429,6 +451,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
 
       const userTasks = projects.reduce((acc: Task[], project) => {
+        if (!project.id) return acc;
         const projectTasks = flattenTasks(project.tasks, project.id);
         return [...acc, ...projectTasks];
       }, []);
@@ -641,5 +664,23 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
       });
     }
-  }
+  },
+
+  updateProjectStatus: async (status: 'completed' | 'ongoing' | 'not-started', projectId: string) => {
+    try {
+      set({ loading: true, error: null });
+      const docRef = doc(db, 'projects', projectId);
+      await updateDoc(docRef, { status });
+      
+      const updatedProjects = get().projects.map(project =>
+        project.id === projectId ? { ...project, status } : project
+      );
+      
+      set({ projects: updatedProjects, loading: false });
+    } catch (error) {
+      console.error('Error updating project status:', error);
+      set({ error: (error as Error).message, loading: false });
+      throw error;
+    }
+  },
 }));
