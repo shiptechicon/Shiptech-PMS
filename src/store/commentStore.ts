@@ -76,7 +76,7 @@ export const useCommentStore = create<CommentState>((set, get) => ({
           id: currentUser.uid,
           name: currentUser.email || 'Anonymous',
         },
-        attachments: attachments.length > 0 ? attachments : undefined, // Set to undefined if no attachments
+        attachments: attachments.length > 0 ? attachments : [], // Set to undefined if no attachments
         createdAt: new Date().toISOString(),
       };
 
