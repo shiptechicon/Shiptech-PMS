@@ -115,13 +115,9 @@ function AuthenticatedRedirect() {
 }
 
 function App() {
-  const { initialize, signIn, user } = useAuthStore();
-  const { checkAttendance } = useAttendanceStore();
+  const { initialize, signIn } = useAuthStore();
   const [initializing, setInitializing] = React.useState(true);
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [isVerified, setIsVerified] = useState<boolean>(false);
-  const location = useLocation();
 
   useEffect(() => {
     const initAuth = async () => {
@@ -136,7 +132,6 @@ function App() {
             const userDoc = await getDoc(doc(db, "users", userCredential.uid));
             const userData = userDoc.data();
             setUserRole(userData?.role || null);
-            setIsVerified(userData?.verified || false);
           }
         } catch (error) {
           console.error("Auto-login failed:", error);
@@ -150,37 +145,6 @@ function App() {
     initAuth();
   }, [initialize, signIn]);
 
-  useEffect(() => {
-    const checkUserAttendance = async () => {
-      // Only show attendance modal if:
-      // 1. User is logged in
-      // 2. User is verified
-      // 3. User is not a customer
-      // 4. Not on login/signup pages
-      const isAuthPage =
-        location.pathname === "/login" || location.pathname === "/signup";
-      const shouldShowModal =
-        user && isVerified && userRole !== "customer" && !isAuthPage;
-
-      if (shouldShowModal) {
-        const hasMarkedAttendance = await checkAttendance();
-        if (!hasMarkedAttendance) {
-          setShowAttendanceModal(true);
-        }
-      }
-    };
-
-    if (!initializing) {
-      checkUserAttendance();
-    }
-  }, [
-    initializing,
-    checkAttendance,
-    userRole,
-    user,
-    isVerified,
-    location.pathname,
-  ]);
 
   if (initializing) {
     return (
@@ -254,12 +218,6 @@ function App() {
         />
       </Routes>
       <Toaster position="top-right" />
-      {user && isVerified && userRole !== "customer" && (
-        <AttendanceModal
-          isOpen={showAttendanceModal}
-          onClose={() => setShowAttendanceModal(false)}
-        />
-      )}
     </>
   );
 }
