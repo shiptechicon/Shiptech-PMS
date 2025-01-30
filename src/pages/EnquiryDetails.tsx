@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEnquiryStore } from "../store/enquiryStore";
-import { useProjectStore } from "../store/projectStore";
-import { Loader2, Pencil, FileDown, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Pencil, ArrowRight, ArrowLeft } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import html2pdf from "html2pdf.js";
 import toast from "react-hot-toast";
+import InvoiceDownloader from "@/components/InvoiceDocument";
 
 export default function EnquiryDetails() {
   const { id } = useParams<{ id: string }>();
@@ -54,94 +53,6 @@ export default function EnquiryDetails() {
     }
   };
 
-  const downloadInvoice = () => {
-    if (!enquiry) return;
-
-    const totalAmount = enquiry.deliverables.reduce(
-      (sum: number, d: any) => sum + d.total,
-      0
-    );
-
-    const content = `
-      <div style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
-        <div style="text-align: center; margin-bottom: 40px;">
-          <h1 style="color: #2563eb;">INVOICE</h1>
-          <p style="color: #666;">Enquiry ID: ${enquiry.__id}</p>
-        </div>
-        
-        <div style="margin-bottom: 30px;">
-          <h2>ShipTech-ICON</h2>
-          <p>Center for Innovation Technology Transfer & Industrial Collaboration</p>
-          <p>CITTIC, CUSAT, Kochi, Kerala 682022</p>
-        </div>
-
-        <div style="margin-bottom: 30px;">
-          <h3>Bill To:</h3>
-          <p><strong>${enquiry.customer.name}</strong></p>
-          <p>${enquiry.customer.address}</p>
-          <p>Phone: ${enquiry.customer.phone}</p>
-        </div>
-
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-          <thead>
-            <tr style="background-color: #f3f4f6;">
-              <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Item</th>
-              <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${enquiry.deliverables
-              .map(
-                (d: any) => `
-              <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${d.name}</td>
-                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${d.total}</td>
-              </tr>
-            `
-              )
-              .join("")}
-            <tr style="background-color: #f3f4f6;">
-              <td style="padding: 12px; text-align: right; font-weight: bold;">Total Amount:</td>
-              <td style="padding: 12px; text-align: right; font-weight: bold;">₹${totalAmount}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div style="margin-top: 30px;">
-          <h3>Customer Requirements:</h3>
-          <ul>
-            ${enquiry.requirements
-              .map(
-                (r: any) => `
-              <li style="margin-bottom: 8px;">${r.text}</li>
-            `
-              )
-              .join("")}
-          </ul>
-        </div>
-      </div>
-    `;
-
-    const opt = {
-      margin: 1,
-      filename: `invoice-${enquiry.__id}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-    };
-
-    const element = document.createElement("div");
-    element.innerHTML = content;
-    document.body.appendChild(element);
-
-    html2pdf()
-      .set(opt)
-      .from(element)
-      .save()
-      .then(() => {
-        document.body.removeChild(element);
-      });
-  };
 
   if (loading) {
     return (
@@ -169,15 +80,8 @@ export default function EnquiryDetails() {
           <h2 className="text-2xl font-bold">Enquiry Details</h2>
         </div>
 
-
         <div className="flex space-x-4">
-          <button
-            onClick={downloadInvoice}
-            className="inline-flex items-center px-4 py-2  text-sm font-medium rounded-md text-black bg-white border-[1px]"
-          >
-            <FileDown className="mr-2 h-4 w-4" />
-            Download Invoice
-          </button>
+          <InvoiceDownloader enquiry={enquiry} />
           {isAdmin && (
             <>
               <button

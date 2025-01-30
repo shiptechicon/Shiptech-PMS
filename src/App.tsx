@@ -18,7 +18,6 @@ import { useAuthStore } from "./store/authStore";
 import { useAttendanceStore } from "./store/attendanceStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./lib/firebase";
-
 function PrivateRoute({
   children,
   allowedRoles = ["admin", "member"],
