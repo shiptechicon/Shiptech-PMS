@@ -109,7 +109,7 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       const updatedEnquiries = get().enquiries.map(enquiry =>
         enquiry.id === id ? { ...enquiryData, id, __id: enquiry.__id, type: 'enquiry' } : enquiry
       );
-      set({ enquiries: updatedEnquiries, loading: false });
+      set({ enquiries: updatedEnquiries as Enquiry[], loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
