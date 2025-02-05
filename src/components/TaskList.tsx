@@ -9,16 +9,23 @@ interface TaskListProps {
   onDeleteClick: (taskId: string) => void;
   onTaskClick: (task: Task) => void;
   isAdmin: boolean;
+  currentUserId?: string;
 }
 
 export default function TaskList({
-  tasks = [], // Provide default empty array
+  tasks = [],
   onAddClick,
   onEditClick,
   onDeleteClick,
   onTaskClick,
-  isAdmin
+  isAdmin,
+  currentUserId
 }: TaskListProps) {
+
+  console.log("currentUserId",currentUserId);
+  // Show add button if user is admin or is assigned to parent task
+  const showAddButton = isAdmin || currentUserId;
+
   const getTaskStatus = (task: Task) => {
     if (task.completed) {
       return {
@@ -71,7 +78,7 @@ export default function TaskList({
       <div className="border-b border-gray-200 px-6 py-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-900">Tasks</h3>
-          {isAdmin && (
+          {showAddButton && (
             <button
               onClick={onAddClick}
               className="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium text-white bg-black/90 hover:bg-black/80"

@@ -4,7 +4,6 @@ import {
   Route,
   Navigate,
   useNavigate,
-  useLocation,
 } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import Login from "./pages/Login";
@@ -13,9 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import AdminPanel from "./pages/AdminPanel";
 import CustomerProject from "./pages/CustomerProject";
 import Navbar from "./components/Navbar";
-import AttendanceModal from "./components/AttendanceModal";
 import { useAuthStore } from "./store/authStore";
-import { useAttendanceStore } from "./store/attendanceStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./lib/firebase";
 function PrivateRoute({

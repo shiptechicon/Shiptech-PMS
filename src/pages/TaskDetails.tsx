@@ -49,6 +49,8 @@ export default function TaskDetails() {
   const { user } = useAuthStore();
 
   useEffect(() => {
+    console.log("user",user);
+
     const loadTask = async () => {
       if (!projectId || !taskPath) {
         navigate(`/dashboard/projects/${projectId}`);
@@ -65,10 +67,15 @@ export default function TaskDetails() {
 
         const data = await getTaskByPath(projectId, pathArray);
         if (data) {
+          console.log("data",data);
+          // check if user is assigned to the task
+          const isAssignedToTask = data.assignedTo?.some(u => u.id === user?.uid);
+          console.log("isAssignedToTask",isAssignedToTask);
           setTask({
             ...data,
             children: data.children || [],
           });
+
 
           // Load time entries
           const entries = await getTaskTimeEntries(projectId, data.id);
@@ -120,8 +127,8 @@ export default function TaskDetails() {
     navigate,
     setCurrentPath,
     getTaskTimeEntries,
-    checkActiveTimer,
-  ]);
+    checkActiveTimer
+  ]); 
 
   // Timer effect
   useEffect(() => {
@@ -448,6 +455,7 @@ export default function TaskDetails() {
         onDeleteClick={handleDeleteTask}
         onTaskClick={handleTaskClick}
         isAdmin={isAdmin}
+        currentUserId={task?.assignedTo?.some(u => u.id === user?.uid) ? user?.uid : undefined}
       />
 
       <TaskModal

@@ -33,7 +33,8 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
   requestWorkFrom: async (startDate: string, endDate: string) => {
     try {
       set({ loading: true, error: null });
-      const { user } = useAuthStore()
+      // Fix: Use getState() instead of hook
+      const user = useAuthStore.getState().user;
       if (!user) throw new Error('User not authenticated');
       const workFromRef = collection(db, 'workfrom');
       const newWorkFromDoc = doc(workFromRef);

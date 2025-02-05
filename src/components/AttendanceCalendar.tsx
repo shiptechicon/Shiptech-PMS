@@ -31,10 +31,12 @@ export default function AttendanceCalendar({
     cancelWorkFromHome,
     updateWorkFromStatus,
   } = useWorkFromStore();
-  const { user } = useAuthStore();
+  const { user, userData } = useAuthStore();
   const [showDialog, setShowDialog] = useState(false);
   const [showAdminDialog, setShowAdminDialog] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
   // Generate calendar days for the current month
   useEffect(() => {
@@ -204,24 +206,33 @@ export default function AttendanceCalendar({
     setSelectedStatus(null);
   };
 
-  const handleAdminAction = (action: "approve" | "reject") => {
-    if (selectedStatus.type === "leave") {
-      if (action === "approve") {
-        updateLeaveStatus(selectedStatus.id, "approved");
-      } else {
-        updateLeaveStatus(selectedStatus.id, "rejected");
-      }
-      fetchUserLeaveRequests(selectedUser as string);
-    } else if (selectedStatus.type === "workfrom") {
-      if (action === "approve") {
-        updateWorkFromStatus(selectedStatus.id, "approved");
-      } else {
-        updateWorkFromStatus(selectedStatus.id, "rejected");
-      }
-      fetchUserWorkFromRequests(selectedUser as string);
+  const handleAdminAction = async (action: "approve" | "reject") => {
+    if (action === "approve") {
+      setIsApproving(true);
     }
-    setShowAdminDialog(false);
-    setSelectedStatus(null);
+    
+    try {
+      if (selectedStatus.type === "leave") {
+        if (action === "approve") {
+          await updateLeaveStatus(selectedStatus.id, "approved");
+        } else {
+          await updateLeaveStatus(selectedStatus.id, "rejected");
+        }
+        await fetchUserLeaveRequests(selectedUser as string);
+      } else if (selectedStatus.type === "workfrom") {
+        if (action === "approve") {
+          await updateWorkFromStatus(selectedStatus.id, "approved");
+        } else {
+          await updateWorkFromStatus(selectedStatus.id, "rejected");
+        }
+        await fetchUserWorkFromRequests(selectedUser as string);
+      }
+    } finally {
+      setIsApproving(false);
+      setShowDialog(false);
+      setShowAdminDialog(false);
+      setSelectedStatus(null);
+    }
   };
 
   const getStatusStyle = (status: any) => {
@@ -379,6 +390,19 @@ export default function AttendanceCalendar({
               >
                 OK
               </button>
+              {userData?.role === 'admin' && (
+                <button
+                  onClick={() => handleAdminAction("approve")}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  disabled={isApproving}
+                >
+                  {isApproving ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  ) : (
+                    "Approve as Admin"
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -404,14 +428,20 @@ export default function AttendanceCalendar({
               <button
                 onClick={() => handleAdminAction("reject")}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                disabled={isApproving}
               >
                 Reject
               </button>
               <button
                 onClick={() => handleAdminAction("approve")}
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                disabled={isApproving}
               >
-                Approve
+                {isApproving ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                ) : (
+                  "Approve"
+                )}
               </button>
             </div>
           </div>

@@ -7,10 +7,20 @@ import {
   User,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
+
+interface UserData {
+  createdAt: string;
+  email: string;
+  fullName: string;
+  projectId?: string;
+  role: 'admin' | 'member' | 'customer';
+  verified: boolean;
+}
 
 interface AuthState {
   user: User | null;
+  userData: UserData | null;
   loading: boolean;
   error: string | null;
   initialized: boolean;
@@ -22,6 +32,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  userData: null,
   loading: false,
   error: null,
   initialized: false,
@@ -31,10 +42,25 @@ export const useAuthStore = create<AuthState>((set) => ({
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
           // User is signed in
-          set({ user, initialized: true });
+          try {
+            // Query users collection by email
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('email', '==', user.email));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+              const userData = querySnapshot.docs[0].data() as UserData;
+              set({ user, userData, initialized: true });
+            } else {
+              set({ user, userData: null, initialized: true });
+            }
+          } catch (error) {
+            console.error('Error fetching user data:', error);
+            set({ user, userData: null, initialized: true });
+          }
         } else {
           // User is signed out
-          set({ user: null, initialized: true });
+          set({ user: null, userData: null, initialized: true });
         }
         unsubscribe(); // Cleanup subscription
         resolve();
@@ -47,19 +73,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: true, error: null });
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
       
-      // Store user data in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
+      const userData: UserData = {
         fullName,
         email,
         role: 'member',
         createdAt: new Date().toISOString(),
         verified: false
-      });
+      };
+
+      // Store user data in Firestore
+      await setDoc(doc(db, 'users', user.uid), userData);
 
       // Store credentials in localStorage
       localStorage.setItem('userCredentials', JSON.stringify({ email, password }));
 
-      set({ user, loading: false });
+      set({ user, userData, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
       throw error;
@@ -71,10 +99,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: true, error: null });
       const { user } = await signInWithEmailAndPassword(auth, email, password);
 
+      // Fetch user data from Firestore
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', email));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const userData = querySnapshot.docs[0].data() as UserData;
+        set({ user, userData, loading: false });
+      }
+
       // Store credentials in localStorage
       localStorage.setItem('userCredentials', JSON.stringify({ email, password }));
 
-      set({ user, loading: false });
       return user;
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
@@ -87,7 +124,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await firebaseSignOut(auth);
       // Remove credentials from localStorage
       localStorage.removeItem('userCredentials');
-      set({ user: null });
+      set({ user: null, userData: null });
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;

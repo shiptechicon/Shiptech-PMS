@@ -55,9 +55,10 @@ export default function Attendance() {
   });
   const [workFromForm, setWorkFromForm] = useState({
     startDate: "",
-    endDate: "",
-    location: "",
+    endDate: ""
   });
+
+  const [showEndDateInput, setShowEndDateInput] = useState(false);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -72,7 +73,7 @@ export default function Attendance() {
       const querySnapshot = await getDocs(collection(db, "users"));
       const usersData = querySnapshot.docs.reduce((acc, doc) => {
         const userData = doc.data();
-        if (userData.verified) {
+        if (userData.verified && userData.role !== "customer") {
           return {
             ...acc,
             [doc.id]: { id: doc.id, ...userData },
@@ -180,13 +181,34 @@ export default function Attendance() {
 
   const handleRequestWorkFromHome = async (e: React.FormEvent) => {
     e.preventDefault();
+
     try {
-      await requestWorkFrom(workFromForm.startDate, workFromForm.endDate);
+      // If no end date is set, use start date as end date
+      const endDate = showEndDateInput ? workFromForm.endDate : workFromForm.startDate;
+      
+      // Validate dates
+      if (!workFromForm.startDate) {
+        throw new Error("Start date is required");
+      }
+      
+      if (showEndDateInput && !endDate) {
+        throw new Error("End date is required when setting a different end date");
+      }
+
+      // Make the request
+      await requestWorkFrom(
+        workFromForm.startDate,
+        endDate
+      );
+
+      // Reset form and close modal on success
       setShowWorkFromModal(false);
-      setWorkFromForm({ startDate: "", endDate: "", location: "" });
+      setWorkFromForm({ startDate: "", endDate: "" });
+      setShowEndDateInput(false);
       toast.success("Work from home request submitted successfully");
     } catch (error) {
-      toast.error("Failed to submit work from home request");
+      console.error("Work from home request error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to submit work from home request");
     }
   };
 
@@ -261,6 +283,9 @@ export default function Attendance() {
       </div>
 
       {/* Leave Request Modal */}
+      {/* State for showing/hiding end date input */}
+      
+
       {showLeaveModal && (
         <div className="fixed z-[100] inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg w-96">
@@ -274,25 +299,51 @@ export default function Attendance() {
                   type="date"
                   required
                   value={leaveForm.startDate}
-                  onChange={(e) =>
-                    setLeaveForm({ ...leaveForm, startDate: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const newStartDate = e.target.value;
+                    setLeaveForm({ 
+                      ...leaveForm, 
+                      startDate: newStartDate,
+                      endDate: showEndDateInput ? leaveForm.endDate : newStartDate
+                    });
+                  }}
                   className="w-full p-2 border rounded"
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={leaveForm.endDate}
-                  onChange={(e) =>
-                    setLeaveForm({ ...leaveForm, endDate: e.target.value })
-                  }
-                  className="w-full p-2 border rounded"
-                />
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={showEndDateInput}
+                    onChange={(e) => {
+                      setShowEndDateInput(e.target.checked);
+                      if (!e.target.checked) {
+                        setLeaveForm({
+                          ...leaveForm,
+                          endDate: leaveForm.startDate
+                        });
+                      }
+                    }}
+                    className="w-5 h-5 rounded border-gray-300"
+                  />
+                  <span className="text-sm font-medium">Set different end date</span>
+                </div>
+                {showEndDateInput && (
+                  <>
+                    <label className="block text-sm font-medium mb-1">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={leaveForm.endDate}
+                      onChange={(e) =>
+                        setLeaveForm({ ...leaveForm, endDate: e.target.value })
+                      }
+                      className="w-full p-2 border rounded"
+                      min={leaveForm.startDate}
+                    />
+                  </>
+                )}
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">Reason</label>
@@ -343,27 +394,49 @@ export default function Attendance() {
                     setWorkFromForm({
                       ...workFromForm,
                       startDate: e.target.value,
+                      endDate: showEndDateInput ? workFromForm.endDate : e.target.value
                     })
                   }
                   className="w-full p-2 border rounded"
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={workFromForm.endDate}
-                  onChange={(e) =>
-                    setWorkFromForm({
-                      ...workFromForm,
-                      endDate: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border rounded"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showEndDateInput}
+                    onChange={(e) => {
+                      setShowEndDateInput(e.target.checked);
+                      if (!e.target.checked) {
+                        setWorkFromForm({
+                          ...workFromForm,
+                          endDate: workFromForm.startDate
+                        });
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium">Set different end date</span>
+                </div>
+                {showEndDateInput && (
+                  <>
+                    <label className="block text-sm font-medium mb-1 mt-2">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={workFromForm.endDate}
+                      onChange={(e) =>
+                        setWorkFromForm({
+                          ...workFromForm,
+                          endDate: e.target.value
+                        })
+                      }
+                      className="w-full p-2 border rounded"
+                      min={workFromForm.startDate}
+                    />
+                  </>
+                )}
               </div>
               <div className="flex justify-end gap-2">
                 <button
