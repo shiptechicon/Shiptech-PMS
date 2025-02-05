@@ -1,4 +1,3 @@
-import React from 'react';
 import { Plus, Pencil, Trash2, User, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { Task } from '../store/projectStore';
 
@@ -21,8 +20,6 @@ export default function TaskList({
   isAdmin,
   currentUserId
 }: TaskListProps) {
-
-  console.log("currentUserId",currentUserId);
   // Show add button if user is admin or is assigned to parent task
   const showAddButton = isAdmin || currentUserId;
 

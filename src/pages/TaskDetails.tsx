@@ -49,7 +49,6 @@ export default function TaskDetails() {
   const { user } = useAuthStore();
 
   useEffect(() => {
-    console.log("user",user);
 
     const loadTask = async () => {
       if (!projectId || !taskPath) {
@@ -67,10 +66,6 @@ export default function TaskDetails() {
 
         const data = await getTaskByPath(projectId, pathArray);
         if (data) {
-          console.log("data",data);
-          // check if user is assigned to the task
-          const isAssignedToTask = data.assignedTo?.some(u => u.id === user?.uid);
-          console.log("isAssignedToTask",isAssignedToTask);
           setTask({
             ...data,
             children: data.children || [],
