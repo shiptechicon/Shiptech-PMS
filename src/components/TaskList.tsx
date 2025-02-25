@@ -25,10 +25,8 @@ export default function TaskList({
   currentUserId
 }: TaskListProps) {
   const [isPercentageModalOpen, setIsPercentageModalOpen] = useState(false);
-  const { projectId } = useParams<{
-    projectId: string;
-    "*": string;
-  }>();
+  const { id : projectId } = useParams();
+  console.log('projectId', projectId);
   const { updateProject, project } = useProjectStore();
 
   // Show add button if user is admin or is assigned to parent task
@@ -83,6 +81,7 @@ export default function TaskList({
 
   const handlePercentagesUpdate = async (updatedTasks: Task[]) => {
     try {
+
       if (!projectId || !project) return;
 
       // Update the project with new task percentages

@@ -172,6 +172,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateProject: async (id, projectData) => {
     try {
+
       set({ loading: true, error: null });
       const docRef = doc(db, 'projects', id);
       
