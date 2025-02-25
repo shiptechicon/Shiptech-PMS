@@ -2,13 +2,13 @@ import { create } from 'zustand';
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 
-interface User {
+export interface User {
   id: string;
   fullName: string;
   email: string;
 }
 
-interface TimeEntry {
+export interface TimeEntry {
   id: string;
   userId: string;
   userName: string;
@@ -24,17 +24,19 @@ export interface Task {
   hours?: number;
   costPerHour?: number;
   assignedTo?: User[];
-  deadline?: string;
+  deadline?: string | null;
   completed: boolean;
   children: Task[];
   projectId?: string;
   path?: string;
   timeEntries?: TimeEntry[];
+  percentage: number;
 }
 
 export interface Project {
   id?: string;
   __id: string;
+  projectNumber: string;
   name: string;
   description: string;
   customer: {
@@ -56,6 +58,7 @@ interface PathItem {
 
 interface ProjectState {
   projects: Project[];
+  project: Project | null;
   userTasks: Task[];
   loading: boolean;
   error: string | null;
@@ -68,7 +71,7 @@ interface ProjectState {
   setCurrentPath: (path: PathItem[]) => void;
   fetchProjects: () => Promise<void>;
   fetchProject: (id: string) => Promise<Project | null>;
-  createProject: (project: Omit<Project, 'id' | '__id' | 'createdAt' | 'tasks' | 'type' | 'project_due_date'>) => Promise<void>;
+  createProject: (project: Omit<Project, 'id' | '__id' | 'createdAt' | 'project_due_date'> & { tasks: Task[]; type: 'project' }) => Promise<void>;
   updateProject: (id: string, project: Omit<Project, 'id' | '__id' | 'createdAt' | 'type'>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   addTask: (projectId: string, path: PathItem[], task: Omit<Task, 'id' | 'children' | 'completed'>) => Promise<void>;
@@ -84,10 +87,13 @@ interface ProjectState {
   getTaskTimeEntries: (projectId: string, taskId: string) => Promise<TimeEntry[]>;
   checkActiveTimer: () => Promise<void>;
   updateProjectStatus: (status: 'completed' | 'ongoing' | 'not-started', projectId: string) => Promise<void>;
+  fetchUsers: () => Promise<User[]>;
+  users: User[];
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: [],
+  project: null,
   userTasks: [],
   loading: false,
   error: null,
@@ -97,6 +103,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     projectId: null,
     startTime: null,
   },
+  users: [],
 
   setCurrentPath: (path) => set({ currentPath: path }),
 
@@ -116,7 +123,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  fetchProject: async (id) => {
+  fetchProject: async (id: string) => {
     try {
       set({ loading: true, error: null });
       const docRef = doc(db, 'projects', id);
@@ -127,7 +134,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           id: docSnap.id,
           tasks: docSnap.data().tasks || []
         } as Project;
-        set({ loading: false });
+        set({ loading: false, project: project });
         return project;
       }
       set({ loading: false });
@@ -142,14 +149,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   createProject: async (projectData) => {
     try {
       set({ loading: true, error: null });
-      const internalId = 'p-' + Math.random().toString().slice(2, 8);
       const newProject = {
         ...projectData,
-        __id: internalId,
+        __id: `p-${projectData.projectNumber}`,
         createdAt: new Date().toISOString(),
         type: 'project' as const,
         tasks: [],
-        project_due_date: null
+        project_due_date: null,
+        project_start_date: null,
+        status: 'not-started' as const
       };
       const docRef = await addDoc(collection(db, 'projects'), newProject);
       const projectWithId = { ...newProject, id: docRef.id };
@@ -167,7 +175,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ loading: true, error: null });
       const docRef = doc(db, 'projects', id);
       
-      const cleanTasks = (tasks: Task[]): any[] => {
+      const cleanTasks = (tasks: Task[]): Task[] => {
         return tasks.map(task => ({
           id: task.id,
           name: task.name || '',
@@ -182,7 +190,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           deadline: task.deadline || null,
           completed: Boolean(task.completed),
           children: task.children ? cleanTasks(task.children) : [],
-          timeEntries: task.timeEntries || []
+          timeEntries: task.timeEntries || [],
+          percentage: task.percentage || 0
         }));
       };
 
@@ -267,7 +276,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         description: taskData.description || '',
         completed: false,
         children: [],
-        timeEntries: []
+        timeEntries: [],
+        percentage: taskData.percentage || 0
       };
 
       const updateNestedTasks = (tasks: Task[], currentPath: PathItem[]): Task[] => {
@@ -290,6 +300,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         ? [...project.tasks, newTask]
         : updateNestedTasks(project.tasks, path);
 
+
       await get().updateProject(projectId, { ...project, tasks: updatedTasks });
       set({ loading: false });
     } catch (error) {
@@ -311,10 +322,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             return {
               ...task,
               ...data,
-              name: data.name || task.name,
-              description: data.description || task.description,
-              children: task.children || [],
-              timeEntries: task.timeEntries || []
+              percentage: typeof data.percentage === 'number' ? 
+                Math.min(data.percentage, 100) : task.percentage,
+              children: task.children || []
             };
           }
           if (task.children && task.children.length > 0) {
@@ -328,8 +338,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
 
       const updatedTasks = updateNestedTask(project.tasks);
-      await get().updateProject(projectId, { ...project, tasks: updatedTasks });
-      set({ loading: false });
+      const updatedProject = { ...project, tasks: updatedTasks };
+      
+      // Update Firebase
+      await get().updateProject(projectId, updatedProject);
+      
+      // Update Zustand state
+      set(state => ({
+        ...state,
+        projects: state.projects.map(p => 
+          p.id === projectId ? updatedProject : p
+        ),
+        loading: false
+      }));
     } catch (error) {
       console.error('Error updating task:', error);
       set({ error: (error as Error).message, loading: false });
@@ -681,6 +702,26 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       console.error('Error updating project status:', error);
       set({ error: (error as Error).message, loading: false });
       throw error;
+    }
+  },
+
+  fetchUsers: async () => {
+    if (get().users.length > 0) {
+      return get().users;
+    }
+
+    try {
+      const querySnapshot = await getDocs(collection(db, 'users'));
+      const users = querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      })) as User[];
+      
+      set({ users });
+      return users;
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
     }
   },
 }));

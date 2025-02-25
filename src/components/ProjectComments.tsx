@@ -30,7 +30,6 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  let revisionNo = 0;
 
   useEffect(() => {
     if (projectId) {
@@ -56,7 +55,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
 
     try {
       setSubmitting(true);
-      let attachments: { url: string; name: string }[] = [];
+      const attachments: { url: string; name: string }[] = [];
 
       // Upload files one by one
       if (selectedFiles.length > 0 && (isAdmin || isMember)) {
@@ -88,6 +87,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
             attachments.push({ url, name: file.name });
           }
         } catch (uploadError) {
+          console.error("Failed to upload files:", uploadError);
           toast.error("Failed to upload files. Please try again.");
           setUploadProgress(selectedFiles.map(() => 0)); // Reset progress on error
           return;
@@ -102,6 +102,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
         setUploadProgress([]); // Reset the upload progress
         toast.success("Comment added successfully");
       } catch (commentError) {
+        console.error("Failed to add comment:", commentError);
         toast.error("Failed to add comment. Please try again.");
       }
     } catch (error) {

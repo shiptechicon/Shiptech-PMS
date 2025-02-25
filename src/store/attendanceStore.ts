@@ -17,6 +17,7 @@ interface AttendanceState {
   markAttendance: () => Promise<void>;
   fetchAttendanceRecords: () => Promise<void>;
   fetchAllUsersAttendance: () => Promise<void>;
+  markAttendanceForUser: (userId: string, date: string) => Promise<string>;
 }
 
 export const useAttendanceStore = create<AttendanceState>((set, get) => ({
@@ -119,6 +120,44 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     } catch (error) {
       console.error('Error fetching all users attendance:', error);
       set({ error: (error as Error).message, loading: false });
+    }
+  },
+
+  markAttendanceForUser: async (userId: string, date: string) => {
+    try {
+      set({ loading: true, error: null });
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Admin not authenticated');
+
+      // Format the timestamp for the selected date
+      const timestamp = new Date(date).toISOString();
+      const formattedDate = date.split('T')[0];
+
+      const attendanceRef = doc(db, 'attendance', formattedDate);
+      const attendanceDoc = await getDoc(attendanceRef);
+
+      if (!attendanceDoc.exists()) {
+        await setDoc(attendanceRef, {
+          date: formattedDate,
+          attendance: {
+            [userId]: timestamp
+          }
+        });
+      } else {
+        await updateDoc(attendanceRef, {
+          [`attendance.${userId}`]: timestamp
+        });
+      }
+
+      // Refresh records after marking attendance
+      await get().fetchAllUsersAttendance();
+      return 'Attendance marked successfully';
+    } catch (error) {
+      console.error('Error marking attendance for user:', error);
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
     }
   }
 }));

@@ -3,7 +3,7 @@ import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from '
 import { db } from '../lib/firebase';
 import toast from 'react-hot-toast';
 
-interface Deliverable {
+export interface Deliverable {
   id: string;
   name: string;
   description?: string;
@@ -12,14 +12,10 @@ interface Deliverable {
   total: number;
 }
 
-interface CustomerRequirement {
-  id: string;
-  text: string;
-}
-
 export interface Enquiry {
   id?: string;
   __id: string;
+  enquiryNumber: string;
   name: string;
   description: string;
   customer: {
@@ -28,7 +24,7 @@ export interface Enquiry {
     address: string;
   };
   deliverables: Deliverable[];
-  requirements: CustomerRequirement[];
+  requirements: string;
   createdAt: string;
   type: 'enquiry';
 }
@@ -85,10 +81,9 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
   createEnquiry: async (enquiryData) => {
     try {
       set({ loading: true, error: null });
-      const internalId = 'e-' + Math.random().toString().slice(2, 8);
       const newEnquiry = {
         ...enquiryData,
-        __id: internalId,
+        __id: `e-${enquiryData.enquiryNumber}`,
         createdAt: new Date().toISOString(),
         type: 'enquiry' as const
       };
@@ -159,7 +154,8 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       };
 
       // Create project in Firestore
-      const projectRef = await addDoc(collection(db, 'projects'), projectData);
+      await addDoc(collection(db, 'projects'), projectData);
+    
 
       // Delete original enquiry
       await deleteDoc(doc(db, 'enquiries', enquiryId));

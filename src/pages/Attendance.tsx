@@ -8,6 +8,7 @@ import { db } from "../lib/firebase";
 import { Loader2, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
 import AttendanceCalendar from "@/components/AttendanceCalendar";
+import { AdminAttendanceMarker } from "@/components/AdminAttendanceMarker";
 
 interface User {
   id: string;
@@ -59,6 +60,9 @@ export default function Attendance() {
   });
 
   const [showEndDateInput, setShowEndDateInput] = useState(false);
+
+  // Add state for the attendance marker modal
+  const [showAttendanceMarker, setShowAttendanceMarker] = useState(false);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -126,6 +130,7 @@ export default function Attendance() {
           const monthKey = `${date.getFullYear()}-${String(
             date.getMonth() + 1
           ).padStart(2, "0")}`;
+          console.log(monthKey);
           const monthName = date.toLocaleString("default", {
             month: "long",
             year: "numeric",
@@ -159,6 +164,7 @@ export default function Attendance() {
       await markAttendance();
       toast.success("Attendance marked successfully");
     } catch (error) {
+      console.error("Attendance marking error:", error);
       toast.error("Failed to mark attendance");
     }
   };
@@ -175,6 +181,7 @@ export default function Attendance() {
       setLeaveForm({ startDate: "", endDate: "", reason: "" });
       toast.success("Leave request submitted successfully");
     } catch (error) {
+      console.error("Leave request error:", error);
       toast.error("Failed to submit leave request");
     }
   };
@@ -258,7 +265,7 @@ export default function Attendance() {
             {getTotalAttendance(selectedUser || user?.uid || "")}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {!isTodayAttendanceMarked() && (
             <button
               onClick={handleMarkAttendance}
@@ -267,6 +274,16 @@ export default function Attendance() {
               Mark Today's Attendance
             </button>
           )}
+          {
+            isAdmin && (
+              <button
+                onClick={() => setShowAttendanceMarker(true)}
+                className="px-4 py-2 text-white rounded-md bg-blue-600 hover:bg-blue-700"
+              >
+                Member attandance marker
+              </button>
+            )
+          }
           <button
             onClick={() => setShowLeaveModal(true)}
             className="px-4 py-2 text-white rounded-md bg-red-600 hover:bg-red-700"
@@ -521,6 +538,14 @@ export default function Attendance() {
           selectedUser={selectedUser}
         />
       </div>
+
+      {/* Add the modal component */}
+      {isAdmin && showAttendanceMarker && (
+        <AdminAttendanceMarker 
+          users={users} 
+          setShowAttendanceMarker={setShowAttendanceMarker}
+        />
+      )}
     </div>
   );
 }

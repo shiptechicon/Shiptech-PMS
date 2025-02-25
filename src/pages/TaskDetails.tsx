@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "../store/projectStore";
 import {
@@ -7,7 +7,6 @@ import {
   Play,
   Square,
   Clock,
-  Calendar,
   User,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
@@ -30,7 +29,6 @@ export default function TaskDetails() {
     addTask,
     updateTask,
     deleteTask,
-    currentPath,
     setCurrentPath,
     startTimer,
     stopTimer,
@@ -176,13 +174,13 @@ export default function TaskDetails() {
 
     try {
       const pathArray = taskPath
-        .split("/")
+        ?.split("/")
         .filter(Boolean)
         .map((id) => ({ id }));
-      await toggleTaskCompletion(projectId, pathArray);
+      await toggleTaskCompletion(projectId, pathArray || []);
 
       // Refresh task data
-      const updatedTask = await getTaskByPath(projectId, pathArray);
+      const updatedTask = await getTaskByPath(projectId, pathArray || [] );
       if (updatedTask) {
         setTask({
           ...updatedTask,
@@ -200,14 +198,20 @@ export default function TaskDetails() {
     }
   };
 
-  const handleAddTask = async (data: any) => {
+  const handleAddTask = async (data: Omit<Task, 'id' | 'completed' | 'children'>) => {
     if (!projectId || !taskPath) return;
     try {
       const pathArray = taskPath
         .split("/")
         .filter(Boolean)
         .map((id) => ({ id }));
-      await addTask(projectId, pathArray, data);
+      
+      const taskToAdd = {
+        ...data,
+        percentage: data.percentage || 0 // Ensure percentage is included
+      };
+      
+      await addTask(projectId, pathArray, taskToAdd);
 
       const updatedTask = await getTaskByPath(projectId, pathArray);
       if (updatedTask) {
@@ -223,17 +227,24 @@ export default function TaskDetails() {
     }
   };
 
-  const handleEditTask = async (data: any) => {
-    if (!projectId || !taskPath) return;
+  const handleEditTask = async (data: Partial<Task>) => {
+    if (!projectId || !taskPath || !editingTask) return;
     try {
       const pathArray = taskPath
         .split("/")
         .filter(Boolean)
         .map((id) => ({ id }));
 
-      if (editingTask) {
-        await updateTask(projectId, pathArray, editingTask.id, data);
-      }
+      // Ensure we maintain required fields when updating
+      const updatedData = {
+        ...editingTask,  // Keep existing task data
+        ...data,         // Override with new data
+        percentage: typeof data.percentage === 'number' ? data.percentage : editingTask.percentage,
+        completed: editingTask.completed,  // Maintain completion status
+        children: editingTask.children     // Maintain children
+      };
+
+      await updateTask(projectId, pathArray, editingTask.id, updatedData);
 
       const updatedTask = await getTaskByPath(projectId, pathArray);
       if (updatedTask) {
@@ -340,6 +351,19 @@ export default function TaskDetails() {
     (u) => u.id === user?.uid
   );
 
+  const handleTasksUpdate = (updatedTasks: Task[]) => {
+    // Update the local state with new task percentages
+    if (task) {
+      setTask(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          children: updatedTasks
+        };
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -399,6 +423,7 @@ export default function TaskDetails() {
 
       <ItemDetails
         item={task}
+        tasks={task.children}
         onEditClick={() => {
           setEditingTask(task);
           setIsModalOpen(true);
@@ -438,11 +463,8 @@ export default function TaskDetails() {
       )}
 
       <TaskList
-        tasks={task.children}
-        onAddClick={() => {
-          setEditingTask(null);
-          setIsModalOpen(true);
-        }}
+        tasks={task?.children || []}
+        onAddClick={() => setIsModalOpen(true)}
         onEditClick={(task) => {
           setEditingTask(task);
           setIsModalOpen(true);
@@ -451,6 +473,7 @@ export default function TaskDetails() {
         onTaskClick={handleTaskClick}
         isAdmin={isAdmin}
         currentUserId={task?.assignedTo?.some(u => u.id === user?.uid) ? user?.uid : undefined}
+        onTasksUpdate={handleTasksUpdate}
       />
 
       <TaskModal
@@ -460,7 +483,7 @@ export default function TaskDetails() {
           setEditingTask(null);
         }}
         onSubmit={editingTask ? handleEditTask : handleAddTask}
-        initialData={editingTask}
+        initialData={editingTask || undefined}
       />
     </div>
   );

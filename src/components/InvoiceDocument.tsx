@@ -148,6 +148,20 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#777",
   },
+  section: {
+    marginTop: 15,
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#2562EF",
+    marginBottom: 5,
+  },
+  text: {
+    fontSize: 10,
+    color: "#777",
+  },
 });
 
 // Invoice component
@@ -229,6 +243,14 @@ const InvoiceDocument = ({ enquiry }: { enquiry: any }) => {
               <Text>Tax (10%): ${tax}</Text>
               <Text style={styles.amountText}>Total: ${grandTotal}</Text>
             </View>
+          </View>
+
+          {/* Customer Requirements */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Customer Requirements</Text>
+            <Text style={styles.text}>
+              {enquiry.requirements.replace(/<[^>]+>/g, '\n')}
+            </Text>
           </View>
         </View>
 

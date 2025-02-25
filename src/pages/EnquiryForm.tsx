@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Plus, Loader2, Trash2, ArrowLeft } from "lucide-react";
 import { useEnquiryStore } from "../store/enquiryStore";
 import toast from "react-hot-toast";
+import RichTextEditor, { ToolbarConfig } from "react-rte";
 
 interface Deliverable {
   id: string;
@@ -12,10 +13,48 @@ interface Deliverable {
   total: number;
 }
 
-interface CustomerRequirement {
-  id: string;
-  text: string;
-}
+// Add this configuration for the rich text editor
+const toolbarConfig: ToolbarConfig = {
+  display: [
+    'INLINE_STYLE_BUTTONS',
+    'BLOCK_TYPE_BUTTONS',
+    'BLOCK_TYPE_DROPDOWN',
+    'HISTORY_BUTTONS',
+    'BLOCK_ALIGNMENT_BUTTONS',
+    'LINK_BUTTONS'
+  ],
+  INLINE_STYLE_BUTTONS: [
+    {label: 'Bold', style: 'BOLD'},
+    {label: 'Italic', style: 'ITALIC'},
+    {label: 'Underline', style: 'UNDERLINE'}
+  ],
+  BLOCK_TYPE_DROPDOWN: [
+    {label: 'Normal', style: 'unstyled'},
+    {label: 'Heading 1', style: 'header-one'},
+    {label: 'Heading 2', style: 'header-two'},
+    {label: 'Heading 3', style: 'header-three'}
+  ],
+  BLOCK_TYPE_BUTTONS: [
+    {label: 'UL', style: 'unordered-list-item'},
+    {label: 'OL', style: 'ordered-list-item'}
+  ],
+  BLOCK_ALIGNMENT_BUTTONS: [
+    {label: 'Align Left', style: 'ALIGN_LEFT'},
+    {label: 'Align Center', style: 'ALIGN_CENTER'},
+    {label: 'Align Right', style: 'ALIGN_RIGHT'}
+  ]
+};
+
+// Add this CSS to your component or a CSS file
+const editorStyle = {
+  editor: {
+    border: '1px solid #ccc',
+    padding: '10px',
+    minHeight: '200px',
+    borderRadius: '6px',
+    fontSize: '14px'
+  }
+};
 
 export default function EnquiryForm() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +62,7 @@ export default function EnquiryForm() {
   const { createEnquiry, updateEnquiry, fetchEnquiry, loading } =
     useEnquiryStore();
   const [formData, setFormData] = useState({
+    enquiryNumber: "",
     name: "",
     description: "",
     customer: {
@@ -31,7 +71,7 @@ export default function EnquiryForm() {
       address: "",
     },
     deliverables: [] as Deliverable[],
-    requirements: [] as CustomerRequirement[],
+    requirements: RichTextEditor.createEmptyValue(),
   });
 
   useEffect(() => {
@@ -41,6 +81,7 @@ export default function EnquiryForm() {
         if (enquiry) {
           setFormData({
             ...enquiry,
+            requirements: RichTextEditor.createValueFromString(enquiry.requirements, 'html'),
             deliverables: enquiry.deliverables.map((d) => ({
               ...d,
               hours: d.hours ?? 0,
@@ -96,44 +137,20 @@ export default function EnquiryForm() {
     }));
   };
 
-  const addRequirement = () => {
-    setFormData((prev) => ({
-      ...prev,
-      requirements: [
-        ...prev.requirements,
-        { id: crypto.randomUUID(), text: "" },
-      ],
-    }));
-  };
-
-  const removeRequirement = (id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      requirements: prev.requirements.filter((r) => r.id !== id),
-    }));
-  };
-
-  const updateRequirement = (id: string, text: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      requirements: prev.requirements.map((r) =>
-        r.id === id ? { ...r, text } : r
-      ),
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const requirementsHtml = formData.requirements.toString('html');
       if (id) {
-        await updateEnquiry(id, formData);
+        await updateEnquiry(id, { ...formData, requirements: requirementsHtml });
         toast.success("Enquiry updated successfully");
       } else {
-        await createEnquiry(formData);
+        await createEnquiry({ ...formData, requirements: requirementsHtml });
         toast.success("Enquiry created successfully");
       }
       navigate("/dashboard/enquiries");
     } catch (error) {
+      console.error("Enquiry submission error:", error);
       toast.error(id ? "Failed to update enquiry" : "Failed to create enquiry");
     }
   };
@@ -185,6 +202,20 @@ export default function EnquiryForm() {
           <div className="grid grid-cols-1 gap-6">
             <div>
               <label className="block font-medium text-gray-700">
+                Enquiry Number
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.enquiryNumber}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, enquiryNumber: e.target.value }))
+                }
+                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-gray-700">
                 Enquiry Name
               </label>
               <input
@@ -197,7 +228,6 @@ export default function EnquiryForm() {
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
-
             <div>
               <label className="block font-medium text-gray-700">
                 Description
@@ -213,6 +243,16 @@ export default function EnquiryForm() {
                 }
                 className="mt-1 block w-full p-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 rows={3}
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-gray-700">Customer Requirements</label>
+              <RichTextEditor
+                value={formData.requirements}
+                onChange={(value) => setFormData((prev) => ({ ...prev, requirements: value }))}
+                toolbarConfig={toolbarConfig}
+                editorStyle={editorStyle}
+                className="prose prose-slate max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-li:text-gray-700"
               />
             </div>
           </div>
@@ -290,7 +330,7 @@ export default function EnquiryForm() {
             </button>
           </div>
           <div className="space-y-4">
-            {formData.deliverables.map((deliverable, index) => (
+            {formData.deliverables.map((deliverable) => (
               <div
                 key={deliverable.id}
                 className="grid grid-cols-1 gap-4 sm:grid-cols-5 items-end border-b pb-4"
@@ -367,45 +407,6 @@ export default function EnquiryForm() {
                     <Trash2 size={18} />
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border-[1px] rounded-xl py-10 px-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">
-              Customer Requirements
-            </h3>
-            <button
-              type="button"
-              onClick={addRequirement}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black/90 hover:bg-black/80"
-            >
-              <Plus size={16} className="mr-1" />
-              Add Requirement
-            </button>
-          </div>
-          <div className="space-y-4">
-            {formData.requirements.map((requirement, index) => (
-              <div key={requirement.id} className="flex space-x-2">
-                <input
-                  type="text"
-                  required
-                  value={requirement.text}
-                  onChange={(e) =>
-                    updateRequirement(requirement.id, e.target.value)
-                  }
-                  placeholder={`Requirement ${index + 1}`}
-                  className="flex-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeRequirement(requirement.id)}
-                  className="p-2 text-red-600 hover:text-red-900"
-                >
-                  <Trash2 size={18} />
-                </button>
               </div>
             ))}
           </div>

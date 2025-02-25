@@ -1,6 +1,6 @@
-import React from 'react';
-import { Plus, Pencil, Trash2, User, Calendar } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import SubTaskItem from './SubTaskItem';
+import { Task } from '@/store/projectStore';
 
 interface SubTask {
   id: string;
@@ -13,11 +13,11 @@ interface SubTask {
 }
 
 interface SubTaskListProps {
-  tasks?: SubTask[];
+  tasks?: Task[];
   onAddClick: () => void;
   onEditClick: (task: SubTask) => void;
   onDeleteClick: (taskId: string) => void;
-  onTaskClick: (task: SubTask) => void;
+  onTaskClick: () => void;
 }
 
 export default function SubTaskList({
@@ -51,9 +51,9 @@ export default function SubTaskList({
               <SubTaskItem
                 key={task.id}
                 task={task}
-                onEditClick={() => onEditClick(task)}
+                onEditClick={() => onEditClick(task as SubTask)}
                 onDeleteClick={() => onDeleteClick(task.id)}
-                onClick={() => onTaskClick(task)}
+                onClick={() => onTaskClick()}
               />
             ))
           )}

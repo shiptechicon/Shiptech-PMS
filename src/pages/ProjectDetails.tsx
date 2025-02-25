@@ -20,6 +20,8 @@ import TaskList from "../components/TaskList";
 import ProjectComments from "../components/ProjectComments";
 import CreateCustomerModal from "../components/CreateCustomerModal";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
+import { Project } from "../store/projectStore";
+import { Task } from "../store/projectStore";
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -35,11 +37,12 @@ export default function ProjectDetails() {
     updateProjectStartDate,
     updateProjectStatus,
   } = useProjectStore();
-  const [project, setProject] = useState<any>(null);
+
+  const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<any>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const [tempDueDate, setTempDueDate] = useState<string>("");
   const [showDueDateConfirm, setShowDueDateConfirm] = useState(false);
@@ -92,10 +95,15 @@ export default function ProjectDetails() {
     checkUserRole();
   }, [id, user, fetchProject, navigate]);
 
-  const handleAddTask = async (data: any) => {
+  const handleAddTask = async (data: Task) => {
     if (!id) return;
     try {
-      await addTask(id, currentPath, data);
+      await addTask(id, currentPath, {
+        ...data,
+        id: crypto.randomUUID(),
+        completed: false,
+        children: []
+      });
       const updatedProject = await fetchProject(id);
       if (updatedProject) {
         setProject({
@@ -110,10 +118,13 @@ export default function ProjectDetails() {
     }
   };
 
-  const handleEditTask = async (data: any) => {
+  const handleEditTask = async (data: Task) => {
     if (!id || !editingTask) return;
     try {
-      await updateTask(id, currentPath, editingTask.id, data);
+      await updateTask(id, currentPath, editingTask.id, {
+        ...editingTask,
+        ...data
+      });
       const updatedProject = await fetchProject(id);
       if (updatedProject) {
         setProject({
@@ -148,7 +159,7 @@ export default function ProjectDetails() {
     }
   };
 
-  const handleTaskClick = (task: any) => {
+  const handleTaskClick = (task: Task) => {
     const newPath = [...currentPath, { id: task.id }];
     setCurrentPath(newPath);
     navigate(
@@ -207,12 +218,14 @@ export default function ProjectDetails() {
   };
 
   const cancelStartDateChange = () => {
+    if (!project) return;
     setTempStartDate(project.project_start_date || "");
     setShowStartDateConfirm(false);
     setIsEditingStartDate(false);
   };
 
   const cancelDueDateChange = () => {
+    if (!project) return;
     setTempDueDate(project.project_due_date || "");
     setShowDueDateConfirm(false);
     setIsEditingDueDate(false);
@@ -221,21 +234,21 @@ export default function ProjectDetails() {
   const downloadInvoice = () => {
     if (!project) return;
 
-    const calculateTaskTotal = (task: any): number => {
+    const calculateTaskTotal = (task: Task): number => {
       const taskTotal = (task.hours || 0) * (task.costPerHour || 0);
       const childrenTotal = task.children.reduce(
-        (sum: number, child: any) => sum + calculateTaskTotal(child),
+        (sum: number, child: Task) => sum + calculateTaskTotal(child),
         0
       );
       return taskTotal + childrenTotal;
     };
 
     const totalAmount = project.tasks.reduce(
-      (sum: number, task: any) => sum + calculateTaskTotal(task),
+      (sum: number, task: Task) => sum + calculateTaskTotal(task),
       0
     );
 
-    const renderTasksRecursively = (tasks: any[], level = 0): string => {
+    const renderTasksRecursively = (tasks: Task[], level = 0): string => {
       return tasks
         .map(
           (task) => `

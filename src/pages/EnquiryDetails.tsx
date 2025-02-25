@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useEnquiryStore } from "../store/enquiryStore";
+import { Enquiry, useEnquiryStore, Deliverable } from "../store/enquiryStore";
 import { Loader2, Pencil, ArrowRight, ArrowLeft } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
@@ -12,7 +12,7 @@ export default function EnquiryDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { fetchEnquiry, convertToProject } = useEnquiryStore();
-  const [enquiry, setEnquiry] = useState<any>(null);
+  const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuthStore();
@@ -161,7 +161,7 @@ export default function EnquiryDetails() {
         </div>
 
         {/* Deliverables Section */}
-        <div className="bg-white  rounded-xl border-[1px] overflow-hidden">
+        <div className="bg-white rounded-xl border-[1px] overflow-hidden">
           <div className="border-b border-gray-200 px-6 py-3">
             <h3 className="text-lg font-medium text-gray-900">Deliverables</h3>
           </div>
@@ -184,7 +184,7 @@ export default function EnquiryDetails() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {enquiry.deliverables.map((deliverable: any) => (
+                {enquiry.deliverables.map((deliverable: Deliverable) => (
                   <tr key={deliverable.id}>
                     <td className="px-3 py-4 text-sm text-gray-900">
                       {deliverable.name}
@@ -210,7 +210,7 @@ export default function EnquiryDetails() {
                   <td className="px-3 py-4 text-sm font-medium text-gray-900 text-right">
                     ₹
                     {enquiry.deliverables.reduce(
-                      (sum: number, d: any) => sum + d.total,
+                      (sum: number, d: Deliverable) => sum + d.total,
                       0
                     )}
                   </td>
@@ -228,17 +228,10 @@ export default function EnquiryDetails() {
             </h3>
           </div>
           <div className="px-6 py-4">
-            <ul className="space-y-2">
-              {enquiry.requirements.map((requirement: any) => (
-                <li
-                  key={requirement.id}
-                  className="text-gray-700 flex items-start"
-                >
-                  <span className="text-gray-400 mr-2">•</span>
-                  <span>{requirement.text}</span>
-                </li>
-              ))}
-            </ul>
+            <div 
+              className="prose prose-slate max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-li:text-gray-700"
+              dangerouslySetInnerHTML={{ __html: enquiry.requirements }}
+            />
           </div>
         </div>
       </div>

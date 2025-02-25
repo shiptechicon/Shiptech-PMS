@@ -1,6 +1,6 @@
-import React from 'react';
 import { User, Calendar, Clock, DollarSign, Check, AlertCircle } from 'lucide-react';
 import ItemStatusBadge from './ItemStatusBadge';
+import { Task } from '@/store/projectStore';
 
 interface ItemDetailsProps {
   item: {
@@ -13,8 +13,9 @@ interface ItemDetailsProps {
     completed: boolean;
     hours?: number;
     costPerHour?: number;
-    children?: any[];
+    children?:Task[];
   };
+  tasks?: Task[];
   onEditClick?: () => void;
   onToggleComplete?: () => void;
   isAdmin?: boolean;
@@ -23,6 +24,7 @@ interface ItemDetailsProps {
 
 export default function ItemDetails({ 
   item, 
+  tasks = [],
   onEditClick, 
   onToggleComplete,
   isAdmin,
@@ -32,9 +34,42 @@ export default function ItemDetails({
     ? item.children.every(child => child.completed)
     : true;
 
+  const calculateProgress = () => {
+    if (!tasks.length) return 0;
+    
+    const completedProgress = tasks.reduce((acc, task) => {
+      if (task.completed) {
+        return acc + (task.percentage || 0);
+      }
+      return acc;
+    }, 0);
+
+    return Math.round(completedProgress);
+  };
+
+  const progress = calculateProgress();
+
   return (
     <div className="bg-white rounded-xl border-[1px] mb-6">
       <div className="p-6">
+        {tasks.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-500">Progress</h3>
+              <span className="text-sm font-medium text-gray-700">{progress}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              {tasks.filter(task => task.completed).length} of {tasks.length} subtasks completed
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-6">
           <div className="flex justify-between items-start">
             <div className="flex-1">
@@ -53,12 +88,12 @@ export default function ItemDetails({
               {onToggleComplete && (
                 <button
                   onClick={onToggleComplete}
-                  disabled={!canComplete || (item.children?.length && !allChildrenComplete)}
+                  disabled={!canComplete || (item.children?.length && !allChildrenComplete)} 
                   className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
                     item.completed
                       ? 'text-yellow-600 hover:text-yellow-700'
                       : 'text-green-600 hover:text-green-700'
-                  } ${(!canComplete || (item.children?.length && !allChildrenComplete)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    } ${(!canComplete || (item.children?.length && !allChildrenComplete)) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {item.completed ? (
                     <>
@@ -129,7 +164,7 @@ export default function ItemDetails({
               <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
               <div className="flex items-center space-x-2">
                 <ItemStatusBadge completed={item.completed} />
-                {item.children?.length > 0 && !allChildrenComplete && (
+                {item.children?.length && item.children.length > 0 && !allChildrenComplete && (
                   <span className="text-sm text-red-600">
                     (Cannot complete - subtasks pending)
                   </span>

@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { Plus, Pencil, Trash2, User, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { Task } from '../store/projectStore';
+import ManagePercentagesModal from './ManagePercentagesModal';
+import { useProjectStore, Task } from '../store/projectStore';
+import { useParams } from 'react-router-dom';
 
 interface TaskListProps {
   tasks: Task[];
@@ -9,6 +12,7 @@ interface TaskListProps {
   onTaskClick: (task: Task) => void;
   isAdmin: boolean;
   currentUserId?: string;
+  onTasksUpdate: (updatedTasks: Task[]) => void;
 }
 
 export default function TaskList({
@@ -20,6 +24,13 @@ export default function TaskList({
   isAdmin,
   currentUserId
 }: TaskListProps) {
+  const [isPercentageModalOpen, setIsPercentageModalOpen] = useState(false);
+  const { projectId } = useParams<{
+    projectId: string;
+    "*": string;
+  }>();
+  const { updateProject, project } = useProjectStore();
+
   // Show add button if user is admin or is assigned to parent task
   const showAddButton = isAdmin || currentUserId;
 
@@ -70,20 +81,48 @@ export default function TaskList({
     };
   };
 
+  const handlePercentagesUpdate = async (updatedTasks: Task[]) => {
+    try {
+      if (!projectId || !project) return;
+
+      // Update the project with new task percentages
+      await updateProject(projectId, {
+        ...project,
+        tasks: project.tasks.map(task => {
+          const updatedTask = updatedTasks.find(t => t.id === task.id);
+          return updatedTask ? { ...task, percentage: updatedTask.percentage } : task;
+        })
+      });
+      
+    } catch (error) {
+      console.error('Error updating percentages:', error);
+    }
+  };
+
   return (
     <div className="bg-white border-[1px] rounded-lg overflow-hidden">
       <div className="border-b border-gray-200 px-6 py-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-900">Tasks</h3>
-          {showAddButton && (
-            <button
-              onClick={onAddClick}
-              className="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium text-white bg-black/90 hover:bg-black/80"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Task
-            </button>
-          )}
+          <div className="flex space-x-2">
+            {isAdmin && (
+              <button
+                onClick={() => setIsPercentageModalOpen(true)}
+                className="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200"
+              >
+                Manage Percentages
+              </button>
+            )}
+            {showAddButton && (
+              <button
+                onClick={onAddClick}
+                className="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium text-white bg-black/90 hover:bg-black/80"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Task
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -124,14 +163,19 @@ export default function TaskList({
                               <span>{task.hours} hours</span>
                             </div>
                           )}
-                          {task.costPerHour && (
+                          {/* {task.costPerHour && (
                             <span>Rate: ₹{task.costPerHour}/hr</span>
-                          )}
+                          )} */}
+                          {/* show the percentage of the task */}
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-sm">
+                            {task.percentage}%
+                          </span>
                           {task.assignedTo && task.assignedTo.length > 0 && (
                             <div className="flex items-center gap-1">
                               <User className="h-4 w-4" />
                               <span>
-                                {task.assignedTo.map(user => user.fullName).join(', ')}
+                                {task.assignedTo[0].fullName}
+                                {task.assignedTo.length > 1 && ` and ${task.assignedTo.length - 1} others`}
                               </span>
                             </div>
                           )}
@@ -172,6 +216,13 @@ export default function TaskList({
           )}
         </div>
       </div>
+
+      <ManagePercentagesModal
+        isOpen={isPercentageModalOpen}
+        onClose={() => setIsPercentageModalOpen(false)}
+        tasks={tasks}
+        onSubmit={handlePercentagesUpdate}
+      />
     </div>
   );
 }

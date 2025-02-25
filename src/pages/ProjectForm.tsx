@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Loader2, Trash2, ArrowLeft } from "lucide-react";
-import { useProjectStore } from "../store/projectStore";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { TimeEntry, useProjectStore } from "../store/projectStore";
 import toast from "react-hot-toast";
 
 interface User {
@@ -20,6 +20,10 @@ interface Task {
   deadline?: string;
   completed: boolean;
   children: Task[];
+  projectId?: string;
+  path?: string;
+  timeEntries?: TimeEntry[];
+  percentage: number;
 }
 
 interface FormData {
@@ -58,7 +62,11 @@ export default function ProjectForm() {
             name: project.name,
             description: project.description,
             customer: project.customer,
-            tasks: project.tasks || [],
+            tasks: project.tasks || [], // Ensure tasks is an array   
+            projectNumber: project.projectNumber,
+            status: project.status,
+            type: project.type,
+            project_due_date: project.project_due_date,
           });
         }
       }
@@ -79,6 +87,7 @@ export default function ProjectForm() {
       }
       navigate("/dashboard/projects");
     } catch (error) {
+      console.error(error);
       toast.error(id ? "Failed to update project" : "Failed to create project");
     }
   };

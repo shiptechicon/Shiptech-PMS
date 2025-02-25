@@ -7,9 +7,9 @@ import {
   User,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
 
-interface UserData {
+export interface UserData {
   createdAt: string;
   email: string;
   fullName: string;

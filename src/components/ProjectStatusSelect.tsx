@@ -1,3 +1,4 @@
+import { Project } from "@/store/projectStore";
 import { ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -19,7 +20,7 @@ const ProjectStatusSelect = ({
   project,
   updateProjectStatus,
 }: {
-  project: { id: string; status?: "completed" | "not-started" | "ongoing" };
+  project: Project;
   updateProjectStatus?: (
     status: "completed" | "not-started" | "ongoing",
     id: string
@@ -79,7 +80,7 @@ const ProjectStatusSelect = ({
                 if (updateProjectStatus) {
                   await updateProjectStatus(
                     option.value as "completed" | "not-started" | "ongoing",
-                    project.id
+                    project.id ?? ""
                   );
                   setSelected(option);
                   setIsOpen(false);
