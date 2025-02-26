@@ -1,14 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "../store/projectStore";
-import {
-  Loader2,
-  ArrowLeft,
-  Play,
-  Square,
-  Clock,
-  User,
-} from "lucide-react";
+import { Loader2, ArrowLeft, Play, Square, Clock, User } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -23,6 +16,7 @@ export default function TaskDetails() {
     projectId: string;
     "*": string;
   }>();
+
   const navigate = useNavigate();
   const {
     getTaskByPath,
@@ -47,7 +41,6 @@ export default function TaskDetails() {
   const { user } = useAuthStore();
 
   useEffect(() => {
-
     const loadTask = async () => {
       if (!projectId || !taskPath) {
         navigate(`/dashboard/projects/${projectId}`);
@@ -68,7 +61,6 @@ export default function TaskDetails() {
             ...data,
             children: data.children || [],
           });
-
 
           // Load time entries
           const entries = await getTaskTimeEntries(projectId, data.id);
@@ -120,8 +112,8 @@ export default function TaskDetails() {
     navigate,
     setCurrentPath,
     getTaskTimeEntries,
-    checkActiveTimer
-  ]); 
+    checkActiveTimer,
+  ]);
 
   // Timer effect
   useEffect(() => {
@@ -180,7 +172,7 @@ export default function TaskDetails() {
       await toggleTaskCompletion(projectId, pathArray || []);
 
       // Refresh task data
-      const updatedTask = await getTaskByPath(projectId, pathArray || [] );
+      const updatedTask = await getTaskByPath(projectId, pathArray || []);
       if (updatedTask) {
         setTask({
           ...updatedTask,
@@ -198,19 +190,21 @@ export default function TaskDetails() {
     }
   };
 
-  const handleAddTask = async (data: Omit<Task, 'id' | 'completed' | 'children'>) => {
+  const handleAddTask = async (
+    data: Omit<Task, "id" | "completed" | "children">
+  ) => {
     if (!projectId || !taskPath) return;
     try {
       const pathArray = taskPath
         .split("/")
         .filter(Boolean)
         .map((id) => ({ id }));
-      
+
       const taskToAdd = {
         ...data,
-        percentage: data.percentage || 0 // Ensure percentage is included
+        percentage: data.percentage || 0, // Ensure percentage is included
       };
-      
+
       await addTask(projectId, pathArray, taskToAdd);
 
       const updatedTask = await getTaskByPath(projectId, pathArray);
@@ -237,11 +231,14 @@ export default function TaskDetails() {
 
       // Ensure we maintain required fields when updating
       const updatedData = {
-        ...editingTask,  // Keep existing task data
-        ...data,         // Override with new data
-        percentage: typeof data.percentage === 'number' ? data.percentage : editingTask.percentage,
-        completed: editingTask.completed,  // Maintain completion status
-        children: editingTask.children     // Maintain children
+        ...editingTask, // Keep existing task data
+        ...data, // Override with new data
+        percentage:
+          typeof data.percentage === "number"
+            ? data.percentage
+            : editingTask.percentage,
+        completed: editingTask.completed, // Maintain completion status
+        children: editingTask.children, // Maintain children
       };
 
       await updateTask(projectId, pathArray, editingTask.id, updatedData);
@@ -354,11 +351,11 @@ export default function TaskDetails() {
   const handleTasksUpdate = (updatedTasks: Task[]) => {
     // Update the local state with new task percentages
     if (task) {
-      setTask(prev => {
+      setTask((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
-          children: updatedTasks
+          children: updatedTasks,
         };
       });
     }
@@ -422,7 +419,19 @@ export default function TaskDetails() {
       </div>
 
       <ItemDetails
-        item={task}
+        item={
+          task as {
+            name: string;
+            description?: string | undefined;
+            assignedTo?: { fullName: string }[] | undefined;
+            deadline?: string | undefined;
+            completed: boolean;
+            hours?: number | undefined;
+            costPerHour?: number | undefined;
+            children?: Task[] | undefined;
+            id: string;
+          }
+        }
         tasks={task.children}
         onEditClick={() => {
           setEditingTask(task);
@@ -472,7 +481,11 @@ export default function TaskDetails() {
         onDeleteClick={handleDeleteTask}
         onTaskClick={handleTaskClick}
         isAdmin={isAdmin}
-        currentUserId={task?.assignedTo?.some(u => u.id === user?.uid) ? user?.uid : undefined}
+        currentUserId={
+          task?.assignedTo?.some((u) => u.id === user?.uid)
+            ? user?.uid
+            : undefined
+        }
         onTasksUpdate={handleTasksUpdate}
       />
 

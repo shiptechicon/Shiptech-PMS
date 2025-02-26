@@ -65,7 +65,7 @@ export default function MemberBasics() {
             {userTasks.map((task) => (
               <div
                 key={task.id}
-                onClick={() => handleTaskClick(task.projectId, task.id)}
+                onClick={() => handleTaskClick(task.projectId as string, task.path as string)}
                 className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
               >
                 <div className="flex justify-between items-start">

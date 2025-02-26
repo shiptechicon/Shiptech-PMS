@@ -7,7 +7,7 @@ import { UserData } from "../store/authStore";
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: Partial<Task>) => void;
+  onSubmit: ((data: Partial<Task>) => Promise<void>) | ((data: Omit<Task, "id" | "completed" | "children">) => Promise<void>);
   initialData?: Task;
 }
 
