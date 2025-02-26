@@ -22,7 +22,7 @@ interface ProjectCommentsProps {
 
 export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   const { comments, loading, fetchComments, addComment } = useCommentStore();
-  const { user } = useAuthStore();
+  const {  user , userData } = useAuthStore();
   const [newComment, setNewComment] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -32,10 +32,10 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (projectId) {
-      fetchComments(projectId);
+    if (projectId && userData?.role) {
+      fetchComments(projectId, userData.role);
     }
-  }, [projectId, fetchComments]);
+  }, [projectId, userData?.role, fetchComments]);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -96,7 +96,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
 
       // Add the comment with attachment URLs and names
       try {
-        await addComment(projectId, newComment, attachments);
+        await addComment(projectId, newComment, userData?.role as string, attachments);
         setNewComment(""); // Clear the comment input
         setSelectedFiles([]); // Clear the selected files
         setUploadProgress([]); // Reset the upload progress

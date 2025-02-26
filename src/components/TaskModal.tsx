@@ -7,7 +7,7 @@ import { UserData } from "../store/authStore";
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: ((data: Partial<Task>) => Promise<void>) | ((data: Omit<Task, "id" | "completed" | "children">) => Promise<void>);
+  onSubmit: (data: Task) => Promise<void>;
   initialData?: Task;
 }
 
@@ -184,7 +184,13 @@ export default function TaskModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    const taskData = {
+      ...formData,
+      id: initialData?.id || '',
+      completed: initialData?.completed || false,
+      children: initialData?.children || []
+    };
+    onSubmit(taskData);
     onClose();
   };
 

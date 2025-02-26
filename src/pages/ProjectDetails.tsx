@@ -98,12 +98,13 @@ export default function ProjectDetails() {
   const handleAddTask = async (data: Task) => {
     if (!id) return;
     try {
-      await addTask(id, currentPath, {
+      const newTask = {
         ...data,
         id: crypto.randomUUID(),
         completed: false,
         children: []
-      });
+      };
+      await addTask(id, currentPath, newTask);
       const updatedProject = await fetchProject(id);
       if (updatedProject) {
         setProject({
@@ -570,7 +571,10 @@ export default function ProjectDetails() {
                   </td>
                   <td className="py-2">
                     <ProjectStatusSelect
-                      project={project}
+                      project={{
+                        id: project.__id,
+                        status: project.status
+                      }}
                       updateProjectStatus={updateProjectStatus}
                     />
                   </td>
@@ -607,7 +611,7 @@ export default function ProjectDetails() {
           setEditingTask(null);
         }}
         onSubmit={editingTask ? handleEditTask : handleAddTask}
-        initialData={editingTask}
+        initialData={editingTask || undefined}
       />
     </div>
   );

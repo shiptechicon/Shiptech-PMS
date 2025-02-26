@@ -13,6 +13,7 @@ interface Comment {
   user: {
     id: string;
     name: string;
+    role?: string;  // Add role to user info
   };
   attachments?: Attachment[]; // Array of attachment objects (URL + name)
   createdAt: string;
@@ -27,8 +28,8 @@ interface CommentState {
   comments: Comment[];
   loading: boolean;
   error: string | null;
-  fetchComments: (projectId: string) => Promise<void>;
-  addComment: (projectId: string, text: string, attachments?: Attachment[]) => Promise<void>;
+  fetchComments: (projectId: string, userRole?: string) => Promise<void>;
+  addComment: (projectId: string, text: string, userRole: string, attachments?: Attachment[]) => Promise<void>;
 }
 
 export const useCommentStore = create<CommentState>((set, get) => ({
@@ -36,7 +37,7 @@ export const useCommentStore = create<CommentState>((set, get) => ({
   loading: false,
   error: null,
 
-  fetchComments: async (projectId: string) => {
+  fetchComments: async (projectId: string, userRole?: string) => {
     try {
       set({ loading: true, error: null });
       const commentsRef = doc(db, 'project_comments', projectId);
@@ -44,8 +45,18 @@ export const useCommentStore = create<CommentState>((set, get) => ({
 
       if (commentsDoc.exists()) {
         const data = commentsDoc.data() as ProjectComments;
+        let filteredComments = data.comments;
+
+        // If user is a member, filter out customer comments
+        if (userRole === 'member') {
+          filteredComments = data.comments.filter(comment => 
+            comment.user.role !== 'customer'
+          );
+        }
+
+        // Sort comments by date
         set({
-          comments: data.comments.sort((a, b) =>
+          comments: filteredComments.sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           ),
           loading: false,
@@ -60,7 +71,7 @@ export const useCommentStore = create<CommentState>((set, get) => ({
     }
   },
 
-  addComment: async (projectId: string, text: string, attachments: Attachment[] = []) => {
+  addComment: async (projectId: string, text: string, userRole: string, attachments: Attachment[] = []) => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
@@ -75,6 +86,7 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         user: {
           id: currentUser.uid,
           name: currentUser.email || 'Anonymous',
+          role: userRole,  // Include user role in comment
         },
         attachments: attachments.length > 0 ? attachments : [], // Set to undefined if no attachments
         createdAt: new Date().toISOString(),
@@ -94,13 +106,19 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         });
       }
 
-      // Update local state
-      const currentComments = get().comments;
-      set({
-        comments: [newComment, ...currentComments],
-        loading: false,
-        error: null,
-      });
+      // Update local state based on user role
+      if (userRole === 'member') {
+        // Only add to local state if it's not a customer comment
+        const currentComments = get().comments;
+        set({
+          comments: [newComment, ...currentComments],
+          loading: false,
+          error: null,
+        });
+      } else {
+        // Refetch to ensure proper filtering
+        await get().fetchComments(projectId, userRole);
+      }
     } catch (error) {
       console.error('Error adding comment:', error);
       set({ error: (error as Error).message, loading: false });

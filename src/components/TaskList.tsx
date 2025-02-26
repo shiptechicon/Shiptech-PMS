@@ -12,7 +12,7 @@ interface TaskListProps {
   onTaskClick: (task: Task) => void;
   isAdmin: boolean;
   currentUserId?: string;
-  onTasksUpdate: (updatedTasks: Task[]) => void;
+  onTasksUpdate?: (updatedTasks: Task[]) => void;
 }
 
 export default function TaskList({
