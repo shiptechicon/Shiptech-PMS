@@ -1,49 +1,84 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useProjectStore } from '../store/projectStore';
+import { Task, useProjectStore } from '../store/projectStore';
+import { useTodoStore } from '../store/todoStore';
+import { useAuthStore } from '../store/authStore';
 
-interface Project {
+interface CalendarItem {
   id?: string;
   name: string;
-  project_due_date?: string | null | undefined;
+  dueDate: string;
+  type: 'project' | 'task' | 'todo';
+  projectId?: string;
+  taskPath?: string;
 }
 
 interface CalendarDay {
   date: Date;
   isCurrentMonth: boolean;
-  projects: Project[];
+  items: CalendarItem[];
 }
 
 export default function ProjectCalendar() {
   const navigate = useNavigate();
   const { projects, fetchProjects } = useProjectStore();
+  const { todos, fetchUserTodos } = useTodoStore();
+  const { user } = useAuthStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendar, setCalendar] = useState<CalendarDay[]>([]);
 
-  // Fetch projects when component mounts
+  // Fetch data when component mounts
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+    fetchUserTodos();
+  }, [fetchProjects, fetchUserTodos]);
 
-  // Generate calendar days for the current month
+  // Generate calendar days with all items
   useEffect(() => {
     const generateCalendar = () => {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       
-      // Get the first day of the month
+      // Get calendar structure
       const firstDayOfMonth = new Date(year, month, 1);
       const startingDayOfWeek = firstDayOfMonth.getDay();
-      
-      // Get the last day of the month
       const lastDayOfMonth = new Date(year, month + 1, 0);
       const totalDaysInMonth = lastDayOfMonth.getDate();
-      
-      // Get the last day of the previous month
       const lastDayOfPrevMonth = new Date(year, month, 0).getDate();
       
       const calendarDays: CalendarDay[] = [];
+
+      // Collect all calendar items
+      const calendarItems: CalendarItem[] = [
+        // Project deadlines
+        ...projects.map(project => ({
+          id: project.id,
+          name: project.name,
+          dueDate: project.project_due_date!,
+          type: 'project' as const
+        })).filter(item => item.dueDate),
+
+        // All tasks with deadlines from all projects
+        ...projects.flatMap(project => 
+          getAllTasksWithDeadlines(project.tasks).map(task => ({
+            id: task.id,
+            name: task.name,
+            dueDate: task.deadline!,
+            type: 'task' as const,
+            projectId: project.id,
+            taskPath: task.path
+          }))
+        ),
+
+        // Todo deadlines
+        ...todos.map(todo => ({
+          id: todo.id,
+          name: todo.title,
+          dueDate: todo.endDate,
+          type: 'todo' as const
+        }))
+      ];
       
       // Add days from previous month
       for (let i = startingDayOfWeek - 1; i >= 0; i--) {
@@ -51,40 +86,29 @@ export default function ProjectCalendar() {
         calendarDays.push({
           date,
           isCurrentMonth: false,
-          projects: []
+          items: getItemsForDate(date, calendarItems)
         });
       }
       
       // Add days from current month
       for (let i = 1; i <= totalDaysInMonth; i++) {
         const date = new Date(year, month, i);
-        date.setHours(0, 0, 0, 0); // Reset time part for comparison
-        
-        // Find projects due on this date
-        const dueProjects = projects.filter(project => {
-          if (!project.project_due_date) return false;
-          
-          const dueDate = new Date(project.project_due_date);
-          dueDate.setHours(0, 0, 0, 0); // Reset time part for comparison
-          
-          return dueDate.getTime() === date.getTime();
-        });
-        
+        date.setHours(0, 0, 0, 0);
         calendarDays.push({
           date,
           isCurrentMonth: true,
-          projects: dueProjects
+          items: getItemsForDate(date, calendarItems)
         });
       }
       
-      // Add days from next month to complete the grid
-      const remainingDays = 42 - calendarDays.length; // 6 rows × 7 days
+      // Add days from next month
+      const remainingDays = 42 - calendarDays.length;
       for (let i = 1; i <= remainingDays; i++) {
         const date = new Date(year, month + 1, i);
         calendarDays.push({
           date,
           isCurrentMonth: false,
-          projects: []
+          items: getItemsForDate(date, calendarItems)
         });
       }
       
@@ -92,7 +116,51 @@ export default function ProjectCalendar() {
     };
 
     generateCalendar();
-  }, [currentDate, projects]);
+  }, [currentDate, projects, todos]);
+
+  // Helper function to recursively get all tasks with deadlines
+  const getAllTasksWithDeadlines = (tasks: Task[]): Task[] => {
+    return tasks.reduce((acc: Task[], task: Task) => {
+      const tasksWithDeadlines: Task[] = [];
+      
+      // Add current task if it has a deadline
+      if (task.deadline) {
+        tasksWithDeadlines.push(task);
+      }
+      
+      // Recursively add child tasks with deadlines
+      if (task.children && task.children.length > 0) {
+        tasksWithDeadlines.push(...getAllTasksWithDeadlines(task.children));
+      }
+      
+      return [...acc, ...tasksWithDeadlines];
+    }, []);
+  };
+
+  const getItemsForDate = (date: Date, items: CalendarItem[]) => {
+    return items.filter(item => {
+      const itemDate = new Date(item.dueDate);
+      return (
+        itemDate.getDate() === date.getDate() &&
+        itemDate.getMonth() === date.getMonth() &&
+        itemDate.getFullYear() === date.getFullYear()
+      );
+    });
+  };
+
+  const handleItemClick = (item: CalendarItem) => {
+    switch (item.type) {
+      case 'project':
+        navigate(`/dashboard/projects/${item.id}`);
+        break;
+      case 'task':
+        navigate(`/dashboard/projects/${item.projectId}/task/${item.id}`);
+        break;
+      case 'todo':
+        navigate('/dashboard/todos');
+        break;
+    }
+  };
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
@@ -165,15 +233,21 @@ export default function ProjectCalendar() {
             }`}>
               {day.date.getDate()}
             </div>
-            <div className="space-y-1">
-              {day.projects.map(project => (
+            <div className="space-y-1 max-h-[80px] overflow-y-auto">
+              {day.items.map((item, i) => (
                 <div
-                  key={project.id}
-                  onClick={() => navigate(`/dashboard/projects/${project.id}`)}
-                  className="text-xs bg-black/90 text-white rounded px-2 py-1 truncate cursor-pointer hover:bg-black/80"
-                  title={project.name}
+                  key={`${item.id}-${i}`}
+                  onClick={() => handleItemClick(item)}
+                  className={`text-xs px-2 py-1 rounded truncate cursor-pointer ${
+                    item.type === 'project' 
+                      ? 'bg-black/90 text-white hover:bg-black/80'
+                      : item.type === 'task'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                  title={`${item.type.toUpperCase()}: ${item.name}`}
                 >
-                  {project.name}
+                  {item.name}
                 </div>
               ))}
             </div>
