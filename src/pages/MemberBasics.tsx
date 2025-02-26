@@ -2,17 +2,20 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from '../store/projectStore';
 import { useAttendanceStore } from '../store/attendanceStore';
-import { Calendar, Clock, AlertCircle, UserCheck } from 'lucide-react';
+import { useTodoStore } from '../store/todoStore';
+import { Calendar, Clock, AlertCircle, UserCheck, ListTodo } from 'lucide-react';
 
 export default function MemberBasics() {
   const navigate = useNavigate();
-  const { userTasks, fetchUserTasks, loading } = useProjectStore();
+  const { userTasks, fetchUserTasks, loading: tasksLoading } = useProjectStore();
   const { checkAttendance } = useAttendanceStore();
+  const { todos, loading: todosLoading, fetchUserTodos } = useTodoStore();
   const [hasMarkedAttendance, setHasMarkedAttendance] = React.useState(true);
 
   useEffect(() => {
     fetchUserTasks();
-  }, [fetchUserTasks]);
+    fetchUserTodos();
+  }, [fetchUserTasks, fetchUserTodos]);
 
   useEffect(() => {
     const checkUserAttendance = async () => {
@@ -22,11 +25,17 @@ export default function MemberBasics() {
     checkUserAttendance();
   }, [checkAttendance]);
 
+  // Get upcoming todos (nearest 2 by due date that aren't completed)
+  const upcomingTodos = todos
+    .filter(todo => !todo.completed && new Date(todo.endDate) >= new Date())
+    .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+    .slice(0, 2);
+
   const handleTaskClick = (projectId: string, taskPath: string) => {
     navigate(`/dashboard/projects/${projectId}/task/${taskPath}`);
   };
 
-  if (loading) {
+  if (tasksLoading || todosLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
@@ -51,6 +60,42 @@ export default function MemberBasics() {
         </div>
       )}
 
+      {/* Upcoming Todos Section */}
+      {upcomingTodos.length > 0 && (
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2  className="text-2xl font-bold">Upcoming Todos</h2>
+            <button
+              onClick={() => navigate('/dashboard/todos')}
+              className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            >
+              <span>View All</span>
+              <ListTodo className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="bg-white rounded-lg shadow divide-y">
+            {upcomingTodos.map(todo => (
+              <div key={todo.id} className="p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-gray-900">{todo.title}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{todo.description}</p>
+                    <div className="flex items-center mt-2 text-sm text-gray-500">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      <span>Due: {new Date(todo.endDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">
+                    Pending
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Existing Tasks Section */}
       <h2 className="text-2xl font-bold mb-6">My Tasks</h2>
       <div className="bg-white rounded-lg shadow">
         {userTasks.length === 0 ? (

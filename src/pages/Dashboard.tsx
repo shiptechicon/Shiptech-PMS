@@ -7,6 +7,7 @@ import {
   FileQuestion,
   Briefcase,
   UserCheck,
+  ListTodo,
 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -22,6 +23,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useLeaveStore } from "@/store/leaveStore";
 import { useWorkFromStore } from "@/store/workfromhomestore";
 import AttendanceModal from "@/components/AttendanceModal";
+import Todos from './Todos';
 
 export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -186,6 +188,19 @@ export default function Dashboard() {
               <UserCheck size={20} />
               {!isCollapsed && <span>Attendance</span>}
             </NavLink>
+            <NavLink
+              to="/dashboard/todos"
+              className={({ isActive }) =>
+                `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${
+                  isActive
+                    ? "bg-black/90 text-white"
+                    : "text-gray-700 hover:bg-gray-50"
+                } ${isCollapsed ? "justify-center p-2" : " p-4"}`
+              }
+            >
+              <ListTodo size={20} />
+              {!isCollapsed && <span>Todos</span>}
+            </NavLink>
           </nav>
         </div>
 
@@ -199,6 +214,7 @@ export default function Dashboard() {
             <Route path="/projects/:id/edit" element={<ProjectForm />} />
             <Route path="/projects/new" element={<ProjectForm />} />
             <Route path="/attendance" element={<Attendance />} />
+            <Route path="/todos" element={<Todos />} />
           </Routes>
         </div>
 
