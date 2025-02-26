@@ -12,10 +12,7 @@ import ItemDetails from "../components/ItemDetails";
 import { Task, TimeEntry } from "../store/projectStore";
 
 export default function TaskDetails() {
-  const { projectId, "*": taskPath } = useParams<{
-    projectId: string;
-    "*": string;
-  }>();
+  const { id : projectId, "*": taskPath } = useParams();
 
   const navigate = useNavigate();
   const {
@@ -39,6 +36,8 @@ export default function TaskDetails() {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [elapsedTime, setElapsedTime] = useState<string>("00:00:00");
   const { user } = useAuthStore();
+  const [currentDuration, setCurrentDuration] = useState<number>(0);
+  const [isTimerActive, setIsTimerActive] = useState(false);
 
   useEffect(() => {
     const loadTask = async () => {
@@ -62,9 +61,21 @@ export default function TaskDetails() {
             children: data.children || [],
           });
 
-          // Load time entries
+          // Load time entries and set current duration
           const entries = await getTaskTimeEntries(projectId, data.id);
           setTimeEntries(entries);
+          
+          // Find current user's entry and set initial duration
+          const userEntry = entries.find(entry => entry.userId === user?.uid);
+          if (userEntry) {
+            setCurrentDuration(userEntry.duration || 0);
+            // Display the current duration
+            const minutes = Math.floor(userEntry.duration);
+            const seconds = Math.round((userEntry.duration % 1) * 100);
+            setElapsedTime(
+              `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+            );
+          }
         } else {
           toast.error("Task not found");
           navigate(`/dashboard/projects/${projectId}`);
@@ -119,28 +130,28 @@ export default function TaskDetails() {
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
-    if (activeTimer.startTime && activeTimer.taskId === task?.id) {
+    if (isTimerActive && activeTimer.startTime && activeTimer.taskId === task?.id) {
       const updateElapsedTime = () => {
         const start = new Date(activeTimer.startTime!).getTime();
         const now = new Date().getTime();
-        const elapsed = Math.floor((now - start) / 1000); // elapsed seconds
+        const elapsedSeconds = Math.floor((now - start) / 1000);
 
-        const hours = Math.floor(elapsed / 3600);
-        const minutes = Math.floor((elapsed % 3600) / 60);
-        const seconds = elapsed % 60;
+        // Calculate total seconds including the current duration
+        const totalMinutes = Math.floor(currentDuration);
+        const totalSeconds = Math.round((currentDuration % 1) * 100);
+        const totalElapsedSeconds = (totalMinutes * 60) + totalSeconds + elapsedSeconds;
+
+        // Convert back to minutes and seconds
+        const minutes = Math.floor(totalElapsedSeconds / 60);
+        const seconds = totalElapsedSeconds % 60;
 
         setElapsedTime(
-          `${hours.toString().padStart(2, "0")}:${minutes
-            .toString()
-            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+          `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
         );
       };
 
-      // Update immediately and then every second
       updateElapsedTime();
       intervalId = setInterval(updateElapsedTime, 1000);
-    } else {
-      setElapsedTime("00:00:00");
     }
 
     return () => {
@@ -148,7 +159,7 @@ export default function TaskDetails() {
         clearInterval(intervalId);
       }
     };
-  }, [activeTimer.startTime, activeTimer.taskId, task?.id]);
+  }, [isTimerActive, activeTimer, task?.id, currentDuration]);
 
   const handleToggleComplete = async () => {
     if (!projectId || !task) return;
@@ -222,6 +233,7 @@ export default function TaskDetails() {
   };
 
   const handleEditTask = async (data: Partial<Task>) => {
+    console.log('Editing task:', data);
     if (!projectId || !taskPath || !editingTask) return;
     try {
       const pathArray = taskPath
@@ -288,31 +300,36 @@ export default function TaskDetails() {
   };
 
   const handleStartTimer = async () => {
-    if (!projectId || !task) return;
     try {
+      if (!projectId || !task) return;
       await startTimer(projectId, task.id);
-      toast.success("Timer started");
-
-      // Refresh time entries
-      const entries = await getTaskTimeEntries(projectId, task.id);
-      setTimeEntries(entries);
+      setIsTimerActive(true);
     } catch (error) {
-      console.error("Failed to start timer:", error);
+      console.error("Error starting timer:", error);
       toast.error("Failed to start timer");
     }
   };
 
   const handleStopTimer = async () => {
-    if (!projectId || !task) return;
     try {
+      if (!projectId || !task) return;
       await stopTimer(projectId, task.id);
-      toast.success("Timer stopped");
-
-      // Refresh time entries
+      setIsTimerActive(false);
+      
+      // Update current duration from the latest time entries
       const entries = await getTaskTimeEntries(projectId, task.id);
-      setTimeEntries(entries);
+      const userEntry = entries.find(entry => entry.userId === user?.uid);
+      if (userEntry) {
+        setCurrentDuration(userEntry.duration || 0);
+        // Display the updated duration
+        const minutes = Math.floor(userEntry.duration);
+        const seconds = Math.round((userEntry.duration % 1) * 100);
+        setElapsedTime(
+          `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+        );
+      }
     } catch (error) {
-      console.error("Failed to stop timer:", error);
+      console.error("Error stopping timer:", error);
       toast.error("Failed to stop timer");
     }
   };
@@ -343,7 +360,6 @@ export default function TaskDetails() {
     return `${hours}h ${remainingMinutes}m`;
   };
 
-  const isTimerActive = activeTimer.taskId === task?.id;
   const isAssignedToCurrentUser = task?.assignedTo?.some(
     (u) => u.id === user?.uid
   );
@@ -388,7 +404,7 @@ export default function TaskDetails() {
         </div>
         {isAssignedToCurrentUser && (
           <div className="flex items-center space-x-4">
-            {isTimerActive && (
+            {(isTimerActive || currentDuration > 0) && (
               <div className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-md">
                 <Clock className="h-4 w-4" />
                 <span className="font-mono">{elapsedTime}</span>

@@ -13,8 +13,7 @@ export interface TimeEntry {
   userId: string;
   userName: string;
   startTime: string;
-  endTime?: string;
-  duration?: number; // in minutes
+  duration: number; // in minutes - total accumulated time
 }
 
 export interface Task {
@@ -90,6 +89,16 @@ interface ProjectState {
   fetchUsers: () => Promise<User[]>;
   users: User[];
 }
+
+const calculateDurationWithDecimals = (startTime: string): number => {
+  const start = new Date(startTime).getTime();
+  const now = new Date().getTime();
+  const elapsedSeconds = (now - start) / 1000;
+  const minutes = Math.floor(elapsedSeconds / 60);
+  const remainingSeconds = Math.floor(elapsedSeconds % 60);
+  // Convert to format like 1.23 for 1 minute 23 seconds
+  return Number(`${minutes}.${remainingSeconds.toString().padStart(2, '0')}`);
+};
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: [],
@@ -175,6 +184,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       set({ loading: true, error: null });
       const docRef = doc(db, 'projects', id);
+
+      if(get().projects.length == 0) {
+        await get().fetchProjects();
+      }
       
       const cleanTasks = (tasks: Task[]): Task[] => {
         return tasks.map(task => ({
@@ -209,8 +222,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         project_due_date: projectData.project_due_date || null
       };
 
-      await updateDoc(docRef, cleanProjectData);
+      console.log('cleanProjectData', cleanProjectData);
       
+
+       await updateDoc(docRef, cleanProjectData);
+
       const updatedProjects = get().projects.map(project =>
         project.id === id ? { 
           ...project,
@@ -313,6 +329,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateTask: async (projectId, path, taskId, data) => {
     try {
+      console.log('Updating task:', projectId, path, taskId, data);
       set({ loading: true, error: null });
       const project = await get().fetchProject(projectId);
       if (!project) throw new Error('Project not found');
@@ -496,16 +513,39 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const updateTaskTimer = (tasks: Task[]): Task[] => {
         return tasks.map(task => {
           if (task.id === taskId) {
-            const timeEntry: TimeEntry = {
-              id: crypto.randomUUID(),
-              userId: currentUser.uid,
-              userName: currentUser.displayName || currentUser.email || 'Unknown User',
-              startTime: new Date().toISOString(),
-            };
-            return {
-              ...task,
-              timeEntries: [...(task.timeEntries || []), timeEntry]
-            };
+            const timeEntries = task.timeEntries || [];
+            const existingUserEntry = timeEntries.find(entry => entry.userId === currentUser.uid);
+
+            if (existingUserEntry) {
+              // Keep the existing duration and just update start time
+              const updatedEntries = timeEntries.map(entry => {
+                if (entry.userId === currentUser.uid) {
+                  return {
+                    ...entry,
+                    startTime: new Date().toISOString(),
+                    // Keep the existing duration - don't reset to 0
+                  };
+                }
+                return entry;
+              });
+              return {
+                ...task,
+                timeEntries: updatedEntries
+              };
+            } else {
+              // Create new entry for user
+              const newEntry: TimeEntry = {
+                id: crypto.randomUUID(),
+                userId: currentUser.uid,
+                userName: currentUser.email || 'Unknown User',
+                startTime: new Date().toISOString(),
+                duration: 0 // Initial duration for new entries
+              };
+              return {
+                ...task,
+                timeEntries: [...timeEntries, newEntry]
+              };
+            }
           }
           if (task.children && task.children.length > 0) {
             return {
@@ -545,20 +585,35 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         return tasks.map(task => {
           if (task.id === taskId) {
             const timeEntries = task.timeEntries || [];
-            const lastEntry = timeEntries[timeEntries.length - 1];
-            if (lastEntry && !lastEntry.endTime && lastEntry.userId === currentUser.uid) {
-              const endTime = new Date().toISOString();
-              const duration = Math.round(
-                (new Date(endTime).getTime() - new Date(lastEntry.startTime).getTime()) / 60000
-              );
-              const updatedEntry = {
-                ...lastEntry,
-                endTime,
-                duration
-              };
+            const userEntry = timeEntries.find(entry => entry.userId === currentUser.uid);
+            
+            if (userEntry) {
+              const elapsedDuration = calculateDurationWithDecimals(userEntry.startTime);
+              
+              const updatedEntries = timeEntries.map(entry => {
+                if (entry.userId === currentUser.uid) {
+                  // Add new duration to existing duration, maintaining decimal format
+                  const currentDuration = entry.duration || 0;
+                  const totalMinutes = Math.floor(currentDuration) + Math.floor(elapsedDuration);
+                  const totalSeconds = Math.round((
+                    (currentDuration % 1 + elapsedDuration % 1) * 100
+                  ));
+                  
+                  // Handle case where seconds >= 60
+                  const adjustedMinutes = totalMinutes + Math.floor(totalSeconds / 60);
+                  const adjustedSeconds = totalSeconds % 60;
+                  
+                  return {
+                    ...entry,
+                    duration: Number(`${adjustedMinutes}.${adjustedSeconds.toString().padStart(2, '0')}`)
+                  };
+                }
+                return entry;
+              });
+
               return {
                 ...task,
-                timeEntries: [...timeEntries.slice(0, -1), updatedEntry]
+                timeEntries: updatedEntries
               };
             }
             return task;
@@ -640,8 +695,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             const lastEntry = timeEntries[timeEntries.length - 1];
             
             if (lastEntry && 
-                lastEntry.userId === currentUser.uid && 
-                !lastEntry.endTime) {
+                lastEntry.userId === currentUser.uid ) {
               set({ 
                 activeTimer: {
                   taskId: task.id,
@@ -725,4 +779,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       return [];
     }
   },
+
+  formatDuration: (duration: number) => {
+    const minutes = Math.floor(duration);
+    const seconds = Math.round((duration % 1) * 100);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
 }));

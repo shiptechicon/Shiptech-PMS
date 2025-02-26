@@ -20,7 +20,10 @@ const ProjectStatusSelect = ({
   project,
   updateProjectStatus,
 }: {
-  project: Project;
+  project: {
+    id: string;
+    status: string;
+  };
   updateProjectStatus?: (
     status: "completed" | "not-started" | "ongoing",
     id: string
