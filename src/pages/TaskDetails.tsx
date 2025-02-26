@@ -502,7 +502,6 @@ export default function TaskDetails() {
             ? user?.uid
             : undefined
         }
-        onTasksUpdate={handleTasksUpdate}
       />
 
       <TaskModal

@@ -572,10 +572,11 @@ export default function ProjectDetails() {
                   <td className="py-2">
                     <ProjectStatusSelect
                       project={{
-                        id: project.__id,
+                        id: project.id as string,
                         status: project.status
                       }}
                       updateProjectStatus={updateProjectStatus}
+                      tasks={project.tasks}
                     />
                   </td>
                 </tr>

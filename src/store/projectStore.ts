@@ -72,7 +72,7 @@ interface ProjectState {
   fetchProject: (id: string) => Promise<Project | null>;
   createProject: (project: Omit<Project, 'id' | '__id' | 'createdAt' | 'project_due_date'> & { tasks: Task[]; type: 'project' }) => Promise<void>;
   updateProject: (id: string, project: Omit<Project, 'id' | '__id' | 'createdAt' | 'type'>) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
+  deleteProject: (projectId: string) => Promise<void>;
   addTask: (projectId: string, path: PathItem[], task: Omit<Task, 'id' | 'children' | 'completed'>) => Promise<void>;
   updateTask: (projectId: string, path: PathItem[], taskId: string, data: Partial<Task>) => Promise<void>;
   deleteTask: (projectId: string, path: PathItem[], taskId: string) => Promise<void>;
@@ -245,12 +245,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  deleteProject: async (id) => {
+  deleteProject: async (projectId: string) => {
     try {
       set({ loading: true, error: null });
-      await deleteDoc(doc(db, 'projects', id));
-      const updatedProjects = get().projects.filter(project => project.id !== id);
-      set({ projects: updatedProjects, loading: false });
+      await deleteDoc(doc(db, 'projects', projectId));
+      
+      // Update local state
+      const currentProjects = get().projects;
+      set({ 
+        projects: currentProjects.filter(p => p.id !== projectId),
+        loading: false 
+      });
     } catch (error) {
       console.error('Error deleting project:', error);
       set({ error: (error as Error).message, loading: false });

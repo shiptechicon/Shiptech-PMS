@@ -1,6 +1,7 @@
-import { Project } from "@/store/projectStore";
+import {  Task } from "@/store/projectStore";
 import { ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import CompletionSummaryModal from './CompletionSummaryModal';
 
 const statusOptions = [
   {
@@ -16,20 +17,22 @@ const statusOptions = [
   { value: "ongoing", label: "Ongoing", color: "bg-blue-100 text-blue-700" },
 ];
 
+interface ProjectStatusSelectProps {
+  project: {
+    id: string;
+    status: 'completed' | 'ongoing' | 'not-started';
+  };
+  updateProjectStatus?: (status: 'completed' | 'ongoing' | 'not-started', projectId: string) => Promise<void>;
+  tasks?: Task[];
+}
+
 const ProjectStatusSelect = ({
   project,
   updateProjectStatus,
-}: {
-  project: {
-    id: string;
-    status: string;
-  };
-  updateProjectStatus?: (
-    status: "completed" | "not-started" | "ongoing",
-    id: string
-  ) => Promise<void>;
-}) => {
+  tasks = []
+}: ProjectStatusSelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState(statusOptions[1]);
 
@@ -53,49 +56,73 @@ const ProjectStatusSelect = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [project]);
 
-  return (
-    <div className="relative inline-block w-40" ref={dropdownRef}>
-      {/* Selected Status (Badge) */}
-      <div
-        className={`${updateProjectStatus ? 'cursor-pointer text-base' : 'text-[12px]'} flex items-center gap-1 w-fit min-w-28 justify-center  px-4 py-2 rounded-full text-sm text-center transition-all ${selected.color}`}
-        onClick={() => {
-          if (updateProjectStatus) setIsOpen(!isOpen);
-        }}
-      >
-        {selected.label}
+  const handleStatusChange = async (option: typeof statusOptions[0]) => {
+    if (option.value === 'completed') {
+      setShowCompletionModal(true);
+    } else {
+      if (updateProjectStatus) {
+        await updateProjectStatus(
+          option.value as 'completed' | 'ongoing' | 'not-started',
+          project.id
+        );
+      }
+    }
+    setSelected(option);
+    setIsOpen(false);
+  };
 
-        {updateProjectStatus && (
-          <ChevronDown
-            className={`${isOpen ? "rotate-180" : ""} transition-all`}
-            size={20}
-          />
+  return (
+    <>
+      <div className="relative inline-block w-40" ref={dropdownRef}>
+        {/* Selected Status (Badge) */}
+        <div
+          className={`${updateProjectStatus ? 'cursor-pointer text-base' : 'text-[12px]'} flex items-center gap-1 w-fit min-w-28 justify-center  px-4 py-2 rounded-full text-sm text-center transition-all ${selected.color}`}
+          onClick={() => {
+            if (updateProjectStatus) setIsOpen(!isOpen);
+          }}
+        >
+          {selected.label}
+
+          {updateProjectStatus && (
+            <ChevronDown
+              className={`${isOpen ? "rotate-180" : ""} transition-all`}
+              size={20}
+            />
+          )}
+        </div>
+
+        {/* Dropdown Menu */}
+        {isOpen && (
+          <div className="absolute mt-2 w-full bg-white shadow-md rounded-md border border-gray-200 z-10">
+            {statusOptions.map((option) => (
+              <div
+                key={option.value}
+                className={`px-4 py-2 cursor-pointer text-sm transition-all hover:bg-gray-100 ${option.color}`}
+                onClick={() => handleStatusChange(option)}
+              >
+                {option.label}
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute mt-2 w-full bg-white shadow-md rounded-md border border-gray-200 z-10">
-          {statusOptions.map((option) => (
-            <div
-              key={option.value}
-              className={`px-4 py-2 cursor-pointer text-sm transition-all hover:bg-gray-100 ${option.color}`}
-              onClick={async () => {
-                if (updateProjectStatus) {
-                  await updateProjectStatus(
-                    option.value as "completed" | "not-started" | "ongoing",
-                    project.id ?? ""
-                  );
-                  setSelected(option);
-                  setIsOpen(false);
-                }
-              }}
-            >
-              {option.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      <CompletionSummaryModal
+        isOpen={showCompletionModal}
+        onClose={() => {
+          setShowCompletionModal(false);
+          // Reset selected status if user cancels
+          setSelected(statusOptions.find(s => s.value === project.status) || statusOptions[1]);
+        }}
+        onComplete={async () => {
+          if (updateProjectStatus) {
+            await updateProjectStatus('completed', project.id);
+          }
+          setShowCompletionModal(false);
+        }}
+        tasks={tasks}
+      />
+    </>
   );
 };
 

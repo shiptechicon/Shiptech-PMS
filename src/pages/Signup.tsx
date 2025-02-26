@@ -31,7 +31,7 @@ export default function Signup() {
     <div className="min-h-screen watermark bg-white flex items-center justify-center">
       <div className="bg-white p-8 rounded-lg  w-96">
         <div className="flex flex-col items-center gap-2">
-          <Ship className="h-16 w-16 text-blue-600" />
+          <img src="/logo-192x192.png" alt="ShipTech PMS" className="h-20" />
           <h2 className="text-2xl font-semibold text-center mb-6">
             Create an account for <span className="font-bold">ShipTech PMS</span>
           </h2>

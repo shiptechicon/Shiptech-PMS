@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useProjectStore } from "../store/projectStore";
-import { Loader2, ExternalLink, Plus } from "lucide-react";
+import { Loader2, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import toast from "react-hot-toast";
 
 export default function Projects() {
-  const { projects, loading, fetchProjects, createProject } = useProjectStore();
+  const { projects, loading, fetchProjects, createProject, deleteProject } = useProjectStore();
   const navigate = useNavigate();
 
   const [projectNumber, setProjectNumber] = useState("");
@@ -44,6 +44,20 @@ export default function Projects() {
     } catch (error) {
       console.error("Error creating project:", error);
       toast.error("Failed to create project");
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteProject(projectId);
+      toast.success('Project deleted successfully');
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast.error('Failed to delete project');
     }
   };
 
@@ -227,14 +241,21 @@ export default function Projects() {
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() =>
-                        navigate(`/dashboard/projects/${project.id}`)
-                      }
-                      className="text-black/90 hover:text-black/80"
-                    >
-                      <ExternalLink size={18} />
-                    </button>
+                    <div className="flex justify-end items-center space-x-3">
+                      <button
+                        onClick={() => navigate(`/dashboard/projects/${project.id}`)}
+                        className="text-black/90 hover:text-black/80"
+                      >
+                        <ExternalLink size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProject(project.id!)}
+                        className="text-red-600 hover:text-red-800"
+                        title="Delete project"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
