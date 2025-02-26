@@ -82,3 +82,21 @@ textarea{
     @apply bg-background text-foreground;
   }
 }
+
+.watermark {
+  position: relative;
+  isolation: isolate;
+}
+
+.watermark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/public/images/watermark-logo.png'); /* Replace with your image path */
+  background-position: center;
+  background-repeat: repeat;
+  background-size: 20%;
+  opacity: 0.05;
+  z-index: -1;
+  pointer-events: none;
+}

@@ -89,7 +89,7 @@ export default function AdminPanel() {
     : users.filter(user => !user.verified);
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-8">
+    <div className="min-h-screen bg-zinc-100 py-8 watermark">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-xl overflow-hidden shadow-md">
           {/* Header */}

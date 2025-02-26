@@ -90,7 +90,7 @@ export default function Dashboard() {
   }, [allLeaveRequests, allWorkFromRequests, user?.uid]);
 
   return (
-    <div className="min-h-screen bg-bggray flex flex-col">
+    <div className="min-h-screen watermark bg-gray-50 flex flex-col">
       {isAdmin && pendingRequests.length > 0 && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
           <div className="flex">

@@ -32,7 +32,7 @@ export default function Basics() {
   }
 
   return (
-    <div className="">
+    <div>
       <MemberBasics />
       {isAdmin && <AdminBasics />}
     </div>

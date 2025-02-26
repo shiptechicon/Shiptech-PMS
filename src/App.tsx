@@ -152,7 +152,7 @@ function App() {
   }
 
   return (
-    <>
+    <div >
       <Navbar />
       <Routes>
         <Route
@@ -215,7 +215,7 @@ function App() {
         />
       </Routes>
       <Toaster position="top-right" />
-    </>
+    </div>
   );
 }
 
