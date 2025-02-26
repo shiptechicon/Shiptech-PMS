@@ -3,6 +3,7 @@ import { db } from '../lib/firebase';
 import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { Users, UserCheck, Loader2, UserX } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ChangeDesignationModal from '../components/ChangeDesignationModal';
 
 interface User {
   id: string;
@@ -11,6 +12,7 @@ interface User {
   role: string;
   verified: boolean;
   createdAt: string;
+  designation: string;
 }
 
 export default function AdminPanel() {
@@ -18,6 +20,8 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'unverified'>('all');
   const [processingUser, setProcessingUser] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isDesignationModalOpen, setIsDesignationModalOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -70,6 +74,14 @@ export default function AdminPanel() {
     } finally {
       setProcessingUser(null);
     }
+  };
+
+  const handleDesignationChange = (newDesignation: string) => {
+    setUsers(users.map(user => 
+      user.id === selectedUser?.id 
+        ? { ...user, designation: newDesignation }
+        : user
+    ));
   };
 
   const displayedUsers = activeTab === 'all' 
@@ -125,6 +137,9 @@ export default function AdminPanel() {
                       Email
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Designation
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
                     </th>
                     {activeTab === 'unverified' && (
@@ -152,6 +167,9 @@ export default function AdminPanel() {
                         <div className="text-sm text-gray-500">{user.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{user.designation ?? "User"}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{user.role}</div>
                       </td>
                       {activeTab === 'unverified' && (
@@ -165,33 +183,46 @@ export default function AdminPanel() {
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {activeTab === 'unverified' ? (
-                          <button
-                            onClick={() => verifyUser(user.id)}
-                            disabled={processingUser === user.id}
-                            className="text-blue-600 hover:text-blue-900 flex items-center justify-end space-x-1"
-                          >
-                            {processingUser === user.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <UserCheck className="h-4 w-4" />
-                            )}
-                            <span>Verify</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => unverifyUser(user.id)}
-                            disabled={processingUser === user.id}
-                            className="text-red-600 hover:text-red-900 flex items-center justify-end space-x-1"
-                          >
-                            {processingUser === user.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <UserX className="h-4 w-4" />
-                            )}
-                            <span>Unverify</span>
-                          </button>
-                        )}
+                        <div className="flex justify-end gap-2">
+                          {activeTab === 'unverified' ? (
+                            <button
+                              onClick={() => verifyUser(user.id)}
+                              disabled={processingUser === user.id}
+                              className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                            >
+                              {processingUser === user.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <UserCheck className="h-4 w-4" />
+                              )}
+                              <span>Verify</span>
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => unverifyUser(user.id)}
+                                disabled={processingUser === user.id}
+                                className="text-red-600 hover:text-red-900 flex items-center space-x-1"
+                              >
+                                {processingUser === user.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <UserX className="h-4 w-4" />
+                                )}
+                                <span>Unverify</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setIsDesignationModalOpen(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                Change Designation
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -201,6 +232,20 @@ export default function AdminPanel() {
           </div>
         </div>
       </div>
+
+      {/* Add the modal at the end of your JSX */}
+      {selectedUser && (
+        <ChangeDesignationModal
+          isOpen={isDesignationModalOpen}
+          onClose={() => {
+            setIsDesignationModalOpen(false);
+            setSelectedUser(null);
+          }}
+          userId={selectedUser.id}
+          currentDesignation={selectedUser.designation || ''}
+          onDesignationChange={handleDesignationChange}
+        />
+      )}
     </div>
   );
 }
