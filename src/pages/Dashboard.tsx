@@ -117,7 +117,7 @@ export default function Dashboard() {
 
       <div className="flex flex-1">
         <div
-          className={`bg-white transition-all duration-300 flex flex-col border-r-[1px] ${
+          className={`bg-white transition-all duration-300 lg:flex flex-col border-r-[1px] hidden ${
             isCollapsed ? "w-16" : "w-64"
           }`}
         >

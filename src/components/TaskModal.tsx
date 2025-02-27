@@ -38,13 +38,8 @@ export default function TaskModal({
   const [users, setUsers] = useState<User[]>([]);
   const [totalPercentage, setTotalPercentage] = useState(0);
 
-  useEffect(() => {
-    console.log("sibling tasks", siblingTasks);
-  }, [siblingTasks]);
-
   // Get verified users from state or fetch if needed
   useEffect(() => {
-    console.log("task modal is open", isOpen);
 
     if (!isOpen) return;
 

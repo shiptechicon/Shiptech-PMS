@@ -257,7 +257,7 @@ export default function Attendance() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex sm:flex-row flex-col gap-3 justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">Attendance Management</h1>
           <p className="text-gray-600 mt-1">
@@ -475,7 +475,7 @@ export default function Attendance() {
         </div>
       )}
 
-      <div className="px-[10%] mt-10">
+      <div className="px-1 sm:px-[10%] mt-10">
         {isAdmin && (
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
