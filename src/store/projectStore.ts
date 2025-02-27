@@ -223,9 +223,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         project_due_date: projectData.project_due_date || null
       };
 
-      console.log('cleanProjectData', cleanProjectData);
-      
-
        await updateDoc(docRef, cleanProjectData);
 
       const updatedProject = {
@@ -333,7 +330,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateTask: async (projectId, path, taskId, data) => {
     try {
-      console.log('Updating task:', projectId, path, taskId, data);
       set({ loading: true, error: null });
       const project = await get().fetchProject(projectId);
       if (!project) throw new Error('Project not found');

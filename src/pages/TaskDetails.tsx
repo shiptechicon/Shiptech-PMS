@@ -235,7 +235,6 @@ export default function TaskDetails() {
   };
 
   const handleEditTask = async (data: Partial<Task>) => {
-    console.log('Editing task:', data);
     if (!projectId || !taskPath || !editingTask) return;
     try {
       const pathArray = taskPath
