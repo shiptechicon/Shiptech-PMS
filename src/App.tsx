@@ -1,10 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Routes,
-  Route,
-  Navigate,
-  useNavigate,
-} from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -13,8 +8,7 @@ import AdminPanel from "./pages/AdminPanel";
 import CustomerProject from "./pages/CustomerProject";
 import Navbar from "./components/Navbar";
 import { useAuthStore } from "./store/authStore";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "./lib/firebase";
+
 function PrivateRoute({
   children,
   allowedRoles = ["admin", "member"],
@@ -22,23 +16,14 @@ function PrivateRoute({
   children: React.ReactNode;
   allowedRoles?: string[];
 }) {
-  const { user } = useAuthStore();
-  const [isVerified, setIsVerified] = React.useState<boolean | null>(null);
-  const [userRole, setUserRole] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const { user, userData } = useAuthStore();
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    const checkVerification = async () => {
-      if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-        setIsVerified(userData?.verified || false);
-        setUserRole(userData?.role || null);
-      }
+  useEffect(() => {
+    if (userData !== null) {
       setLoading(false);
-    };
-    checkVerification();
-  }, [user]);
+    }
+  }, [userData]);
 
   if (loading) {
     return (
@@ -52,17 +37,11 @@ function PrivateRoute({
     return <Navigate to="/login" />;
   }
 
-  // If user is a customer, only allow access to customer route
-  if (userRole === "customer") {
-    return allowedRoles.includes("customer") ? (
-      <>{children}</>
-    ) : (
-      <Navigate to="/customer" />
-    );
+  if (userData?.role === "customer") {
+    return allowedRoles.includes("customer") ? <>{children}</> : <Navigate to="/customer" />;
   }
 
-  // For non-customer users, check verification
-  if (!isVerified) {
+  if (!userData?.verified) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
@@ -70,15 +49,14 @@ function PrivateRoute({
             Account Not Verified
           </h2>
           <p className="text-gray-600">
-            Your account is pending verification. Please contact an
-            administrator to verify your account.
+            Your account is pending verification. Please contact an administrator to verify your account.
           </p>
         </div>
       </div>
     );
   }
 
-  if (!allowedRoles.includes(userRole || "")) {
+  if (!allowedRoles.includes(userData?.role || "")) {
     return <Navigate to="/" />;
   }
 
@@ -86,62 +64,29 @@ function PrivateRoute({
 }
 
 function AuthenticatedRedirect() {
-  const { user } = useAuthStore();
+  const { user, userData } = useAuthStore();
   const navigate = useNavigate();
-  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkUserRole = async () => {
-      if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-        setUserRole(userData?.role || null);
-
-        if (userData?.role === "customer") {
-          navigate("/customer");
-        } else {
-          navigate("/dashboard");
-        }
-      }
-    };
-
-    checkUserRole();
-  }, [user, navigate]);
+    if (user && userData) {
+      navigate(userData.role === "customer" ? "/customer" : "/dashboard");
+    }
+  }, [user, userData, navigate]);
 
   return null;
 }
 
 function App() {
-  const { initialize, signIn } = useAuthStore();
-  const [initializing, setInitializing] = React.useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const { initialize, userData } = useAuthStore();
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
       await initialize();
-
-      const storedCredentials = localStorage.getItem("userCredentials");
-      if (storedCredentials) {
-        try {
-          const { email, password } = JSON.parse(storedCredentials);
-          const userCredential = await signIn(email, password);
-          if (userCredential) {
-            const userDoc = await getDoc(doc(db, "users", userCredential.uid));
-            const userData = userDoc.data();
-            setUserRole(userData?.role || null);
-          }
-        } catch (error) {
-          console.error("Auto-login failed:", error);
-          localStorage.removeItem("userCredentials");
-        }
-      }
-
       setInitializing(false);
     };
-
     initAuth();
-  }, [initialize, signIn]);
-
+  }, [initialize]);
 
   if (initializing) {
     return (
@@ -155,64 +100,13 @@ function App() {
     <div>
       <Navbar />
       <Routes>
-        <Route
-          path="/login"
-          element={
-            <>
-              <AuthenticatedRedirect />
-              <Login />
-            </>
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            <>
-              <AuthenticatedRedirect />
-              <Signup />
-            </>
-          }
-        />
-        <Route
-          path="/dashboard/*"
-          element={
-            <PrivateRoute allowedRoles={["admin", "member"]}>
-              <Dashboard />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <PrivateRoute allowedRoles={["admin"]}>
-              <AdminPanel />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/customer"
-          element={
-            <PrivateRoute allowedRoles={["customer"]}>
-              <CustomerProject />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/"
-          element={
-            <Navigate
-              to={userRole === "customer" ? "/customer" : "/dashboard"}
-            />
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to={userRole === "customer" ? "/customer" : "/dashboard"}
-            />
-          }
-        />
+        <Route path="/login" element={<><AuthenticatedRedirect /><Login /></>} />
+        <Route path="/signup" element={<><AuthenticatedRedirect /><Signup /></>} />
+        <Route path="/dashboard/*" element={<PrivateRoute allowedRoles={["admin", "member"]}><Dashboard /></PrivateRoute>} />
+        <Route path="/admin" element={<PrivateRoute allowedRoles={["admin"]}><AdminPanel /></PrivateRoute>} />
+        <Route path="/customer" element={<PrivateRoute allowedRoles={["customer"]}><CustomerProject /></PrivateRoute>} />
+        <Route path="/" element={<Navigate to={userData?.role === "customer" ? "/customer" : "/dashboard"} />} />
+        <Route path="*" element={<Navigate to={userData?.role === "customer" ? "/customer" : "/dashboard"} />} />
       </Routes>
       <Toaster position="top-right" />
     </div>
