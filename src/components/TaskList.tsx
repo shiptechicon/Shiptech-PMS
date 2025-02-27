@@ -1,7 +1,7 @@
-import { useState } from 'react';
+
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Task } from '../store/projectStore';
-import { toast } from 'react-hot-toast';
+
 
 interface TaskListProps {
   tasks: Task[];

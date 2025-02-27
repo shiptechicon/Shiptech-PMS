@@ -75,7 +75,7 @@ export default function MemberBasics() {
           </div>
           <div className="bg-white rounded-lg shadow divide-y">
             {upcomingTodos.map(todo => (
-              <div onClick={() => navigate(`/dashboard/todos/${todo.id}`)} key={todo.id} className="p-4">
+              <div onClick={() => navigate(`/dashboard/todos`)} key={todo.id} className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-medium text-gray-900">{todo.title}</h3>
