@@ -40,8 +40,8 @@ export default function TaskDetails() {
   const [currentDuration, setCurrentDuration] = useState<number>(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
-  const [manualHours, setManualHours] = useState(() => Math.floor(currentDuration / 60));
-  const [manualMinutes, setManualMinutes] = useState(() => Math.floor(currentDuration % 60));
+  const [manualHours, setManualHours] = useState(0);
+  const [manualMinutes, setManualMinutes] = useState(0);
 
   const formatTimeDisplay = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -235,7 +235,6 @@ export default function TaskDetails() {
   };
 
   const handleEditTask = async (data: Partial<Task>) => {
-    console.log('Editing task:', data);
     if (!projectId || !taskPath || !editingTask) return;
     try {
       const pathArray = taskPath
@@ -376,8 +375,8 @@ export default function TaskDetails() {
   };
 
   const handleOpenManualEntry = () => {
-    setManualHours(Math.floor(currentDuration / 60));
-    setManualMinutes(Math.floor(currentDuration % 60));
+    setManualHours(0);
+    setManualMinutes(0);
     setShowManualEntry(true);
   };
 
@@ -392,23 +391,26 @@ export default function TaskDetails() {
         return;
       }
 
+      // Add the new time to the current duration
+      const newDuration = currentDuration + totalMinutes;
+
       await updateTask(projectId, currentPath, task.id, {
         ...task,
         timeEntries: [{
           userId: user?.uid || '',
           userName: user?.email || '',
-          duration: totalMinutes,
+          duration: newDuration, // Use the summed duration
           startTime: new Date().toISOString(),
           id: task.id
         }]
       });
 
-      // Update the display with seconds
-      setCurrentDuration(totalMinutes);
-      setElapsedTime(formatTimeDisplay(totalMinutes * 60)); // Convert minutes to seconds and format
+      // Update the display with the new total duration
+      setCurrentDuration(newDuration);
+      setElapsedTime(formatTimeDisplay(newDuration * 60)); // Convert minutes to seconds and format
 
       setShowManualEntry(false);
-      toast.success("Time updated successfully");
+      toast.success("Time added successfully");
     } catch (error) {
       console.error("Error updating time:", error);
       toast.error("Failed to update time");
@@ -597,7 +599,7 @@ export default function TaskDetails() {
             <div className="flex gap-4 mb-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hours
+                  Hours to Add
                 </label>
                 <div className="flex items-center">
                   <button
@@ -624,7 +626,7 @@ export default function TaskDetails() {
               
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Minutes
+                  Minutes to Add
                 </label>
                 <div className="flex items-center">
                   <button
@@ -654,7 +656,8 @@ export default function TaskDetails() {
             <div className="mb-4 p-3 bg-blue-50 rounded-md">
               <div className="text-sm text-blue-600 mb-1">New Total Duration</div>
               <div className="text-lg font-medium text-blue-700">
-                {manualHours}h {manualMinutes}m
+                {Math.floor((currentDuration + manualHours * 60 + manualMinutes) / 60)}h{" "}
+                {Math.floor((currentDuration + manualHours * 60 + manualMinutes) % 60)}m
               </div>
             </div>
 
