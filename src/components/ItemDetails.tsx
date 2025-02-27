@@ -88,7 +88,7 @@ export default function ItemDetails({
               {onToggleComplete && (
                 <button
                   onClick={onToggleComplete}
-                  disabled={!canComplete || (item.children?.length && !allChildrenComplete)} 
+                  disabled={!canComplete || (item.children?.length && !allChildrenComplete) as boolean} 
                   className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
                     item.completed
                       ? 'text-yellow-600 hover:text-yellow-700'
@@ -164,11 +164,11 @@ export default function ItemDetails({
               <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
               <div className="flex items-center space-x-2">
                 <ItemStatusBadge completed={item.completed} />
-                {item.children?.length && item.children.length > 0 && !allChildrenComplete && (
+                {(item.children?.length && item.children.length > 0 && !allChildrenComplete) ? (
                   <span className="text-sm text-red-600">
                     (Cannot complete - subtasks pending)
                   </span>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

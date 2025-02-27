@@ -25,6 +25,11 @@ function PrivateRoute({
     }
   }, [userData]);
 
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -33,9 +38,6 @@ function PrivateRoute({
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
 
   if (userData?.role === "customer") {
     return allowedRoles.includes("customer") ? <>{children}</> : <Navigate to="/customer" />;
