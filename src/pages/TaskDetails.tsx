@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "../store/projectStore";
-import { Loader2, ArrowLeft, Play, Square, Clock, User } from "lucide-react";
+import { Loader2, ArrowLeft, Play, Square, Clock, User, Plus, Minus } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -18,6 +18,7 @@ export default function TaskDetails() {
   const {
     getTaskByPath,
     addTask,
+    currentPath,
     updateTask,
     deleteTask,
     setCurrentPath,
@@ -38,6 +39,17 @@ export default function TaskDetails() {
   const { user } = useAuthStore();
   const [currentDuration, setCurrentDuration] = useState<number>(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualHours, setManualHours] = useState(() => Math.floor(currentDuration / 60));
+  const [manualMinutes, setManualMinutes] = useState(() => Math.floor(currentDuration % 60));
+
+  const formatTimeDisplay = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
 
   useEffect(() => {
     const loadTask = async () => {
@@ -70,11 +82,8 @@ export default function TaskDetails() {
           if (userEntry) {
             setCurrentDuration(userEntry.duration || 0);
             // Display the current duration
-            const minutes = Math.floor(userEntry.duration);
-            const seconds = Math.round((userEntry.duration % 1) * 100);
-            setElapsedTime(
-              `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-            );
+            const totalSeconds = Math.floor(userEntry.duration * 60); // Convert minutes to seconds
+            setElapsedTime(formatTimeDisplay(totalSeconds));
           }
         } else {
           toast.error("Task not found");
@@ -138,16 +147,9 @@ export default function TaskDetails() {
 
         // Calculate total seconds including the current duration
         const totalMinutes = Math.floor(currentDuration);
-        const totalSeconds = Math.round((currentDuration % 1) * 100);
-        const totalElapsedSeconds = (totalMinutes * 60) + totalSeconds + elapsedSeconds;
+        const totalSeconds = Math.floor(totalMinutes * 60) + elapsedSeconds;
 
-        // Convert back to minutes and seconds
-        const minutes = Math.floor(totalElapsedSeconds / 60);
-        const seconds = totalElapsedSeconds % 60;
-
-        setElapsedTime(
-          `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-        );
+        setElapsedTime(formatTimeDisplay(totalSeconds));
       };
 
       updateElapsedTime();
@@ -321,12 +323,8 @@ export default function TaskDetails() {
       const userEntry = entries.find(entry => entry.userId === user?.uid);
       if (userEntry) {
         setCurrentDuration(userEntry.duration || 0);
-        // Display the updated duration
-        const minutes = Math.floor(userEntry.duration);
-        const seconds = Math.round((userEntry.duration % 1) * 100);
-        setElapsedTime(
-          `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-        );
+        const totalSeconds = Math.floor(userEntry.duration * 60);
+        setElapsedTime(formatTimeDisplay(totalSeconds));
       }
     } catch (error) {
       console.error("Error stopping timer:", error);
@@ -374,6 +372,46 @@ export default function TaskDetails() {
           children: updatedTasks,
         };
       });
+    }
+  };
+
+  const handleOpenManualEntry = () => {
+    setManualHours(Math.floor(currentDuration / 60));
+    setManualMinutes(Math.floor(currentDuration % 60));
+    setShowManualEntry(true);
+  };
+
+  const handleManualTimeAdd = async () => {
+    try {
+      if (!projectId || !task) return;
+      
+      const totalMinutes = (manualHours * 60) + manualMinutes;
+      
+      if (totalMinutes <= 0) {
+        toast.error("Please enter a valid time");
+        return;
+      }
+
+      await updateTask(projectId, currentPath, task.id, {
+        ...task,
+        timeEntries: [{
+          userId: user?.uid || '',
+          userName: user?.email || '',
+          duration: totalMinutes,
+          startTime: new Date().toISOString(),
+          id: task.id
+        }]
+      });
+
+      // Update the display with seconds
+      setCurrentDuration(totalMinutes);
+      setElapsedTime(formatTimeDisplay(totalMinutes * 60)); // Convert minutes to seconds and format
+
+      setShowManualEntry(false);
+      toast.success("Time updated successfully");
+    } catch (error) {
+      console.error("Error updating time:", error);
+      toast.error("Failed to update time");
     }
   };
 
@@ -429,6 +467,14 @@ export default function TaskDetails() {
                   Start Timer
                 </>
               )}
+            </button>
+            
+            <button
+              onClick={handleOpenManualEntry}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Time
             </button>
           </div>
         )}
@@ -513,6 +559,100 @@ export default function TaskDetails() {
         onSubmit={editingTask ? handleEditTask : handleAddTask}
         initialData={editingTask || undefined}
       />
+
+      {showManualEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-medium mb-4">Add Time Manually</h3>
+            
+            <div className="mb-4 p-3 bg-gray-50 rounded-md">
+              <div className="text-sm text-gray-500 mb-1">Current Duration</div>
+              <div className="text-lg font-medium">
+                {Math.floor(currentDuration / 60)}h {Math.floor(currentDuration % 60)}m
+              </div>
+            </div>
+
+            <div className="flex gap-4 mb-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hours
+                </label>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setManualHours(Math.max(0, manualHours - 1))}
+                    className="p-2 bg-gray-100 rounded-l-md hover:bg-gray-200"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    value={manualHours}
+                    onChange={(e) => setManualHours(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-full text-center border-y p-2"
+                  />
+                  <button
+                    onClick={() => setManualHours(manualHours + 1)}
+                    className="p-2 bg-gray-100 rounded-r-md hover:bg-gray-200"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Minutes
+                </label>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setManualMinutes(Math.max(0, manualMinutes - 15))}
+                    className="p-2 bg-gray-100 rounded-l-md hover:bg-gray-200"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={manualMinutes}
+                    onChange={(e) => setManualMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                    className="w-full text-center border-y p-2"
+                  />
+                  <button
+                    onClick={() => setManualMinutes(Math.min(59, manualMinutes + 15))}
+                    className="p-2 bg-gray-100 rounded-r-md hover:bg-gray-200"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4 p-3 bg-blue-50 rounded-md">
+              <div className="text-sm text-blue-600 mb-1">New Total Duration</div>
+              <div className="text-lg font-medium text-blue-700">
+                {manualHours}h {manualMinutes}m
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowManualEntry(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleManualTimeAdd}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Add Time
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

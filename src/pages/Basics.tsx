@@ -1,10 +1,10 @@
-import React from 'react';
-import { useAuthStore } from '../store/authStore';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import AdminBasics from './AdminBasics';
-import MemberBasics from './MemberBasics';
-
+import React from "react";
+import { useAuthStore } from "../store/authStore";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import AdminBasics from "./AdminBasics";
+import MemberBasics from "./MemberBasics";
+import ProjectCalendar from "../components/ProjectCalendar";
 export default function Basics() {
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
@@ -13,9 +13,9 @@ export default function Basics() {
   React.useEffect(() => {
     const checkUserRole = async () => {
       if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
-        setIsAdmin(userData?.role === 'admin');
+        setIsAdmin(userData?.role === "admin");
       }
       setLoading(false);
     };
@@ -34,6 +34,9 @@ export default function Basics() {
   return (
     <div>
       <MemberBasics />
+      <div className=" p-6">
+        <ProjectCalendar />
+      </div>
       {isAdmin && <AdminBasics />}
     </div>
   );
