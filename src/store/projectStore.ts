@@ -30,6 +30,7 @@ export interface Task {
   path?: string;
   timeEntries?: TimeEntry[];
   percentage: number;
+  maxAllowedPercentage?: number;
 }
 
 export interface Project {
@@ -227,17 +228,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
        await updateDoc(docRef, cleanProjectData);
 
-      const updatedProjects = get().projects.map(project =>
-        project.id === id ? { 
-          ...project,
-          ...cleanProjectData,
-          id,
-          __id: project.__id,
-          createdAt: project.createdAt
-        } : project
-      );
+      const updatedProject = {
+        ...get().project,
+        ...cleanProjectData,
+        id,
+        __id: get().project?.__id,
+        createdAt: get().project?.createdAt
+      };
       
-      set({ projects: updatedProjects, loading: false });
+      set({ project: updatedProject as Project, loading: false });
     } catch (error) {
       console.error('Error updating project:', error);
       set({ error: (error as Error).message, loading: false });

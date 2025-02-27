@@ -203,6 +203,14 @@ export default function TaskModal({
     setFormData((prev) => ({ ...prev, assignedTo: selectedUsers }));
   };
 
+  const calculateAvailablePercentage = () => {
+    const totalAllocated = siblingTasks
+      .filter(task => !initialData || task.id !== initialData.id)
+      .reduce((sum, task) => sum + (task.percentage || 0), 0);
+    
+    return 100 - totalAllocated;
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col">
@@ -340,98 +348,83 @@ export default function TaskModal({
             />
           </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Percentage Allocation
               </label>
-              <div className="mt-2 bg-gray-50 p-4 rounded-lg space-y-2">
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-gray-600">Total Allocated</span>
-                  <span
-                    className={
-                      totalPercentage + formData.percentage > 100
-                        ? "text-red-600"
-                        : "text-green-600"
-                    }
-                  >
-                    {totalPercentage + formData.percentage}%
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">Current: {formData.percentage}%</span>
+                  <span className="text-sm text-gray-500">
+                    Available: {calculateAvailablePercentage() - formData.percentage}%
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Available</span>
-                  <span
-                    className={
-                      availablePercentage < 0 ? "text-red-600" : "text-gray-600"
-                    }
-                  >
-                    {availablePercentage}%
-                  </span>
-                </div>
-                {/* Progress bar */}
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div
-                    className={`h-2.5 rounded-full transition-all duration-300 ${
-                      totalPercentage + formData.percentage > 100
-                        ? "bg-red-600"
-                        : "bg-blue-600"
-                    }`}
-                    style={{
-                      width: `${Math.min(
-                        totalPercentage + formData.percentage,
-                        100
-                      )}%`,
-                    }}
-                  />
-                </div>
-
                 <input
                   type="range"
                   min="0"
-                  max={availablePercentage}
+                  max={calculateAvailablePercentage()}
                   value={formData.percentage}
                   onChange={(e) => {
-                    const newValue = Math.min(
-                      Number(e.target.value),
-                      availablePercentage
+                    const value = Math.min(
+                      parseInt(e.target.value),
+                      calculateAvailablePercentage()
                     );
-                    setFormData((prev) => ({
-                      ...prev,
-                      percentage: newValue,
-                    }));
+                    setFormData(prev => ({ ...prev, percentage: value }));
                   }}
-                  className="w-full mt-2"
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer 
+                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 
+                    [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 
+                    [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 
+                    [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-blue-600 [&::-moz-range-thumb]:border-0
+                    [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-runnable-track]:rounded-lg
+                    [&::-moz-range-track]:bg-gray-200 [&::-moz-range-track]:rounded-lg
+                    [&::-webkit-slider-thumb]:hover:bg-blue-700 [&::-moz-range-thumb]:hover:bg-blue-700"
                 />
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Selected: {formData.percentage}%</span>
-                  <span>
-                    Remaining: {availablePercentage - formData.percentage}%
-                  </span>
+                <div className="relative w-full h-2 bg-gray-200 rounded-lg overflow-hidden">
+                  <div 
+                    className="absolute top-0 left-0 h-full bg-blue-600 transition-all duration-150"
+                    style={{ width: `${formData.percentage}%` }}
+                  />
                 </div>
-
-                {/* Sibling Tasks Distribution */}
-                {siblingTasks.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="text-sm font-medium text-gray-700 mb-2">
-                      Other Tasks
-                    </div>
-                    <div className="space-y-1">
-                      {siblingTasks
-                        .filter(
-                          (task) => !initialData || task.id !== initialData.id
-                        )
-                        .map((task) => (
-                          <div
-                            key={task.id}
-                            className="flex justify-between text-sm text-gray-600"
-                          >
-                            <span>{task.name}</span>
-                            <span>{task.percentage}%</span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>0%</span>
+                  <span>{Math.floor(calculateAvailablePercentage() / 2)}%</span>
+                  <span>{calculateAvailablePercentage()}%</span>
+                </div>
               </div>
+              <div className="mt-2">
+                <input
+                  type="number"
+                  min="0"
+                  max={calculateAvailablePercentage()}
+                  value={formData.percentage}
+                  onChange={(e) => {
+                    const value = Math.min(
+                      parseInt(e.target.value) || 0,
+                      calculateAvailablePercentage()
+                    );
+                    setFormData(prev => ({ ...prev, percentage: value }));
+                  }}
+                  className="w-20 p-1 text-sm border rounded text-center"
+                />
+              </div>
+              {siblingTasks.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="text-sm font-medium text-gray-700 mb-2">
+                    Other Tasks Allocation
+                  </div>
+                  <div className="space-y-1">
+                    {siblingTasks
+                      .filter(task => !initialData || task.id !== initialData.id)
+                      .map(task => (
+                        <div key={task.id} className="flex justify-between text-sm text-gray-600">
+                          <span className="truncate flex-1 mr-2">{task.name}</span>
+                          <span>{task.percentage || 0}%</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           </form>
         </div>

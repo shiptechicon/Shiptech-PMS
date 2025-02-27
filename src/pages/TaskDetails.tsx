@@ -415,6 +415,31 @@ export default function TaskDetails() {
     }
   };
 
+  const handleUpdatePercentage = async (taskId: string, percentage: number) => {
+    try {
+      if (!projectId || !task) return;
+      
+      await updateTask(projectId, currentPath, taskId, {
+        ...task,
+        percentage: percentage
+      });
+
+      // Refresh task data
+      const updatedTask = await getTaskByPath(projectId, currentPath);
+      if (updatedTask) {
+        setTask({
+          ...updatedTask,
+          children: updatedTask.children || [],
+        });
+      }
+
+      toast.success('Progress updated successfully');
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      toast.error('Failed to update progress');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -432,7 +457,7 @@ export default function TaskDetails() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto pb-20">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-4">
           <button onClick={() => navigate(-1)}>
@@ -542,12 +567,9 @@ export default function TaskDetails() {
         }}
         onDeleteClick={handleDeleteTask}
         onTaskClick={handleTaskClick}
+        // onUpdatePercentage={handleUpdatePercentage}
         isAdmin={isAdmin}
-        currentUserId={
-          task?.assignedTo?.some((u) => u.id === user?.uid)
-            ? user?.uid
-            : undefined
-        }
+        currentUserId={user?.uid}
       />
 
       <TaskModal
