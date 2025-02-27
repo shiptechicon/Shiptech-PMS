@@ -191,7 +191,7 @@ export default function Projects() {
           </div>
         </div>
       ) : (
-        <div className="bg-white w-screen shadow-md rounded-lg overflow-hidden">
+        <div className="bg-white w-full shadow-md rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">

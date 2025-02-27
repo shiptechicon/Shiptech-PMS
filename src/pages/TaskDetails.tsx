@@ -51,53 +51,57 @@ export default function TaskDetails() {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const loadTask = async () => {
+    if (!projectId || !taskPath) {
+      navigate(`/dashboard/projects/${projectId}`);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const pathArray = taskPath
+        .split("/")
+        .filter(Boolean)
+        .map((id) => ({ id }));
+      setCurrentPath(pathArray);
+
+      const data = await getTaskByPath(projectId, pathArray);
+      if (data) {
+        setTask({
+          ...data,
+          children: data.children || [],
+        });
+
+        // Load time entries and set current duration
+        const entries = await getTaskTimeEntries(projectId, data.id);
+        setTimeEntries(entries);
+        
+        // Find current user's entry and set initial duration
+        findUserEntry(entries);
+      } else {
+        toast.error("Task not found");
+        navigate(`/dashboard/projects/${projectId}`);
+      }
+    } catch (error) {
+      console.error("Error loading task:", error);
+      toast.error("Failed to load task");
+      navigate(`/dashboard/projects/${projectId}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const findUserEntry = (entries: TimeEntry[]) => {
+    const userEntry = entries.find(entry => entry.userId === user?.uid);
+    if (userEntry) {
+      setCurrentDuration(userEntry.duration || 0);
+      // Display the current duration
+      const totalSeconds = Math.floor(userEntry.duration * 60); // Convert minutes to seconds
+      setElapsedTime(formatTimeDisplay(totalSeconds));
+    }
+  };
+
   useEffect(() => {
-    const loadTask = async () => {
-      if (!projectId || !taskPath) {
-        navigate(`/dashboard/projects/${projectId}`);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const pathArray = taskPath
-          .split("/")
-          .filter(Boolean)
-          .map((id) => ({ id }));
-        setCurrentPath(pathArray);
-
-        const data = await getTaskByPath(projectId, pathArray);
-        if (data) {
-          setTask({
-            ...data,
-            children: data.children || [],
-          });
-
-          // Load time entries and set current duration
-          const entries = await getTaskTimeEntries(projectId, data.id);
-          setTimeEntries(entries);
-          
-          // Find current user's entry and set initial duration
-          const userEntry = entries.find(entry => entry.userId === user?.uid);
-          if (userEntry) {
-            setCurrentDuration(userEntry.duration || 0);
-            // Display the current duration
-            const totalSeconds = Math.floor(userEntry.duration * 60); // Convert minutes to seconds
-            setElapsedTime(formatTimeDisplay(totalSeconds));
-          }
-        } else {
-          toast.error("Task not found");
-          navigate(`/dashboard/projects/${projectId}`);
-        }
-      } catch (error) {
-        console.error("Error loading task:", error);
-        toast.error("Failed to load task");
-        navigate(`/dashboard/projects/${projectId}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     const checkUserRole = async () => {
       if (user) {
         const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -121,6 +125,11 @@ export default function TaskDetails() {
     return () => {
       setTask(null);
       setLoading(true);
+      setIsTimerActive(false);
+      setManualHours(0);
+      setManualMinutes(0);
+      setCurrentDuration(0);
+      setElapsedTime("00:00:00");
       setIsAdmin(false);
       setCurrentPath([]);
     };
@@ -325,6 +334,7 @@ export default function TaskDetails() {
         const totalSeconds = Math.floor(userEntry.duration * 60);
         setElapsedTime(formatTimeDisplay(totalSeconds));
       }
+      setTimeEntries(entries); // Refetch time entries
     } catch (error) {
       console.error("Error stopping timer:", error);
       toast.error("Failed to stop timer");
@@ -353,7 +363,7 @@ export default function TaskDetails() {
 
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
+    const remainingMinutes = (minutes % 60).toFixed(0);
     return `${hours}h ${remainingMinutes}m`;
   };
 
@@ -393,23 +403,56 @@ export default function TaskDetails() {
 
       // Add the new time to the current duration
       const newDuration = currentDuration + totalMinutes;
+      // Find existing time entry for current user
+      const existingEntry = task.timeEntries?.find(entry => entry.userId === user?.uid);
+
+      let updatedTimeEntries;
+      if (existingEntry) {
+        // Update existing entry
+        updatedTimeEntries = task.timeEntries?.map(entry => {
+          if (entry.userId === user?.uid) {
+            console.log("entry", entry);
+            const newDuration = entry.duration + totalMinutes;
+            console.log("newDuration", newDuration);
+            return {
+              ...entry,
+              duration: newDuration,
+            };
+          }
+          return entry;
+        });
+      } else {
+        // Add new entry
+        updatedTimeEntries = [
+          ...(task.timeEntries || []),
+          {
+            userId: user?.uid || '',
+            userName: user?.email || '',
+            duration: totalMinutes,
+            startTime: new Date().toISOString(),
+            id: crypto.randomUUID()
+          }
+        ];
+      }
 
       await updateTask(projectId, currentPath, task.id, {
         ...task,
-        timeEntries: [{
-          userId: user?.uid || '',
-          userName: user?.email || '',
-          duration: newDuration, // Use the summed duration
-          startTime: new Date().toISOString(),
-          id: task.id
-        }]
+        timeEntries: updatedTimeEntries
       });
+      
 
+      setTask({
+        ...task,
+        timeEntries: updatedTimeEntries
+      });
       // Update the display with the new total duration
       setCurrentDuration(newDuration);
       setElapsedTime(formatTimeDisplay(newDuration * 60)); // Convert minutes to seconds and format
 
       setShowManualEntry(false);
+      const entries = await getTaskTimeEntries(projectId, task.id);
+      findUserEntry(entries);
+      setTimeEntries(entries); // Refetch time entries
       toast.success("Time added successfully");
     } catch (error) {
       console.error("Error updating time:", error);

@@ -2,6 +2,7 @@ import {  Task } from "@/store/projectStore";
 import { ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import CompletionSummaryModal from './CompletionSummaryModal';
+import { toast } from "react-hot-toast";
 
 const statusOptions = [
   {
@@ -57,8 +58,32 @@ const ProjectStatusSelect = ({
   }, [project]);
 
   const handleStatusChange = async (option: typeof statusOptions[0]) => {
+    
     if (option.value === 'completed') {
+      // Check if all tasks are completed
+      const hasUncompletedTasks = tasks.some(task => {
+        const checkTaskCompletion = (t: Task): boolean => {
+          if (!t.completed) return true;
+          if (t.children && t.children.length > 0) {
+            return t.children.some(checkTaskCompletion);
+          }
+          return false;
+        };
+        return checkTaskCompletion(task);
+      });
+
+      if (hasUncompletedTasks) {
+        toast.error("All tasks must be completed before marking project as complete");
+        return;
+      }
+
       setShowCompletionModal(true);
+      if (updateProjectStatus) {
+        await updateProjectStatus(
+          option.value as 'completed' | 'ongoing' | 'not-started',
+          project.id
+        );
+      }
     } else {
       if (updateProjectStatus) {
         await updateProjectStatus(
@@ -67,6 +92,8 @@ const ProjectStatusSelect = ({
         );
       }
     }
+    console.log("option", option);
+    
     setSelected(option);
     setIsOpen(false);
   };
@@ -115,9 +142,6 @@ const ProjectStatusSelect = ({
           setSelected(statusOptions.find(s => s.value === project.status) || statusOptions[1]);
         }}
         onComplete={async () => {
-          if (updateProjectStatus) {
-            await updateProjectStatus('completed', project.id);
-          }
           setShowCompletionModal(false);
         }}
         tasks={tasks}

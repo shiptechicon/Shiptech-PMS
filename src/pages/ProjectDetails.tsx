@@ -20,7 +20,7 @@ import TaskList from "../components/TaskList";
 import ProjectComments from "../components/ProjectComments";
 import CreateCustomerModal from "../components/CreateCustomerModal";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
-import { Project } from "../store/projectStore";
+// import { Project } from "../store/projectStore";
 import { Task } from "../store/projectStore";
 
 export default function ProjectDetails() {
@@ -36,9 +36,9 @@ export default function ProjectDetails() {
     updateProjectDueDate,
     updateProjectStartDate,
     updateProjectStatus,
+    project,
   } = useProjectStore();
 
-  const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,12 +58,9 @@ export default function ProjectDetails() {
 
       try {
         setLoading(true);
-        const data = await fetchProject(id);
+        await fetchProject(id);
+        const data = project;
         if (data) {
-          setProject({
-            ...data,
-            tasks: data.tasks || [],
-          });
           if (data.project_due_date) {
             setTempDueDate(data.project_due_date);
           }
@@ -102,17 +99,10 @@ export default function ProjectDetails() {
         ...data,
         id: crypto.randomUUID(),
         completed: false,
-        children: []
+        children: [],
       };
       await addTask(id, currentPath, newTask);
-      const updatedProject = await fetchProject(id);
-      if (updatedProject) {
-        setProject({
-          ...updatedProject,
-          tasks: updatedProject.tasks || [],
-        });
-        toast.success("Task added successfully");
-      }
+      toast.success("Task added successfully");
     } catch (error) {
       console.error("Failed to add task:", error);
       toast.error("Failed to add task");
@@ -124,16 +114,10 @@ export default function ProjectDetails() {
     try {
       await updateTask(id, currentPath, editingTask.id, {
         ...editingTask,
-        ...data
+        ...data,
       });
-      const updatedProject = await fetchProject(id);
-      if (updatedProject) {
-        setProject({
-          ...updatedProject,
-          tasks: updatedProject.tasks || [],
-        });
-        toast.success("Task updated successfully");
-      }
+
+      toast.success("Task updated successfully");
     } catch (error) {
       console.error("Failed to update task:", error);
       toast.error("Failed to update task");
@@ -145,14 +129,7 @@ export default function ProjectDetails() {
     if (window.confirm("Are you sure you want to delete this task?")) {
       try {
         await deleteTask(id, currentPath, taskId);
-        const updatedProject = await fetchProject(id);
-        if (updatedProject) {
-          setProject({
-            ...updatedProject,
-            tasks: updatedProject.tasks || [],
-          });
-          toast.success("Task deleted successfully");
-        }
+        toast.success("Task deleted successfully");
       } catch (error) {
         console.error("Failed to delete task:", error);
         toast.error("Failed to delete task");
@@ -188,11 +165,7 @@ export default function ProjectDetails() {
     if (!id) return;
     try {
       await updateProjectDueDate(id, tempDueDate || null);
-      const updatedProject = await fetchProject(id);
-      if (updatedProject) {
-        setProject(updatedProject);
-        toast.success("Project due date updated successfully");
-      }
+      toast.success("Project due date updated successfully");
       setIsEditingDueDate(false);
       setShowDueDateConfirm(false);
     } catch (error) {
@@ -207,7 +180,6 @@ export default function ProjectDetails() {
       await updateProjectStartDate(id, tempStartDate || null);
       const updatedProject = await fetchProject(id);
       if (updatedProject) {
-        setProject(updatedProject);
         toast.success("Project start date updated successfully");
       }
       setIsEditingStartDate(false);
@@ -393,13 +365,15 @@ export default function ProjectDetails() {
               />
             </>
           )}
-          <button
-            onClick={downloadInvoice}
-            className="inline-flex items-center px-4 py-2   font-medium rounded-md text-black bg-white border-[1px]  hover:opacity-70"
-          >
-            <FileDown className="mr-2 h-4 w-4" />
-            Download Invoice
-          </button>
+          {project.status === "completed" && (
+            <button
+              onClick={downloadInvoice}
+              className="inline-flex items-center px-4 py-2   font-medium rounded-md text-black bg-white border-[1px]  hover:opacity-70"
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              Download Invoice
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => navigate(`/dashboard/projects/${id}/edit`)}
@@ -573,7 +547,7 @@ export default function ProjectDetails() {
                     <ProjectStatusSelect
                       project={{
                         id: project.id as string,
-                        status: project.status
+                        status: project.status,
                       }}
                       updateProjectStatus={updateProjectStatus}
                       tasks={project.tasks}

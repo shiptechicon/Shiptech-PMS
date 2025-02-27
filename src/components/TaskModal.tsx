@@ -89,19 +89,20 @@ export default function TaskModal({
         const project = await fetchProject(projectId);
         if (!project) return;
 
+
         let currentLevel = project.tasks;
-        let siblings = [];
+        let siblings: Task[] = [];
 
         // Parse the task path to get task IDs
         const taskIds = taskPath?.split("/").filter(Boolean) || [];
 
-        if(taskIds.length === 2 && taskIds[1] === projectId){
+        if(taskIds.length === 2 && taskIds[1] === projectId && currentLevel.length !== 0){
           siblings = currentLevel.filter((task) => task.id !== initialData?.id);
           setSiblingTasks(siblings);
           return;
         }
 
-        // If no task IDs, we're at root level
+
         for (const id of taskIds) {
           const task = currentLevel.find(task => task.id === id);
           if (task) {
@@ -110,6 +111,11 @@ export default function TaskModal({
             currentLevel = [];
             break;
           }
+        }
+
+        if(currentLevel.length === 0){
+          setAvailablePercentage(100);
+          return;
         }
 
         siblings = currentLevel.filter((task) => task.id !== initialData?.id);
@@ -143,9 +149,7 @@ export default function TaskModal({
   }, [projectId, taskPath, isOpen]);
 
   useEffect(() => {
-    if (siblingTasks.length > 0) {
-      calculateAvailablePercentage();
-    }
+    calculateAvailablePercentage();
   }, [siblingTasks]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -174,10 +178,6 @@ export default function TaskModal({
     const totalAllocated = siblingTasks
       .filter((task) => !initialData || task.id !== initialData.id)
       .reduce((sum, task) => sum + (task.percentage || 0), 0);
-
-    // If editing, include current task's percentage in available amount
-    // Available percentage is (100 - total allocated) for new tasks
-    // or (100 - total allocated + current task percentage) for editing
 
     const availablePercentage = 100 - totalAllocated ;
     setAvailablePercentage(availablePercentage);
