@@ -20,7 +20,6 @@ import TaskList from "../components/TaskList";
 import ProjectComments from "../components/ProjectComments";
 import CreateCustomerModal from "../components/CreateCustomerModal";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
-// import { Project } from "../store/projectStore";
 import { Task } from "../store/projectStore";
 import TaskPopover from "../components/TaskPopover";
 
@@ -56,6 +55,31 @@ export default function ProjectDetails() {
   const [popoverTasks, setPopoverTasks] = useState<
     { name: string; deadline: string; assignees: string[] }[]
   >([]);
+
+  const calculateCompletedPercentage = (task: Task): number => {
+    if (!task.children || task.children.length === 0) {
+      return task.completed ? 100 : 0;
+    }
+
+    const totalAssignedToChildren = task.children.reduce((sum, child) => 
+      sum + (child.percentage || 0), 0);
+
+    if (totalAssignedToChildren === 0) return 0;
+
+    const completedSum = task.children.reduce((sum, subtask) => {
+      return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
+    }, 0);
+
+    return Math.round((completedSum / totalAssignedToChildren) * 100);
+  };
+
+  const calculateProjectCompletion = (): number => {
+    if (!project || !project.tasks.length) return 0;
+    const totalPercentage = project.tasks.reduce((sum, task) => {
+      return sum + calculateCompletedPercentage(task);
+    }, 0);
+    return Math.round(totalPercentage / project.tasks.length);
+  };
 
   useEffect(() => {
     const loadProject = async () => {
@@ -401,6 +425,8 @@ export default function ProjectDetails() {
     );
   }
 
+  const projectCompletionPercentage = calculateProjectCompletion();
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -661,6 +687,21 @@ export default function ProjectDetails() {
                       updateProjectStatus={updateProjectStatus}
                       tasks={project.tasks}
                     />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium text-gray-500">
+                    Project Completion
+                  </td>
+                  <td className="py-2">
+                    <div className="w-full bg-gray-200 rounded-full">
+                      <div
+                        className="bg-blue-600 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full"
+                        style={{ width: `${projectCompletionPercentage}%` }}
+                      >
+                        {projectCompletionPercentage}%
+                      </div>
+                    </div>
                   </td>
                 </tr>
               </tbody>
