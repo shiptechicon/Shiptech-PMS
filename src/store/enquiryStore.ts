@@ -24,9 +24,12 @@ export interface Enquiry {
     address: string;
   };
   deliverables: Deliverable[];
-  requirements: string;
+  scopeOfWork: string;
   createdAt: string;
   type: 'enquiry';
+  inputsRequired: string[];
+  exclusions: string[];
+  charges: string[];
 }
 
 interface EnquiryState {
@@ -89,8 +92,8 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       };
       const docRef = await addDoc(collection(db, 'enquiries'), newEnquiry);
       const enquiryWithId = { ...newEnquiry, id: docRef.id };
-      const enquiries = [...get().enquiries, enquiryWithId];
-      set({ enquiries, loading: false });
+      console.log("Creating enquiry with data:", newEnquiry);
+      set({ enquiries: [...get().enquiries, enquiryWithId], loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }

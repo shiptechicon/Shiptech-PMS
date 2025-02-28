@@ -16,6 +16,7 @@ export interface UserData {
   projectId?: string;
   role: 'admin' | 'member' | 'customer';
   verified: boolean;
+  designation: string;
 }
 
 interface AuthState {
@@ -78,7 +79,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         email,
         role: 'member',
         createdAt: new Date().toISOString(),
-        verified: false
+        verified: false,
+        designation: ''
       };
 
       // Store user data in Firestore

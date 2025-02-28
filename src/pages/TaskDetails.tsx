@@ -78,6 +78,19 @@ export default function TaskDetails() {
         
         // Find current user's entry and set initial duration
         findUserEntry(entries);
+
+        // Check localStorage for active timer
+        const storedTimer = localStorage.getItem("activeTimer");
+        if (storedTimer) {
+          const timer = JSON.parse(storedTimer);
+          if (timer.taskId === data.id) {
+            setIsTimerActive(true);
+            const startTime = new Date(timer.startTime).getTime();
+            const now = new Date().getTime();
+            const elapsedSeconds = Math.floor((now - startTime) / 1000);
+            setElapsedTime(formatTimeDisplay(elapsedSeconds));
+          }
+        }
       } else {
         toast.error("Task not found");
         navigate(`/dashboard/projects/${projectId}`);
@@ -148,17 +161,21 @@ export default function TaskDetails() {
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
-    if (isTimerActive && activeTimer.startTime && activeTimer.taskId === task?.id) {
+    if (isTimerActive) {
       const updateElapsedTime = () => {
-        const start = new Date(activeTimer.startTime!).getTime();
-        const now = new Date().getTime();
-        const elapsedSeconds = Math.floor((now - start) / 1000);
+        const storedTimer = localStorage.getItem("activeTimer");
+        if (storedTimer) {
+          const timer = JSON.parse(storedTimer);
+          const start = new Date(timer.startTime).getTime();
+          const now = new Date().getTime();
+          const elapsedSeconds = Math.floor((now - start) / 1000);
 
-        // Calculate total seconds including the current duration
-        const totalMinutes = Math.floor(currentDuration);
-        const totalSeconds = Math.floor(totalMinutes * 60) + elapsedSeconds;
+          // Calculate total seconds including the current duration
+          const totalMinutes = Math.floor(currentDuration);
+          const totalSeconds = Math.floor(totalMinutes * 60) + elapsedSeconds;
 
-        setElapsedTime(formatTimeDisplay(totalSeconds));
+          setElapsedTime(formatTimeDisplay(totalSeconds));
+        }
       };
 
       updateElapsedTime();
@@ -170,7 +187,7 @@ export default function TaskDetails() {
         clearInterval(intervalId);
       }
     };
-  }, [isTimerActive, activeTimer, task?.id, currentDuration]);
+  }, [isTimerActive, currentDuration]);
 
   const handleToggleComplete = async () => {
     if (!projectId || !task) return;
@@ -314,6 +331,10 @@ export default function TaskDetails() {
       if (!projectId || !task) return;
       await startTimer(projectId, task.id);
       setIsTimerActive(true);
+      localStorage.setItem("activeTimer", JSON.stringify({
+        startTime: new Date().toISOString(),
+        taskId: task.id,
+      }));
     } catch (error) {
       console.error("Error starting timer:", error);
       toast.error("Failed to start timer");
@@ -325,6 +346,7 @@ export default function TaskDetails() {
       if (!projectId || !task) return;
       await stopTimer(projectId, task.id);
       setIsTimerActive(false);
+      localStorage.removeItem("activeTimer");
       
       // Update current duration from the latest time entries
       const entries = await getTaskTimeEntries(projectId, task.id);

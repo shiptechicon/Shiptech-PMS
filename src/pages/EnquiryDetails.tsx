@@ -220,20 +220,64 @@ export default function EnquiryDetails() {
           </div>
         </div>
 
-        {/* Customer Requirements Section */}
+        {/* Scope of Work Section */}
         <div className="bg-white rounded-xl border-[1px] overflow-hidden">
           <div className="border-b border-gray-200 px-6 py-3">
             <h3 className="text-lg font-medium text-gray-900">
-              Customer Requirements
+              Scope of Work
             </h3>
           </div>
           <div className="px-6 py-4">
             <div 
               className="prose prose-slate max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-li:text-gray-700"
-              dangerouslySetInnerHTML={{ __html: enquiry.requirements }}
+              dangerouslySetInnerHTML={{ __html: enquiry.scopeOfWork }}
             />
           </div>
         </div>
+
+        {/* Exclusions Section */}
+        <div className="bg-white rounded-xl border-[1px] overflow-hidden">
+          <div className="border-b border-gray-200 px-6 py-3">
+            <h3 className="text-lg font-medium text-gray-900">Exclusions</h3>
+          </div>
+          <div className="px-6 py-4"> 
+            <ul className="list-disc pl-5">
+              {enquiry.exclusions.map((exclusion, index) => (
+                <li key={index} className="text-gray-700">{exclusion}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Charges Section */}
+        <div className="bg-white rounded-xl border-[1px] overflow-hidden">
+          <div className="border-b border-gray-200 px-6 py-3">
+            <h3 className="text-lg font-medium text-gray-900">Charges</h3>
+          </div>
+          <div className="px-6 py-4">
+            <ul className="list-disc pl-5">
+              {enquiry.charges.map((charge, index) => (
+                <li key={index} className="text-gray-700">{charge}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Inputs Required Section */}
+        <div className="bg-white rounded-xl border-[1px] overflow-hidden">
+          <div className="border-b border-gray-200 px-6 py-3">
+            <h3 className="text-lg font-medium text-gray-900">Inputs Required</h3>
+          </div>
+          <div className="px-6 py-4"> 
+            <ul className="list-disc pl-5">
+              {enquiry.inputsRequired.map((input, index) => (
+                <li key={index} className="text-gray-700">{input}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        
       </div>
     </div>
   );

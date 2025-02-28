@@ -58,8 +58,8 @@ export default function ProjectDetails() {
 
       try {
         setLoading(true);
-        await fetchProject(id);
-        const data = project;
+        let p = await fetchProject(id);
+        const data = p;
         if (data) {
           if (data.project_due_date) {
             setTempDueDate(data.project_due_date);
@@ -473,58 +473,64 @@ export default function ProjectDetails() {
                     </div>
                   </td>
                 </tr>
-                <tr>
-                  <td className="py-2 font-medium text-gray-500">Due Date</td>
-                  <td className="py-2">
-                    <div className="flex items-center justify-start gap-5">
-                      {isEditingDueDate ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="datetime-local"
-                            value={tempDueDate}
-                            onChange={handleDueDateChange}
-                            className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                          />
-                          {showDueDateConfirm && (
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={confirmDueDateChange}
-                                className="p-1 text-green-600 hover:text-green-700"
-                              >
-                                <Check className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={cancelDueDateChange}
-                                className="p-1 text-red-600 hover:text-red-700"
-                              >
-                                <X className="h-5 w-5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-gray-900">
-                          <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                          {project.project_due_date ? (
-                            new Date(project.project_due_date).toLocaleString()
-                          ) : (
-                            <span className="text-gray-500">
-                              No due date set
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {isAdmin && !isEditingDueDate && (
-                        <button
-                          onClick={() => setIsEditingDueDate(true)}
-                          className="text-blue-600 hover:text-blue-700 text-[12px]"
-                        >
-                          {project.project_due_date ? "Change" : "Set Due Date"}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                {isAdmin && (
+                  <tr>
+                    <td className="py-2 font-medium text-gray-500">Due Date</td>
+                    <td className="py-2">
+                      <div className="flex items-center justify-start gap-5">
+                        {isEditingDueDate ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="datetime-local"
+                              value={tempDueDate}
+                              onChange={handleDueDateChange}
+                              className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            />
+                            {showDueDateConfirm && (
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={confirmDueDateChange}
+                                  className="p-1 text-green-600 hover:text-green-700"
+                                >
+                                  <Check className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={cancelDueDateChange}
+                                  className="p-1 text-red-600 hover:text-red-700"
+                                >
+                                  <X className="h-5 w-5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-gray-900">
+                            <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                            {project.project_due_date ? (
+                              new Date(
+                                project.project_due_date
+                              ).toLocaleString()
+                            ) : (
+                              <span className="text-gray-500">
+                                No due date set
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {isAdmin && !isEditingDueDate && (
+                          <button
+                            onClick={() => setIsEditingDueDate(true)}
+                            className="text-blue-600 hover:text-blue-700 text-[12px]"
+                          >
+                            {project.project_due_date
+                              ? "Change"
+                              : "Set Due Date"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 <tr>
                   <td className="py-2 font-medium text-gray-500">
                     Customer Name

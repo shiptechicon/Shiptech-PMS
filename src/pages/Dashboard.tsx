@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { checkAttendance } = useAttendanceStore();
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
-  const { user } = useAuthStore();
+  const { user , userData } = useAuthStore();
   const { allLeaveRequests, fetchAllLeaveRequests } = useLeaveStore();
   const { allWorkFromRequests, fetchAllWorkFromRequests } = useWorkFromStore();
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -149,7 +149,9 @@ export default function Dashboard() {
               <LayoutDashboard size={20} />
               {!isCollapsed && <span>Dashboard</span>}
             </NavLink>
-            <NavLink
+            {
+              userData?.role === 'admin' && (
+                <NavLink
               to="/dashboard/enquiries"
               className={({ isActive }) =>
                 `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${
@@ -162,6 +164,8 @@ export default function Dashboard() {
               <FileQuestion size={20} />
               {!isCollapsed && <span>Enquiries</span>}
             </NavLink>
+              )
+            }
             <NavLink
               to="/dashboard/projects"
               className={({ isActive }) =>

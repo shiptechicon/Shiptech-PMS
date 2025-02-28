@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useProjectStore } from "../store/projectStore";
 import { Loader2, ExternalLink, Plus, Trash2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import toast from "react-hot-toast";
 
@@ -243,12 +243,12 @@ export default function Projects() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center space-x-3">
-                        <button
-                          onClick={() => navigate(`/dashboard/projects/${project.id}`)}
+                        <Link
+                          to={`/dashboard/projects/${project.id}`}
                           className="text-black/90 hover:text-black/80"
                         >
                           <ExternalLink size={18} />
-                        </button>
+                        </Link>
                         <button
                           onClick={() => handleDeleteProject(project.id!)}
                           className="text-red-600 hover:text-red-800"

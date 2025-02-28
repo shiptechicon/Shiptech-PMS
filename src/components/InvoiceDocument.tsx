@@ -10,7 +10,9 @@ import {
   Image,
 } from "@react-pdf/renderer";
 import { FileDown } from "lucide-react";
-
+import { createQuotation } from "../lib/docxCreation";
+import { Enquiry } from "@/store/enquiryStore";
+import { useAuthStore, UserData } from "@/store/authStore";
 Font.register({
   family: "Poppins",
   fonts: [
@@ -267,20 +269,27 @@ const InvoiceDocument = ({ enquiry }: { enquiry: any }) => {
   );
 };
 
-const InvoiceDownloader = ({ enquiry }: { enquiry: any }) => {
+const InvoiceDownloader = ({ enquiry }: { enquiry: Enquiry }) => {
+  const { userData } = useAuthStore();
+
   const downloadInvoice = async () => {
     if (!enquiry) return;
 
-    const doc = <InvoiceDocument enquiry={enquiry} />;
-    const blob = await pdf(doc).toBlob();
-    const url = URL.createObjectURL(blob);
+    console.log(enquiry);
+    
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "invoice.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+   await createQuotation(enquiry , userData as UserData);
+
+    // const doc = <InvoiceDocument enquiry={enquiry} />;
+    // const blob = await pdf(doc).toBlob();
+    // const url = URL.createObjectURL(blob);
+
+    // const link = document.createElement("a");
+    // link.href = url;
+    // link.download = "invoice.pdf";
+    // document.body.appendChild(link);
+    // link.click();
+    // document.body.removeChild(link);
   };
 
   return (
@@ -288,7 +297,7 @@ const InvoiceDownloader = ({ enquiry }: { enquiry: any }) => {
       className="inline-flex items-center px-4 py-2  text-sm font-medium rounded-md text-black bg-white border-[1px]"
       onClick={downloadInvoice}
     >
-      <FileDown className="mr-2 h-4 w-4" /> Download Invoice
+      <FileDown className="mr-2 h-4 w-4" /> Download Quotation
     </button>
   );
 };

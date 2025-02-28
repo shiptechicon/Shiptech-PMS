@@ -13,7 +13,6 @@ interface Deliverable {
   total: number;
 }
 
-// Add this configuration for the rich text editor
 const toolbarConfig: ToolbarConfig = {
   display: [
     'INLINE_STYLE_BUTTONS',
@@ -45,7 +44,6 @@ const toolbarConfig: ToolbarConfig = {
   ]
 };
 
-// Add this CSS to your component or a CSS file
 const editorStyle = {
   editor: {
     border: '1px solid #ccc',
@@ -71,7 +69,10 @@ export default function EnquiryForm() {
       address: "",
     },
     deliverables: [] as Deliverable[],
-    requirements: RichTextEditor.createEmptyValue(),
+    exclusions: [] as string[],
+    charges: [] as string[],
+    scopeOfWork: RichTextEditor.createEmptyValue(),
+    inputsRequired: [] as string[],
   });
 
   useEffect(() => {
@@ -81,12 +82,15 @@ export default function EnquiryForm() {
         if (enquiry) {
           setFormData({
             ...enquiry,
-            requirements: RichTextEditor.createValueFromString(enquiry.requirements, 'html'),
+            scopeOfWork: RichTextEditor.createValueFromString(enquiry.scopeOfWork, 'html'),
             deliverables: enquiry.deliverables.map((d) => ({
               ...d,
               hours: d.hours ?? 0,
               costPerHour: d.costPerHour ?? 0,
             })),
+            exclusions: enquiry.exclusions ?? [],
+            inputsRequired: enquiry.inputsRequired ?? [],
+            charges: enquiry.charges ?? [],
           });
         }
       }
@@ -137,15 +141,81 @@ export default function EnquiryForm() {
     }));
   };
 
+  const addInputRequired = () => {
+    setFormData((prev) => ({
+      ...prev,
+      inputsRequired: [...prev.inputsRequired, ""],
+    }));
+  };
+
+  const updateInputRequired = (index: number, value: string) => {
+    setFormData((prev) => {
+      const newInputs = [...prev.inputsRequired];
+      newInputs[index] = value;
+      return { ...prev, inputsRequired: newInputs };
+    });
+  };
+
+  const removeInputRequired = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      inputsRequired: prev.inputsRequired.filter((_, i) => i !== index),
+    }));
+  };
+
+  const addExclusion = () => {
+    setFormData((prev) => ({
+      ...prev,
+      exclusions: [...prev.exclusions, ""],
+    }));
+  };
+
+  const removeExclusion = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      exclusions: prev.exclusions.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateExclusion = (index: number, value: string) => {
+    setFormData((prev) => {
+      const newExclusions = [...prev.exclusions];
+      newExclusions[index] = value;
+      return { ...prev, exclusions: newExclusions };
+    });
+  };
+
+  const addCharge = () => {
+    setFormData((prev) => ({
+      ...prev,
+      charges: [...prev.charges, ""],
+    }));
+  };
+
+  const removeCharge = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      charges: prev.charges.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateCharge = (index: number, value: string) => {
+    setFormData((prev) => {
+      const newCharges = [...prev.charges];
+      newCharges[index] = value;
+      return { ...prev, charges: newCharges };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const requirementsHtml = formData.requirements.toString('html');
+      const scopeOfWorkHtml = formData.scopeOfWork.toString('html');
       if (id) {
-        await updateEnquiry(id, { ...formData, requirements: requirementsHtml });
+        await updateEnquiry(id, { ...formData, scopeOfWork: scopeOfWorkHtml });
         toast.success("Enquiry updated successfully");
       } else {
-        await createEnquiry({ ...formData, requirements: requirementsHtml });
+        await createEnquiry({ ...formData, scopeOfWork: scopeOfWorkHtml });
         toast.success("Enquiry created successfully");
       }
       navigate("/dashboard/enquiries");
@@ -162,7 +232,6 @@ export default function EnquiryForm() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-           
           >
             <ArrowLeft className=" h-7 w-7" />
           </button>
@@ -246,10 +315,10 @@ export default function EnquiryForm() {
               />
             </div>
             <div>
-              <label className="block font-medium text-gray-700">Customer Requirements</label>
+              <label className="block font-medium text-gray-700">Scope of Work</label>
               <RichTextEditor
-                value={formData.requirements}
-                onChange={(value) => setFormData((prev) => ({ ...prev, requirements: value }))}
+                value={formData.scopeOfWork}
+                onChange={(value) => setFormData((prev) => ({ ...prev, scopeOfWork: value }))}
                 toolbarConfig={toolbarConfig}
                 editorStyle={editorStyle}
                 className="prose prose-slate max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-li:text-gray-700"
@@ -407,6 +476,109 @@ export default function EnquiryForm() {
                     <Trash2 size={18} />
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border-[1px] rounded-xl px-6 py-10">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Exclusions</h3>
+            <button
+              type="button"
+              onClick={addExclusion}
+              className="inline-flex items-center px-3 border border-transparent text-sm font-medium rounded-md text-white bg-black/90 hover:bg-black/80 py-2"
+            >
+              <Plus size={16} className="mr-1" />
+              Add Exclusion
+            </button>
+          </div>
+          <div className="space-y-4">
+            {formData.exclusions.map((exclusion, index) => (
+              <div key={index} className="flex items-end space-x-2">
+                <input
+                  type="text"
+                  required
+                  value={exclusion}
+                  onChange={(e) => updateExclusion(index, e.target.value)}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeExclusion(index)}
+                  className="mb-1 p-2 text-red-600 hover:text-red-900"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* New Inputs Required Section */}
+        <div className="bg-white border-[1px] rounded-xl px-6 py-10">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Inputs Required</h3>
+            <button
+              type="button"
+              onClick={addInputRequired}
+              className="inline-flex items-center px-3 border border-transparent text-sm font-medium rounded-md text-white bg-black/90 hover:bg-black/80 py-2"
+            >
+              <Plus size={16} className="mr-1" />
+              Add Input
+            </button>
+          </div>
+          <div className="space-y-4">
+            {formData.inputsRequired.map((input, index) => (
+              <div key={index} className="flex items-end space-x-2">
+                <input
+                  type="text"
+                  required
+                  value={input}
+                  onChange={(e) => updateInputRequired(index, e.target.value)}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeInputRequired(index)}
+                  className="mb-1 p-2 text-red-600 hover:text-red-900"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border-[1px] rounded-xl px-6 py-10">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Charges</h3>
+            <button
+              type="button"
+              onClick={addCharge}
+              className="inline-flex items-center px-3 border border-transparent text-sm font-medium rounded-md text-white bg-black/90 hover:bg-black/80 py-2"
+            >
+              <Plus size={16} className="mr-1" />
+              Add Charge
+            </button>
+          </div>
+          <div className="space-y-4">
+            {formData.charges.map((charge, index) => (
+              <div key={index} className="flex items-end space-x-2">
+                <input
+                  type="text"
+                  required
+                  value={charge}
+                  onChange={(e) => updateCharge(index, e.target.value)}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeCharge(index)}
+                  className="mb-1 p-2 text-red-600 hover:text-red-900"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             ))}
           </div>
