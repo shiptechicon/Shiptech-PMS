@@ -22,6 +22,7 @@ import CreateCustomerModal from "../components/CreateCustomerModal";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 // import { Project } from "../store/projectStore";
 import { Task } from "../store/projectStore";
+import TaskPopover from "../components/TaskPopover";
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -51,6 +52,10 @@ export default function ProjectDetails() {
   const [showStartDateConfirm, setShowStartDateConfirm] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const { user } = useAuthStore();
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverTasks, setPopoverTasks] = useState<
+    { name: string; deadline: string; assignees: string[] }[]
+  >([]);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -91,6 +96,20 @@ export default function ProjectDetails() {
     loadProject();
     checkUserRole();
   }, [id, user, fetchProject, navigate]);
+
+  // Calculate analytics for tasks
+  const totalTasks = project?.tasks.length || 0;
+  const completedTasks =
+    project?.tasks.filter((task) => task.completed).length || 0;
+  const incompleteTasks = totalTasks - completedTasks;
+  const projectDueDate = project?.project_due_date
+    ? new Date(project.project_due_date).toLocaleDateString()
+    : "No due date set";
+  const overdueTasks =
+    project?.tasks.filter(
+      (task) =>
+        task.deadline && new Date(task.deadline) < new Date() && !task.completed
+    ).length || 0;
 
   const handleAddTask = async (data: Task) => {
     if (!id) return;
@@ -324,6 +343,48 @@ export default function ProjectDetails() {
       });
   };
 
+  // Function to handle mouse enter on incomplete tasks
+  const handleIncompleteTasksHover = () => {
+    const tasks =
+      project?.tasks
+        .filter((task) => !task.completed)
+        .map((task) => ({
+          name: task.name,
+          deadline: task.deadline ? task.deadline : "",
+          assignees: task.assignedTo
+            ? task.assignedTo.map((user) => user.fullName)
+            : [],
+        })) || [];
+    setPopoverTasks(tasks);
+    setPopoverOpen(true);
+  };
+
+  // Function to handle mouse enter on overdue tasks
+  const handleOverdueTasksHover = () => {
+    const tasks =
+      project?.tasks
+        .filter(
+          (task) =>
+            task.deadline &&
+            new Date(task.deadline) < new Date() &&
+            !task.completed
+        )
+        .map((task) => ({
+          name: task.name,
+          deadline: task.deadline ? task.deadline : "",
+          assignees: task.assignedTo
+            ? task.assignedTo.map((user) => user.fullName)
+            : [],
+        })) || [];
+    setPopoverTasks(tasks);
+    setPopoverOpen(true);
+  };
+
+  // Function to close the popover
+  const closePopover = () => {
+    setPopoverOpen(false);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -385,6 +446,48 @@ export default function ProjectDetails() {
           )}
         </div>
       </div>
+
+      {/* Analytics Dashboard */}
+      <div className="mb-6 bg-white rounded-lg shadow p-4">
+        <h2 className="text-2xl font-bold mb-4">Analytics Dashboard</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-blue-100 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold">Total Tasks</h3>
+            <p className="text-2xl font-bold">{totalTasks}</p>
+          </div>
+          <div className="bg-green-100 p-4 rounded-lg cursor-pointer">
+            <h3 className="text-lg font-semibold">Completed Tasks</h3>
+            <p className="text-2xl font-bold">{completedTasks}</p>
+          </div>
+          <div
+            className="bg-yellow-100 p-4 rounded-lg cursor-pointer"
+            onMouseEnter={handleIncompleteTasksHover}
+            onMouseLeave={closePopover}
+          >
+            <h3 className="text-lg font-semibold">Incomplete Tasks</h3>
+            <p className="text-2xl font-bold">{incompleteTasks}</p>
+          </div>
+          <div className="bg-gray-100 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold">Project Due Date</h3>
+            <p className="text-2xl font-bold">{projectDueDate}</p>
+          </div>
+          <div
+            className="bg-red-100 p-4 rounded-lg"
+            onMouseEnter={handleOverdueTasksHover}
+            onMouseLeave={closePopover}
+          >
+            <h3 className="text-lg font-semibold">Overdue Tasks</h3>
+            <p className="text-2xl font-bold">{overdueTasks}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Render the popover */}
+      <TaskPopover
+        tasks={popoverTasks}
+        isOpen={popoverOpen}
+        onClose={closePopover}
+      />
 
       <div className="mt-7 flex flex-col gap-5 px-[10%]">
         {/* Project Information */}
