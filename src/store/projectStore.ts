@@ -556,7 +556,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         return [...acc, ...projectTasks];
       }, []);
 
-      set({ userTasks, loading: false });
+      set({ userTasks, loading: false, projects });
     } catch (error) {
       console.error("Error fetching user tasks:", error);
       set({ error: (error as Error).message, loading: false });

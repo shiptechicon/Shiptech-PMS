@@ -1,6 +1,7 @@
 import { User, Calendar, Clock, DollarSign, Check, AlertCircle } from 'lucide-react';
 import ItemStatusBadge from './ItemStatusBadge';
 import { Task } from '@/store/projectStore';
+import { useAuthStore } from '@/store/authStore';
 
 interface ItemDetailsProps {
   item: {
@@ -13,7 +14,7 @@ interface ItemDetailsProps {
     completed: boolean;
     hours?: number;
     costPerHour?: number;
-    children?:Task[];
+    children?: Task[];
   };
   tasks?: Task[];
   onEditClick?: () => void;
@@ -30,6 +31,7 @@ export default function ItemDetails({
   isAdmin,
   canComplete = true
 }: ItemDetailsProps) {
+  const { userData } = useAuthStore();
   const allChildrenComplete = item.children?.length 
     ? item.children.every(child => child.completed)
     : true;
@@ -148,7 +150,7 @@ export default function ItemDetails({
                   </div>
                 )}
                 
-                {item.costPerHour !== undefined && (
+                {item.costPerHour !== undefined && userData?.role === 'admin' && (
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-1">Cost per Hour</h3>
                     <div className="flex items-center">

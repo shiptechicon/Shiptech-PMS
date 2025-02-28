@@ -1,4 +1,3 @@
-
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Task } from '../store/projectStore';
 
@@ -11,6 +10,7 @@ interface TaskListProps {
   onTaskClick: (task: Task) => void;
   isAdmin: boolean;
   currentUserId?: string;
+  exceptionCase: boolean;
 }
 
 export default function TaskList({
@@ -20,7 +20,10 @@ export default function TaskList({
   onDeleteClick,
   onTaskClick,
   isAdmin,
+  exceptionCase,
 }: TaskListProps) {
+
+  console.log("exceptionCase",exceptionCase)
 
   const calculateCompletedPercentage = (task: Task): number => {
     if (!task.children || task.children.length === 0) {
@@ -51,19 +54,19 @@ export default function TaskList({
     <div className="mt-6">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-medium">Tasks</h3>
-            {isAdmin && (
-              <button
-                onClick={onAddClick}
+        {(isAdmin || exceptionCase) && (
+          <button
+            onClick={onAddClick}
             className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-black/90"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Task
-              </button>
-            )}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Task
+          </button>
+        )}
       </div>
 
       <div className="bg-white shadow rounded-lg">
-          {tasks.length === 0 ? (
+        {tasks.length === 0 ? (
           <p className="p-4 text-gray-500">No tasks yet</p>
         ) : (
           <div className="divide-y divide-gray-200">
@@ -76,8 +79,8 @@ export default function TaskList({
                   <div className="flex items-center justify-between">
                     <div 
                       className="flex items-center cursor-pointer flex-1"
-                        onClick={() => onTaskClick(task)}
-                      >
+                      onClick={() => onTaskClick(task)}
+                    >
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-medium">{task.name}</h4>
@@ -102,17 +105,17 @@ export default function TaskList({
                             {task.children.length} subtask{task.children.length !== 1 ? 's' : ''}
                           </p>
                         )}
-                        </div>
                       </div>
-                      {isAdmin && (
+                    </div>
+                    {isAdmin && (
                       <div className="flex items-center space-x-2 ml-4">
-                          <button
-                            onClick={() => onEditClick(task)}
+                        <button
+                          onClick={() => onEditClick(task)}
                           className="text-gray-600 hover:text-gray-900"
-                          >
+                        >
                           <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
+                        </button>
+                        <button
                           onClick={() => {
                             if (window.confirm('Are you sure you want to delete this task and all its subtasks?')) {
                               onDeleteClick(task.id);
@@ -121,15 +124,15 @@ export default function TaskList({
                           className="text-red-600 hover:text-red-800"
                         >
                           <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
-          )}
+        )}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ interface CalendarItem {
   type: 'project' | 'task' | 'todo';
   projectId?: string;
   taskPath?: string;
+  completed?: boolean;
 }
 
 interface CalendarDay {
@@ -23,8 +24,8 @@ interface CalendarDay {
 export default function ProjectCalendar() {
   const navigate = useNavigate();
   const { projects, fetchProjects } = useProjectStore();
+  const { userData } = useAuthStore();
   const { todos, fetchUserTodos } = useTodoStore();
-  const { user } = useAuthStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendar, setCalendar] = useState<CalendarDay[]>([]);
 
@@ -55,8 +56,9 @@ export default function ProjectCalendar() {
         ...projects.map(project => ({
           id: project.id,
           name: project.name,
-          dueDate: project.project_due_date!,
-          type: 'project' as const
+          dueDate: userData.role === 'admin' ? project.project_due_date! : '',
+          type: 'project' as const,
+          completed: false,
         })).filter(item => item.dueDate),
 
         // All tasks with deadlines from all projects
@@ -67,7 +69,8 @@ export default function ProjectCalendar() {
             dueDate: task.deadline!,
             type: 'task' as const,
             projectId: project.id,
-            taskPath: task.path
+            taskPath: task.path,
+            completed: task.completed,
           }))
         ),
 
@@ -76,7 +79,8 @@ export default function ProjectCalendar() {
           id: todo.id,
           name: todo.title,
           dueDate: todo.endDate,
-          type: 'todo' as const
+          type: 'todo' as const,
+          completed: false,
         }))
       ];
       
@@ -116,7 +120,7 @@ export default function ProjectCalendar() {
     };
 
     generateCalendar();
-  }, [currentDate, projects, todos]);
+  }, [currentDate, projects, todos, userData]);
 
   // Helper function to recursively get all tasks with deadlines
   const getAllTasksWithDeadlines = (tasks: Task[]): Task[] => {
@@ -210,6 +214,33 @@ export default function ProjectCalendar() {
         <p className="mt-1 text-lg text-gray-900">
           {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
         </p>
+
+        {/* Color Legend */}
+        <div className="mt-2 mb-4">
+          <h4 className="text-md font-semibold">Color Legend:</h4>
+          <div className="flex space-x-4 mt-1">
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-black rounded-full mr-1"></div>
+              <span>Project</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-blue-500 rounded-full mr-1"></div>
+              <span>Upcoming Task</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-green-500 rounded-full mr-1"></div>
+              <span>Completed Task</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-red-500 rounded-full mr-1"></div>
+              <span>Overdue Task</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-orange-500 rounded-full mr-1"></div>
+              <span>Todo</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-px bg-gray-200">
@@ -234,22 +265,34 @@ export default function ProjectCalendar() {
               {day.date.getDate()}
             </div>
             <div className="space-y-1 max-h-[80px] overflow-y-auto">
-              {day.items.map((item, i) => (
-                <div
-                  key={`${item.id}-${i}`}
-                  onClick={() => handleItemClick(item)}
-                  className={`text-xs px-2 py-1 rounded truncate cursor-pointer ${
-                    item.type === 'project' 
-                      ? 'bg-black/90 text-white hover:bg-black/80'
-                      : item.type === 'task'
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
-                  title={`${item.type.toUpperCase()}: ${item.name}`}
-                >
-                  {item.name}
-                </div>
-              ))}
+              {day.items.map((item, i) => {
+                let itemColor = '';
+                if (item.type === 'project') {
+                  itemColor = 'bg-black text-white'; // Projects are black
+                } else if (item.type === 'todo') {
+                  itemColor = 'bg-orange-500 text-white'; // Todos are orange
+                } else if (item.type === 'task') {
+                  const isPastDue = new Date(item.dueDate) < new Date();
+                  if (item.completed) {
+                    itemColor = 'bg-green-500 text-white'; // Completed tasks are green
+                  } else if (isPastDue) {
+                    itemColor = 'bg-red-500 text-white'; // Overdue tasks are red
+                  } else {
+                    itemColor = 'bg-blue-500 text-white'; // Upcoming tasks are blue
+                  }
+                }
+
+                return (
+                  <div
+                    key={`${item.id}-${i}`}
+                    onClick={() => handleItemClick(item)}
+                    className={`text-xs px-2 py-1 rounded truncate cursor-pointer ${itemColor}`}
+                    title={`${item.type.toUpperCase()}: ${item.name} (${item.type})`}
+                  >
+                    {item.name}
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}

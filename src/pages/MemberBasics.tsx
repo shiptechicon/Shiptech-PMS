@@ -7,7 +7,7 @@ import { Calendar, Clock, AlertCircle, UserCheck, ListTodo } from 'lucide-react'
 
 export default function MemberBasics() {
   const navigate = useNavigate();
-  const { userTasks, fetchUserTasks, loading: tasksLoading } = useProjectStore();
+  const { userTasks, fetchUserTasks, loading: tasksLoading, projects } = useProjectStore();
   const { checkAttendance } = useAttendanceStore();
   const { todos, loading: todosLoading, fetchUserTodos } = useTodoStore();
   const [hasMarkedAttendance, setHasMarkedAttendance] = React.useState(true);
@@ -31,9 +31,18 @@ export default function MemberBasics() {
     .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
     .slice(0, 2);
 
+  // Get upcoming tasks (nearest 2 by deadline that aren't completed)
+  const upcomingTasks = userTasks
+    .filter(task => !task.completed && task.deadline && new Date(task.deadline) >= new Date())
+
   const handleTaskClick = (projectId: string, taskPath: string) => {
     navigate(`/dashboard/projects/${projectId}/task/${taskPath}`);
   };
+
+  // Calculate analytics
+  const totalProjects = projects.length;
+  const ongoingProjects = projects.filter(project => project.status === 'ongoing').length;  
+  const completedProjects = projects.filter(project => project.status === 'completed').length;
 
   if (tasksLoading || todosLoading) {
     return (
@@ -45,6 +54,25 @@ export default function MemberBasics() {
 
   return (
     <div className="p-6">
+      {/* Analytics Board */}
+      <div className="mb-6 bg-white rounded-lg shadow p-4">
+        <h2 className="text-2xl font-bold mb-4">Analytics Dashboard</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-blue-100 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold">Total Projects</h3>
+            <p className="text-2xl font-bold">{totalProjects}</p>
+          </div>
+          <div className="bg-yellow-100 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold">Ongoing Projects</h3>
+            <p className="text-2xl font-bold">{ongoingProjects}</p>
+          </div>
+          <div className="bg-green-100 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold">Completed Projects</h3>
+            <p className="text-2xl font-bold">{completedProjects}</p>
+          </div>
+        </div>
+      </div>
+
       {!hasMarkedAttendance && (
         <div 
           onClick={() => navigate('/dashboard/attendance')}
@@ -64,7 +92,7 @@ export default function MemberBasics() {
       {upcomingTodos.length > 0 && (
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2  className="text-2xl font-bold">Upcoming Todos</h2>
+            <h2 className="text-2xl font-bold">Upcoming Todos</h2>
             <button
               onClick={() => navigate('/dashboard/todos')}
               className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
@@ -107,7 +135,7 @@ export default function MemberBasics() {
           </div>
         ) : (
           <div className="divide-y">
-            {userTasks.map((task) => (
+            {upcomingTasks.map((task) => (
               <div
                 key={task.id}
                 onClick={() => handleTaskClick(task.projectId as string, task.path as string)}

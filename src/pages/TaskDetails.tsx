@@ -42,6 +42,7 @@ export default function TaskDetails() {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualHours, setManualHours] = useState(0);
   const [manualMinutes, setManualMinutes] = useState(0);
+  const [exceptionCase, setExceptionCase] = useState(false);
 
   const formatTimeDisplay = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -389,22 +390,38 @@ export default function TaskDetails() {
     return `${hours}h ${remainingMinutes}m`;
   };
 
-  const isAssignedToCurrentUser = task?.assignedTo?.some(
-    (u) => u.id === user?.uid
-  );
+  
 
-  const handleTasksUpdate = (updatedTasks: Task[]) => {
-    // Update the local state with new task percentages
+  useEffect(() => {
+    const isAssignedToCurrentUser = (task: Task) => {
+      // return task.assignedTo?.some((u) => u.id === user?.uid);
+      const result =  task.assignedTo?.find((u) => u.id === user?.uid);
+      console.log("result",result)
+      if(!result){
+        return false
+      }
+      return true
+    };
+
     if (task) {
-      setTask((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          children: updatedTasks,
-        };
-      });
+      const result2 = isAssignedToCurrentUser(task)
+      console.log("result2",result2)
+      setExceptionCase(result2);
     }
-  };
+  }, [task, user]);
+
+  // const handleTasksUpdate = (updatedTasks: Task[]) => {
+  //   // Update the local state with new task percentages
+  //   if (task) {
+  //     setTask((prev) => {
+  //       if (!prev) return prev;
+  //       return {
+  //         ...prev,
+  //         children: updatedTasks,
+  //       };
+  //     });
+  //   }
+  // };
 
   const handleOpenManualEntry = () => {
     setManualHours(0);
@@ -482,30 +499,30 @@ export default function TaskDetails() {
     }
   };
 
-  const handleUpdatePercentage = async (taskId: string, percentage: number) => {
-    try {
-      if (!projectId || !task) return;
+  // const handleUpdatePercentage = async (taskId: string, percentage: number) => {
+  //   try {
+  //     if (!projectId || !task) return;
       
-      await updateTask(projectId, currentPath, taskId, {
-        ...task,
-        percentage: percentage
-      });
+  //     await updateTask(projectId, currentPath, taskId, {
+  //       ...task,
+  //       percentage: percentage
+  //     });
 
-      // Refresh task data
-      const updatedTask = await getTaskByPath(projectId, currentPath);
-      if (updatedTask) {
-        setTask({
-          ...updatedTask,
-          children: updatedTask.children || [],
-        });
-      }
+  //     // Refresh task data
+  //     const updatedTask = await getTaskByPath(projectId, currentPath);
+  //     if (updatedTask) {
+  //       setTask({
+  //         ...updatedTask,
+  //         children: updatedTask.children || [],
+  //       });
+  //     }
 
-      toast.success('Progress updated successfully');
-    } catch (error) {
-      console.error('Error updating progress:', error);
-      toast.error('Failed to update progress');
-    }
-  };
+  //     toast.success('Progress updated successfully');
+  //   } catch (error) {
+  //     console.error('Error updating progress:', error);
+  //     toast.error('Failed to update progress');
+  //   }
+  // };
 
   if (loading) {
     return (
@@ -532,7 +549,7 @@ export default function TaskDetails() {
           </button>
           <h1 className="text-2xl font-bold">{task.name}</h1>
         </div>
-        {isAssignedToCurrentUser && (
+        {exceptionCase && (
           <div className="flex items-center space-x-4">
             {(isTimerActive || currentDuration > 0) && (
               <div className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-md">
@@ -593,9 +610,7 @@ export default function TaskDetails() {
         }}
         onToggleComplete={handleToggleComplete}
         isAdmin={isAdmin}
-        canComplete={
-          isAdmin || task.assignedTo?.some((u) => u.id === user?.uid)
-        }
+        canComplete={isAdmin || exceptionCase}
       />
 
       {timeEntries.length > 0 && (
@@ -634,9 +649,9 @@ export default function TaskDetails() {
         }}
         onDeleteClick={handleDeleteTask}
         onTaskClick={handleTaskClick}
-        // onUpdatePercentage={handleUpdatePercentage}
         isAdmin={isAdmin}
         currentUserId={user?.uid}
+        exceptionCase={exceptionCase}
       />
 
       <TaskModal
