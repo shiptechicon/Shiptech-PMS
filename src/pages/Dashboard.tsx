@@ -8,6 +8,7 @@ import {
   Briefcase,
   UserCheck,
   ListTodo,
+  Users,
 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -24,6 +25,7 @@ import { useLeaveStore } from "@/store/leaveStore";
 import { useWorkFromStore } from "@/store/workfromhomestore";
 import AttendanceModal from "@/components/AttendanceModal";
 import Todos from './Todos';
+import Customers from "./Customers";
 
 export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -151,19 +153,34 @@ export default function Dashboard() {
             </NavLink>
             {
               userData?.role === 'admin' && (
-                <NavLink
-              to="/dashboard/enquiries"
-              className={({ isActive }) =>
-                `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${
-                  isActive
-                    ? "bg-black/90 text-white"
-                    : "text-gray-700 hover:bg-gray-50"
-                } ${isCollapsed ? "justify-center p-2" : " p-4"}`
-              }
-            >
-              <FileQuestion size={20} />
-              {!isCollapsed && <span>Enquiries</span>}
-            </NavLink>
+                <>
+                  <NavLink
+                    to="/dashboard/enquiries"
+                    className={({ isActive }) =>
+                      `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${
+                        isActive
+                          ? "bg-black/90 text-white"
+                          : "text-gray-700 hover:bg-gray-50"
+                      } ${isCollapsed ? "justify-center p-2" : " p-4"}`
+                    }
+                  >
+                    <FileQuestion size={20} />
+                    {!isCollapsed && <span>Enquiries</span>}
+                  </NavLink>
+                  <NavLink
+                    to="/dashboard/customers"
+                    className={({ isActive }) =>
+                      `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${
+                        isActive
+                          ? "bg-black/90 text-white"
+                          : "text-gray-700 hover:bg-gray-50"
+                      } ${isCollapsed ? "justify-center p-2" : " p-4"}`
+                    }
+                  >
+                    <Users size={20} />
+                    {!isCollapsed && <span>Customers</span>}
+                  </NavLink>
+                </>
               )
             }
             <NavLink
@@ -212,6 +229,7 @@ export default function Dashboard() {
           <Routes>
             <Route path="/" element={<Basics />} />
             <Route path="/enquiries/*" element={<Enquiries />} />
+            <Route path="/customers/*" element={<Customers />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetails />} />
             <Route path="/projects/:id/task/*" element={<TaskDetails />} />

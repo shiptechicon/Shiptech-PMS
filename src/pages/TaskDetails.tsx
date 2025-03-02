@@ -25,7 +25,6 @@ export default function TaskDetails() {
     startTimer,
     stopTimer,
     getTaskTimeEntries,
-    activeTimer,
     toggleTaskCompletion,
     checkActiveTimer,
   } = useProjectStore();
