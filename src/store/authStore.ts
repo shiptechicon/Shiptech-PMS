@@ -95,6 +95,32 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw error;
     }
   },
+  signUpCustomer: async (email: string, password: string, fullName: string) => {
+    try {
+      set({ loading: true, error: null });
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
+      
+      const userData: UserData = {
+        fullName,
+        email,
+        role: 'customer',
+        createdAt: new Date().toISOString(),
+        verified: true,
+        designation: ''
+      };
+
+      // Store user data in Firestore
+      await setDoc(doc(db, 'users', user.uid), userData);
+
+      // Store credentials in localStorage
+      localStorage.setItem('userCredentials', JSON.stringify({ email, password }));
+
+      set({ user, userData, loading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+      throw error;
+    }
+  },
 
   signIn: async (email: string, password: string) => {
     try {

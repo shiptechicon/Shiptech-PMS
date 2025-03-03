@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Loader2, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Loader2, Trash2, ArrowLeft, UserPlus } from "lucide-react";
 import { useEnquiryStore } from "../store/enquiryStore";
+import { useCustomerStore, Customer } from "@/store/customerStore";
 import toast from "react-hot-toast";
 import RichTextEditor, { ToolbarConfig } from "react-rte";
 
@@ -59,15 +60,15 @@ export default function EnquiryForm() {
   const navigate = useNavigate();
   const { createEnquiry, updateEnquiry, fetchEnquiry, loading } =
     useEnquiryStore();
+  const { fetchCustomers, customers } = useCustomerStore();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState({
     enquiryNumber: "",
     name: "",
     description: "",
-    customer: {
-      name: "",
-      phone: "",
-      address: "",
-    },
+    customer_id: "",
     deliverables: [] as Deliverable[],
     exclusions: [] as string[],
     charges: [] as string[],
@@ -92,12 +93,41 @@ export default function EnquiryForm() {
             inputsRequired: enquiry.inputsRequired ?? [],
             charges: enquiry.charges ?? [],
           });
+          
+          // Find the selected customer if customer_id exists
+          if (enquiry.customer_id) {
+            const customer = customers.find(c => c.id === enquiry.customer_id);
+            if (customer) {
+              setSelectedCustomer(customer);
+            }
+          }
         }
       }
     };
 
+    fetchCustomers(); // Load customers when component mounts
     loadEnquiry();
-  }, [id, fetchEnquiry]);
+  }, [id, fetchEnquiry, fetchCustomers, customers]);
+
+  // Filter customers based on search term
+  const filteredCustomers = customers.filter((customer: Customer) => 
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setFormData(prev => ({
+      ...prev,
+      customer_id: customer.id || "",
+    }));
+    setShowCustomerDropdown(false);
+  };
+
+  const handleAddNewCustomer = () => {
+    // Save current path to localStorage
+    localStorage.setItem('last_visited', window.location.pathname);
+    navigate('/dashboard/customers/new');
+  };
 
   const addDeliverable = () => {
     setFormData((prev) => ({
@@ -331,59 +361,77 @@ export default function EnquiryForm() {
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             Customer Details
           </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Name
-              </label>
+          <div className="relative">
+            <div className="flex items-center space-x-2">
               <input
                 type="text"
-                required
-                value={formData.customer.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, name: e.target.value },
-                  }))
-                }
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setShowCustomerDropdown(true)}
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
+              <button
+                type="button"
+                onClick={handleAddNewCustomer}
+                className="mt-1 p-2 text-gray-600 hover:text-gray-900"
+              >
+                <UserPlus size={20} />
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Phone
-              </label>
-              <input
-                type="tel"
-                required
-                value={formData.customer.phone}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, phone: e.target.value },
-                  }))
-                }
-                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Address
-              </label>
-              <textarea
-                required
-                value={formData.customer.address}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, address: e.target.value },
-                  }))
-                }
-                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                rows={2}
-              />
-            </div>
+            
+            {showCustomerDropdown && (
+              <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-300">
+                {filteredCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="p-2 hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleCustomerSelect(customer)}
+                  >
+                    {customer.name}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {selectedCustomer && (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={selectedCustomer.name}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  readOnly
+                  value={selectedCustomer.email}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Address
+                </label>
+                <textarea
+                  readOnly
+                  value={selectedCustomer.address}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white border-[1px] rounded-xl px-6 py-10">

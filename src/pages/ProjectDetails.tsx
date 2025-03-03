@@ -87,7 +87,7 @@ export default function ProjectDetails() {
 
       try {
         setLoading(true);
-        let p = await fetchProject(id);
+        const p = await fetchProject(id);
         const data = p;
         if (data) {
           if (data.project_due_date) {
@@ -723,6 +723,7 @@ export default function ProjectDetails() {
           onDeleteClick={handleDeleteTask}
           onTaskClick={handleTaskClick}
           isAdmin={isAdmin}
+          exceptionCase={false}
         />
 
         {/* Comments Section */}

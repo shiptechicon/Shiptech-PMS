@@ -52,7 +52,7 @@ export default function CustomerForm() {
             gstNumber: customer.gstNumber,
             contactPersons,
             endClient: customer.endClient,
-            email: customer.email,
+            email: customer.email || "",
             logoUrl: customer.logoUrl || "",
           });
           // Set logo preview if exists
@@ -104,52 +104,62 @@ export default function CustomerForm() {
       return;
     }
       
-      // Filter out empty contact persons
-      const filteredData = {
-        ...formData,
-        contactPersons: formData.contactPersons.filter(
-          contact => contact.name.trim() !== "" || contact.phone.trim() !== ""
-        ),
-      };
+    // Filter out empty contact persons
+    const filteredData = {
+      ...formData,
+      contactPersons: formData.contactPersons.filter(
+        contact => contact.name.trim() !== "" || contact.phone.trim() !== ""
+      ),
+    };
       
-      try {
-        if (id) {
-          // Upload logo if changed
-          const logoUrl = await uploadLogo(id);
+    try {
+      if (id) {
+        // Upload logo if changed
+        const logoUrl = await uploadLogo(id);
+        
+        await updateCustomer(id, {
+          ...filteredData,
+          logoUrl: logoUrl || filteredData.logoUrl,
+        });
+        toast.success("Customer updated successfully");
+      } else {
+        // For new customer, create first to get ID
+        const newCustomer = await createCustomer(filteredData);
+        
+        if (newCustomer && logoFile) {
+          // Get the ID from the returned customer object
+          const customerId = newCustomer.id;
           
-          
-          await updateCustomer(id, {
-            ...filteredData,
-            logoUrl: logoUrl || filteredData.logoUrl,
-          });
-          toast.success("Customer updated successfully");
-        } else {
-          // For new customer, create first to get ID
-          const newCustomer = await createCustomer(filteredData);
-          
-          if (newCustomer && logoFile) {
-            // Get the ID from the returned customer object
-            const customerId = newCustomer.id;
+          if (customerId) {
+            // Upload logo with the new customer ID
+            const logoUrl = await uploadLogo(customerId);
             
-            if (customerId) {
-              // Upload logo with the new customer ID
-              const logoUrl = await uploadLogo(customerId);
-              
-              if (logoUrl) {
-                // Update the customer with the logo URL
-                await updateCustomer(customerId, { logoUrl });
-              }
+            if (logoUrl) {
+              // Update the customer with the logo URL
+              await updateCustomer(customerId, { logoUrl });
             }
           }
-          
-          toast.success("Customer created successfully");
         }
-        navigate("/dashboard/customers");
-      } catch (error) {
-        console.error("Customer submission error:", error);
-        toast.error(id ? "Failed to update customer" : "Failed to create customer");
+        
+        toast.success("Customer created successfully");
       }
-    };
+
+      // Check for last_visited path in localStorage
+      const lastVisited = localStorage.getItem('last_visited');
+      if (lastVisited) {
+        // Remove the last_visited path from localStorage
+        localStorage.removeItem('last_visited');
+        // Navigate to the last visited path
+        navigate(lastVisited);
+      } else {
+        // If no last_visited path, go to customers list
+        navigate("/dashboard/customers");
+      }
+    } catch (error) {
+      console.error("Customer submission error:", error);
+      toast.error(id ? "Failed to update customer" : "Failed to create customer");
+    }
+  };
   
   const addContactPerson = () => {
     setFormData(prev => ({
@@ -233,6 +243,21 @@ export default function CustomerForm() {
                 value={formData.name}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
+                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, email: e.target.value }))
                 }
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />

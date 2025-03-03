@@ -18,11 +18,7 @@ export interface Enquiry {
   enquiryNumber: string;
   name: string;
   description: string;
-  customer: {
-    name: string;
-    phone: string;
-    address: string;
-  };
+  customer_id: string; // Changed from customer object to customer_id
   deliverables: Deliverable[];
   scopeOfWork: string;
   createdAt: string;
@@ -131,6 +127,21 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       const enquiry = await get().fetchEnquiry(enquiryId);
       if (!enquiry) throw new Error('Enquiry not found');
 
+      // Get customer details from customer_id
+      const customerDoc = await getDoc(doc(db, 'customers', enquiry.customer_id));
+      const customerData = customerDoc.exists() ? customerDoc.data() : null;
+      
+      // Create customer object for project
+      const customer = customerData ? {
+        name: customerData.name,
+        phone: customerData.contactPersons[0]?.phone || '',
+        address: customerData.address
+      } : {
+        name: '',
+        phone: '',
+        address: ''
+      };
+
       // Convert deliverables to tasks
       const tasks = enquiry.deliverables.map(deliverable => ({
         id: crypto.randomUUID(),
@@ -148,7 +159,8 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       const projectData = {
         name: enquiry.name,
         description: enquiry.description,
-        customer: enquiry.customer,
+        customer_id: enquiry.customer_id,
+        customer, // Include customer details for backward compatibility
         tasks,
         __id: 'p-' + enquiry.__id.split('-')[1],
         type: 'project' as const,
@@ -159,7 +171,6 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       // Create project in Firestore
       await addDoc(collection(db, 'projects'), projectData);
     
-
       // Delete original enquiry
       await deleteDoc(doc(db, 'enquiries', enquiryId));
 

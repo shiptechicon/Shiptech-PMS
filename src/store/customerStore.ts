@@ -7,7 +7,8 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  serverTimestamp 
+  serverTimestamp, 
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -26,8 +27,8 @@ export interface Customer {
   endClient: string;
   email: string;
   logoUrl?: string;
-  createdAt?: any;
-  updatedAt?: any;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 interface CustomerState {
@@ -41,7 +42,7 @@ interface CustomerState {
   deleteCustomer: (id: string) => Promise<void>;
 }
 
-export const useCustomerStore = create<CustomerState>((set, get) => ({
+export const useCustomerStore = create<CustomerState>((set) => ({
   customers: [],
   loading: false,
   error: null,

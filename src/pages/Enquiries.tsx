@@ -1,18 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { Plus, Loader2, Trash2, ExternalLink } from 'lucide-react';
-import { useEnquiryStore } from '../store/enquiryStore';
+import { useEnquiryStore, Enquiry } from '../store/enquiryStore';
+import { useCustomerStore } from '../store/customerStore';
 import toast from 'react-hot-toast';
 import EnquiryForm from './EnquiryForm';
 import EnquiryDetails from './EnquiryDetails';
 
+interface EnquiryWithCustomer extends Omit<Enquiry, 'customer'> {
+  customerName?: string;
+}
+
 const EnquiriesList = () => {
   const navigate = useNavigate();
   const { enquiries, loading, fetchEnquiries, deleteEnquiry } = useEnquiryStore();
+  const { customers, fetchCustomers } = useCustomerStore();
+  const [enquiriesWithCustomer, setEnquiriesWithCustomer] = useState<EnquiryWithCustomer[]>([]);
 
   useEffect(() => {
-    fetchEnquiries();
-  }, [fetchEnquiries]);
+    const loadData = async () => {
+      await Promise.all([fetchEnquiries(), fetchCustomers()]);
+    };
+    loadData();
+  }, [fetchEnquiries, fetchCustomers]);
+
+  useEffect(() => {
+    if (enquiries && customers) {
+      const enrichedEnquiries = enquiries.map(enquiry => ({
+        ...enquiry,
+        customerName: customers.find(c => c.id === enquiry.customer_id)?.name || 'N/A'
+      }));
+      setEnquiriesWithCustomer(enrichedEnquiries);
+    }
+  }, [enquiries, customers]);
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this enquiry?')) {
@@ -25,7 +45,7 @@ const EnquiriesList = () => {
     }
   };
 
-  const filteredEnquiries = enquiries.filter(e => e.type === 'enquiry');
+  const filteredEnquiries = enquiriesWithCustomer.filter(e => e.type === 'enquiry');
 
   return (
     <div className="p-6">
@@ -80,7 +100,7 @@ const EnquiriesList = () => {
                     {enquiry.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {enquiry.customer.name}
+                    {enquiry.customerName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(enquiry.createdAt).toLocaleDateString()}

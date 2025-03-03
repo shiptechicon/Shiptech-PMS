@@ -7,12 +7,15 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import toast from "react-hot-toast";
 import InvoiceDownloader from "@/components/InvoiceDocument";
+import { useCustomerStore, Customer } from "../store/customerStore";
 
 export default function EnquiryDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { fetchEnquiry, convertToProject } = useEnquiryStore();
+  const { fetchCustomer } = useCustomerStore();
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
+  const [customerDetails, setCustomerDetails] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuthStore();
@@ -23,6 +26,14 @@ export default function EnquiryDetails() {
         const data = await fetchEnquiry(id);
         if (data) {
           setEnquiry(data);
+          
+          // Fetch customer details if customer_id exists
+          if (data.customer_id) {
+            const customerData = await fetchCustomer(data.customer_id);
+            if (customerData) {
+              setCustomerDetails(customerData);
+            }
+          }
         } else {
           toast.error("Enquiry not found");
           navigate("/dashboard/enquiries");
@@ -41,7 +52,7 @@ export default function EnquiryDetails() {
 
     loadEnquiry();
     checkUserRole();
-  }, [id, user, fetchEnquiry, navigate]);
+  }, [id, user, fetchEnquiry, fetchCustomer, navigate]);
 
   const handleConvertToProject = async () => {
     try {
@@ -135,28 +146,66 @@ export default function EnquiryDetails() {
           </div>
         </div>
 
-        {/* Customer Details Section */}
-        <div className="bg-white border-[1px]  rounded-xl overflow-hidden">
+        {/* Customer Details Section - Updated */}
+        <div className="bg-white border-[1px] rounded-xl overflow-hidden">
           <div className="border-b border-gray-200 px-6 py-3">
             <h3 className="text-lg font-medium text-gray-900">
               Customer Details
             </h3>
           </div>
           <div className="px-6 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Name</p>
-                <p className="mt-1">{enquiry.customer.name}</p>
+            {customerDetails ? (
+              <div className="grid grid-cols-2 gap-4">
+                {customerDetails.logoUrl && (
+                  <div className="col-span-2">
+                    <p className="text-sm font-medium text-gray-500">Logo</p>
+                    <img 
+                      src={customerDetails.logoUrl} 
+                      alt="Customer Logo" 
+                      className="mt-1 max-h-20 object-contain"
+                    />
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Name</p>
+                  <p className="mt-1">{customerDetails.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Email</p>
+                  <p className="mt-1">{customerDetails.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">GST Number</p>
+                  <p className="mt-1">{customerDetails.gstNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">End Client</p>
+                  <p className="mt-1">{customerDetails.endClient}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Address</p>
+                  <p className="mt-1">{customerDetails.address}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Billing Address</p>
+                  <p className="mt-1">{customerDetails.billingAddress}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Contact Persons</p>
+                  <div className="mt-1 space-y-2">
+                    {customerDetails.contactPersons.map((person, index) => (
+                      <div key={index} className="flex items-center space-x-4">
+                        <span className="text-sm text-gray-700">{person.name}</span>
+                        <span className="text-sm text-gray-500">-</span>
+                        <span className="text-sm text-gray-700">{person.phone}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Phone</p>
-                <p className="mt-1">{enquiry.customer.phone}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-sm font-medium text-gray-500">Address</p>
-                <p className="mt-1">{enquiry.customer.address}</p>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-gray-500">No customer details found.</p>
+            )}
           </div>
         </div>
 
