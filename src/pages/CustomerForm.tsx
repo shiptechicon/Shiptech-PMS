@@ -168,6 +168,11 @@ export default function CustomerForm() {
         }
         
         toast.success("Customer created successfully");
+
+        // Store the new customer ID in localStorage
+        if (newCustomer?.id) {
+          localStorage.setItem('newCustomerId', newCustomer.id);
+        }
       }
 
       // Check for last_visited path in localStorage

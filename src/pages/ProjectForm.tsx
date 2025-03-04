@@ -49,18 +49,25 @@ export default function ProjectForm() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [formData, setFormData] = useState<FormData>({
-    name: "",
-    description: "",
-    customer: {
+  const [formData, setFormData] = useState<FormData>(() => {
+    // Try to load saved form data from localStorage
+    const savedData = localStorage.getItem('projectFormData');
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+    return {
       name: "",
-      phone: "",
-      address: "",
-    },
-    tasks: [],
-    projectNumber: "",
-    status: "not-started",
-    type: "project"
+      description: "",
+      customer: {
+        name: "",
+        phone: "",
+        address: "",
+      },
+      tasks: [],
+      projectNumber: "",
+      status: "not-started",
+      type: "project"
+    };
   });
 
   useEffect(() => {
@@ -92,7 +99,22 @@ export default function ProjectForm() {
 
     fetchCustomers(); // Load customers when component mounts
     loadProject();
+
+    // Check for newly created customer
+    const newCustomerId = localStorage.getItem('newCustomerId');
+    if (newCustomerId) {
+      const newCustomer = customers.find(c => c.id === newCustomerId);
+      if (newCustomer) {
+        handleCustomerSelect(newCustomer);
+      }
+      localStorage.removeItem('newCustomerId');
+    }
   }, [id, fetchProject, fetchCustomers, customers]);
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('projectFormData', JSON.stringify(formData));
+  }, [formData]);
 
   // Filter customers based on search term
   const filteredCustomers = customers.filter((customer: Customer) => 
@@ -113,7 +135,6 @@ export default function ProjectForm() {
   };
 
   const handleAddNewCustomer = () => {
-    // Save current path to localStorage
     localStorage.setItem('last_visited', window.location.pathname);
     navigate('/dashboard/customers/new');
   };
@@ -128,6 +149,8 @@ export default function ProjectForm() {
         await createProject(formData);
         toast.success("Project created successfully");
       }
+      // Clear saved form data after successful submission
+      localStorage.removeItem('projectFormData');
       navigate("/dashboard/projects");
     } catch (error) {
       console.error(error);
