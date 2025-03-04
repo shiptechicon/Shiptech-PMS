@@ -30,6 +30,7 @@ export interface Enquiry {
   inputsRequired: string[];
   exclusions: string[];
   charges: string[];
+  status: string;
 }
 
 interface EnquiryState {
@@ -42,6 +43,7 @@ interface EnquiryState {
   updateEnquiry: (id: string, enquiry: Omit<Enquiry, 'id' | '__id' | 'createdAt' | 'type'>) => Promise<void>;
   deleteEnquiry: (id: string) => Promise<void>;
   convertToProject: (enquiryId: string) => Promise<void>;
+  updateEnquiryStatus: (id: string, status: string) => Promise<void>;
 }
 
 export const useEnquiryStore = create<EnquiryState>((set, get) => ({
@@ -88,7 +90,8 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         ...enquiryData,
         __id: `e-${enquiryData.enquiryNumber}`,
         createdAt: new Date().toISOString(),
-        type: 'enquiry' as const
+        type: 'enquiry' as const,
+        status: 'on hold' as const
       };
       const docRef = await addDoc(collection(db, 'enquiries'), newEnquiry);
       const enquiryWithId = { ...newEnquiry, id: docRef.id };
@@ -161,7 +164,11 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
     
 
       // Delete original enquiry
-      await deleteDoc(doc(db, 'enquiries', enquiryId));
+      // await deleteDoc(doc(db, 'enquiries', enquiryId));
+      // instead of that change status to moved to projects
+      await updateDoc(doc(db, 'enquiries', enquiryId), {
+        status: 'moved to projects'
+      });
 
       // Update local state
       const updatedEnquiries = get().enquiries.filter(e => e.id !== enquiryId);
@@ -173,6 +180,23 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       set({ error: (error as Error).message, loading: false });
       toast.error('Failed to convert to project');
       throw error;
+    }
+  },
+
+  updateEnquiryStatus: async (id: string, status: string) => {
+    try {
+      set({ loading: true, error: null });
+      const docRef = doc(db, 'enquiries', id);
+      await updateDoc(docRef, { status });
+      
+      const updatedEnquiries = get().enquiries.map(enquiry =>
+        enquiry.id === id ? { ...enquiry, status } : enquiry
+      );
+      set({ enquiries: updatedEnquiries, loading: false });
+      toast.success('Status updated successfully');
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+      toast.error('Failed to update status');
     }
   }
 }));

@@ -218,7 +218,7 @@ export default function Projects() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {projects.map((project) => (
-                  <tr key={project.id} className="hover:bg-gray-50">
+                  <tr onClick={() => navigate(`/dashboard/projects/${project.id}`)} key={project.id} className="hover:bg-gray-50 hover:cursor-pointer">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {project.__id}
                     </td>

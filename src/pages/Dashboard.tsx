@@ -24,6 +24,8 @@ import { useLeaveStore } from "@/store/leaveStore";
 import { useWorkFromStore } from "@/store/workfromhomestore";
 import AttendanceModal from "@/components/AttendanceModal";
 import Todos from './Todos';
+import OutsourceTeams from "./OutsourceTeams";
+// Remove NewTeam and TeamDetails imports as they'll be handled in index.tsx
 
 export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -205,6 +207,19 @@ export default function Dashboard() {
               <ListTodo size={20} />
               {!isCollapsed && <span>Todos</span>}
             </NavLink>
+            <NavLink
+              to="/dashboard/outsource-teams/"
+              className={({ isActive }) =>
+                `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${
+                  isActive
+                   ? "bg-black/90 text-white"
+                    : "text-gray-700 hover:bg-gray-50"
+                } ${isCollapsed? "justify-center p-2" : " p-4"}`
+              }
+            >
+              <Briefcase size={20} />
+              {!isCollapsed && <span>Outsource Teams</span>}
+            </NavLink>
           </nav>
         </div>
 
@@ -219,6 +234,7 @@ export default function Dashboard() {
             <Route path="/projects/new" element={<ProjectForm />} />
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/todos" element={<Todos />} />
+            <Route path="/outsource-teams/*" element={<OutsourceTeams />} />
           </Routes>
         </div>
 

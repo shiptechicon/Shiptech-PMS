@@ -7,11 +7,12 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import toast from "react-hot-toast";
 import InvoiceDownloader from "@/components/InvoiceDocument";
+import { dropdownData } from "../const/enquiryDropdown";
 
 export default function EnquiryDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { fetchEnquiry, convertToProject } = useEnquiryStore();
+  const { fetchEnquiry, convertToProject, updateEnquiryStatus } = useEnquiryStore();
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -53,6 +54,32 @@ export default function EnquiryDetails() {
     }
   };
 
+  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!id || !enquiry) return;
+    
+    const newStatus = e.target.value;
+    
+    try {
+      // Update the state immediately for better UX
+      setEnquiry({
+        ...enquiry,
+        status: newStatus
+      });
+      
+      // Then update Firebase
+      await updateEnquiryStatus(id, newStatus);
+      
+      toast.success('Status updated successfully');
+    } catch (error) {
+      // Revert the state if Firebase update fails
+      setEnquiry({
+        ...enquiry,
+        status: enquiry.status
+      });
+      
+      toast.error('Failed to update status');
+    }
+  };
 
   if (loading) {
     return (
@@ -131,6 +158,30 @@ export default function EnquiryDetails() {
                 <p className="text-sm font-medium text-gray-500">Description</p>
                 <p className="mt-1">{enquiry.description}</p>
               </div>
+              {isAdmin && (
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Status</p>
+                  <select
+                    value={enquiry?.status || dropdownData[0]}
+                    onChange={handleStatusChange}
+                    className={`mt-1 w-max border-1 py-2 px-1 rounded-md shadow-sm focus:ring-1 text-white ${
+                      enquiry?.status === "cancelled"
+                        ? "bg-red-500 border-red-500 focus:border-red-400 focus:ring-red-400"
+                        : enquiry?.status === "on hold"
+                        ? "bg-yellow-500 border-yellow-500 focus:border-yellow-400 focus:ring-yellow-400"
+                        : enquiry?.status === "moved to projects"
+                        ? "bg-green-500 border-green-500 focus:border-green-400 focus:ring-green-400"
+                        : "bg-blue-600 border-blue-600 focus:border-blue-500 focus:ring-blue-500"
+                    } sm:text-sm`}
+                  >
+                    {dropdownData.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         </div>
