@@ -12,25 +12,24 @@ import ItemDetails from "../components/ItemDetails";
 import { Task, TimeEntry } from "../store/projectStore";
 
 export default function TaskDetails() {
-  const { id : projectId, "*": taskPath } = useParams();
-
+  const { id: projectId, "*": taskPath } = useParams();
   const navigate = useNavigate();
   const {
     getTaskByPath,
     addTask,
-    currentPath,
     updateTask,
     deleteTask,
+    individualTask: task,
+    individualTaskSubtasks: subtasks,
+    loading,
     setCurrentPath,
     startTimer,
     stopTimer,
     getTaskTimeEntries,
-    activeTimer,
     toggleTaskCompletion,
     checkActiveTimer,
+    tasks,
   } = useProjectStore();
-  const [task, setTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -52,6 +51,10 @@ export default function TaskDetails() {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const getChildTasks = (parentId: string) => {
+    return tasks.filter(task => task.parentId === parentId);
+  };
+
   const loadTask = async () => {
     if (!projectId || !taskPath) {
       navigate(`/dashboard/projects/${projectId}`);
@@ -59,49 +62,16 @@ export default function TaskDetails() {
     }
 
     try {
-      setLoading(true);
-      const pathArray = taskPath
-        .split("/")
-        .filter(Boolean)
-        .map((id) => ({ id }));
-      setCurrentPath(pathArray);
-
-      const data = await getTaskByPath(projectId, pathArray);
-      if (data) {
-        setTask({
-          ...data,
-          children: data.children || [],
-        });
-
-        // Load time entries and set current duration
-        const entries = await getTaskTimeEntries(projectId, data.id);
-        setTimeEntries(entries);
-        
-        // Find current user's entry and set initial duration
-        findUserEntry(entries);
-
-        // Check localStorage for active timer
-        const storedTimer = localStorage.getItem("activeTimer");
-        if (storedTimer) {
-          const timer = JSON.parse(storedTimer);
-          if (timer.taskId === data.id) {
-            setIsTimerActive(true);
-            const startTime = new Date(timer.startTime).getTime();
-            const now = new Date().getTime();
-            const elapsedSeconds = Math.floor((now - startTime) / 1000);
-            setElapsedTime(formatTimeDisplay(elapsedSeconds));
-          }
-        }
-      } else {
-        toast.error("Task not found");
-        navigate(`/dashboard/projects/${projectId}`);
-      }
+      const taskId = taskPath.split("/").pop()!;
+      const pathParts = taskPath.split("/");
+      const projectIdIndex = pathParts.indexOf("projects") + 1;
+      const projectId = pathParts[projectIdIndex];
+      console.log(taskId,projectId)
+      await getTaskByPath(projectId, taskId);
     } catch (error) {
       console.error("Error loading task:", error);
-      toast.error("Failed to load task");
+      toast.error("Failed to load task");-
       navigate(`/dashboard/projects/${projectId}`);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -137,8 +107,6 @@ export default function TaskDetails() {
     initializeActiveTimer();
 
     return () => {
-      setTask(null);
-      setLoading(true);
       setIsTimerActive(false);
       setManualHours(0);
       setManualMinutes(0);
@@ -154,7 +122,6 @@ export default function TaskDetails() {
     getTaskByPath,
     navigate,
     setCurrentPath,
-    getTaskTimeEntries,
     checkActiveTimer,
   ]);
 
@@ -194,9 +161,10 @@ export default function TaskDetails() {
     if (!projectId || !task) return;
 
     // Check if task has subtasks and if they're all complete
-    const hasSubtasks = task.children && task.children.length > 0;
+    const childTasks = getChildTasks(task.id);
+    const hasSubtasks = childTasks.length > 0;
     const allSubtasksComplete = hasSubtasks
-      ? task.children.every((subtask) => subtask.completed)
+      ? childTasks.every((subtask) => subtask.completed)
       : true;
 
     if (hasSubtasks && !allSubtasksComplete && !task.completed) {
@@ -205,56 +173,26 @@ export default function TaskDetails() {
     }
 
     try {
-      const pathArray = taskPath
-        ?.split("/")
-        .filter(Boolean)
-        .map((id) => ({ id }));
-      await toggleTaskCompletion(projectId, pathArray || []);
-
-      // Refresh task data
-      const updatedTask = await getTaskByPath(projectId, pathArray || []);
-      if (updatedTask) {
-        setTask({
-          ...updatedTask,
-          children: updatedTask.children || [],
-        });
-        toast.success(
-          updatedTask.completed
-            ? "Task marked as complete"
-            : "Task marked as incomplete"
-        );
-      }
+      await toggleTaskCompletion(projectId, task.id);
+      toast.success(
+        task.completed
+          ? "Task marked as complete"
+          : "Task marked as incomplete"
+      );
     } catch (error) {
       console.error("Error toggling task completion:", error);
       toast.error("Failed to update task status");
     }
   };
 
-  const handleAddTask = async (
-    data: Omit<Task, "id" | "completed" | "children">
-  ) => {
-    if (!projectId || !taskPath) return;
+  const handleAddTask = async (data: Omit<Task, "id" | "completed" | "projectId">) => {
+    if (!projectId || !task) return;
     try {
-      const pathArray = taskPath
-        .split("/")
-        .filter(Boolean)
-        .map((id) => ({ id }));
-
-      const taskToAdd = {
+      await addTask(projectId, task.id, {
         ...data,
-        percentage: data.percentage || 0, // Ensure percentage is included
-      };
-
-      await addTask(projectId, pathArray, taskToAdd);
-
-      const updatedTask = await getTaskByPath(projectId, pathArray);
-      if (updatedTask) {
-        setTask({
-          ...updatedTask,
-          children: updatedTask.children || [],
-        });
-        toast.success("Task added successfully");
-      }
+        completed: false
+      });
+      toast.success("Task added successfully");
     } catch (error) {
       console.error("Failed to add task:", error);
       toast.error("Failed to add task");
@@ -262,35 +200,10 @@ export default function TaskDetails() {
   };
 
   const handleEditTask = async (data: Partial<Task>) => {
-    if (!projectId || !taskPath || !editingTask) return;
+    if (!projectId || !task) return;
     try {
-      const pathArray = taskPath
-        .split("/")
-        .filter(Boolean)
-        .map((id) => ({ id }));
-
-      // Ensure we maintain required fields when updating
-      const updatedData = {
-        ...editingTask, // Keep existing task data
-        ...data, // Override with new data
-        percentage:
-          typeof data.percentage === "number"
-            ? data.percentage
-            : editingTask.percentage,
-        completed: editingTask.completed, // Maintain completion status
-        children: editingTask.children, // Maintain children
-      };
-
-      await updateTask(projectId, pathArray, editingTask.id, updatedData);
-
-      const updatedTask = await getTaskByPath(projectId, pathArray);
-      if (updatedTask) {
-        setTask({
-          ...updatedTask,
-          children: updatedTask.children || [],
-        });
-        toast.success("Task updated successfully");
-      }
+      await updateTask(projectId, task.id, data);
+      toast.success("Task updated successfully");
     } catch (error) {
       console.error("Failed to update task:", error);
       toast.error("Failed to update task");
@@ -298,23 +211,11 @@ export default function TaskDetails() {
   };
 
   const handleDeleteTask = async (taskId: string) => {
-    if (!projectId || !taskPath) return;
+    if (!projectId) return;
     if (window.confirm("Are you sure you want to delete this task?")) {
       try {
-        const pathArray = taskPath
-          .split("/")
-          .filter(Boolean)
-          .map((id) => ({ id }));
-        await deleteTask(projectId, pathArray, taskId);
-
-        const updatedTask = await getTaskByPath(projectId, pathArray);
-        if (updatedTask) {
-          setTask({
-            ...updatedTask,
-            children: updatedTask.children || [],
-          });
-          toast.success("Task deleted successfully");
-        }
+        await deleteTask(projectId, taskId);
+        toast.success("Task deleted successfully");
       } catch (error) {
         console.error("Failed to delete task:", error);
         toast.error("Failed to delete task");
@@ -390,8 +291,6 @@ export default function TaskDetails() {
     return `${hours}h ${remainingMinutes}m`;
   };
 
-  
-
   useEffect(() => {
     const isAssignedToCurrentUser = (task: Task) => {
       // return task.assignedTo?.some((u) => u.id === user?.uid);
@@ -409,19 +308,6 @@ export default function TaskDetails() {
       setExceptionCase(result2);
     }
   }, [task, user]);
-
-  // const handleTasksUpdate = (updatedTasks: Task[]) => {
-  //   // Update the local state with new task percentages
-  //   if (task) {
-  //     setTask((prev) => {
-  //       if (!prev) return prev;
-  //       return {
-  //         ...prev,
-  //         children: updatedTasks,
-  //       };
-  //     });
-  //   }
-  // };
 
   const handleOpenManualEntry = () => {
     setManualHours(0);
@@ -474,7 +360,7 @@ export default function TaskDetails() {
         ];
       }
 
-      await updateTask(projectId, currentPath, task.id, {
+      await updateTask(projectId, task.id, {
         ...task,
         timeEntries: updatedTimeEntries
       });
@@ -498,31 +384,6 @@ export default function TaskDetails() {
       toast.error("Failed to update time");
     }
   };
-
-  // const handleUpdatePercentage = async (taskId: string, percentage: number) => {
-  //   try {
-  //     if (!projectId || !task) return;
-      
-  //     await updateTask(projectId, currentPath, taskId, {
-  //       ...task,
-  //       percentage: percentage
-  //     });
-
-  //     // Refresh task data
-  //     const updatedTask = await getTaskByPath(projectId, currentPath);
-  //     if (updatedTask) {
-  //       setTask({
-  //         ...updatedTask,
-  //         children: updatedTask.children || [],
-  //       });
-  //     }
-
-  //     toast.success('Progress updated successfully');
-  //   } catch (error) {
-  //     console.error('Error updating progress:', error);
-  //     toast.error('Failed to update progress');
-  //   }
-  // };
 
   if (loading) {
     return (
@@ -590,20 +451,8 @@ export default function TaskDetails() {
       </div>
 
       <ItemDetails
-        item={
-          task as {
-            name: string;
-            description?: string | undefined;
-            assignedTo?: { fullName: string }[] | undefined;
-            deadline?: string | undefined;
-            completed: boolean;
-            hours?: number | undefined;
-            costPerHour?: number | undefined;
-            children?: Task[] | undefined;
-            id: string;
-          }
-        }
-        tasks={task.children}
+        item={task}
+        tasks={subtasks}
         onEditClick={() => {
           setEditingTask(task);
           setIsModalOpen(true);
@@ -641,7 +490,7 @@ export default function TaskDetails() {
       )}
 
       <TaskList
-        tasks={task?.children || []}
+        tasks={subtasks}
         onAddClick={() => setIsModalOpen(true)}
         onEditClick={(task) => {
           setEditingTask(task);

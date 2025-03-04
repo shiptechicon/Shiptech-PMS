@@ -134,26 +134,33 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       const enquiry = await get().fetchEnquiry(enquiryId);
       if (!enquiry) throw new Error('Enquiry not found');
 
-      // Convert deliverables to tasks
-      const tasks = enquiry.deliverables.map(deliverable => ({
-        id: crypto.randomUUID(),
-        name: deliverable.name,
-        description: deliverable.description || '',
-        hours: deliverable.hours || 0,
-        costPerHour: deliverable.costPerHour || 0,
-        completed: false,
-        children: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
+      const projectId = 'p-' + enquiry.__id.split('-')[1];
 
-      // Create project data
+      // Create tasks in the tasks collection
+      const taskPromises = enquiry.deliverables.map(deliverable => 
+        addDoc(collection(db, 'tasks'), {
+          projectId: projectId,
+          name: deliverable.name,
+          description: deliverable.description || '',
+          hours: deliverable.hours || 0,
+          costPerHour: deliverable.costPerHour || 0,
+          total: deliverable.total,
+          completed: false,
+          parentId: null, // Root level task
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+      );
+
+      // Wait for all tasks to be created
+      await Promise.all(taskPromises);
+
+      // Create project data (without tasks array)
       const projectData = {
         name: enquiry.name,
         description: enquiry.description,
         customer: enquiry.customer,
-        tasks,
-        __id: 'p-' + enquiry.__id.split('-')[1],
+        __id: projectId,
         type: 'project' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -161,17 +168,18 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
 
       // Create project in Firestore
       await addDoc(collection(db, 'projects'), projectData);
-    
 
-      // Delete original enquiry
-      // await deleteDoc(doc(db, 'enquiries', enquiryId));
-      // instead of that change status to moved to projects
+      // Update enquiry status
       await updateDoc(doc(db, 'enquiries', enquiryId), {
         status: 'moved to projects'
       });
 
-      // Update local state
-      const updatedEnquiries = get().enquiries.filter(e => e.id !== enquiryId);
+      // Update local state - just update the status instead of filtering out
+      const updatedEnquiries = get().enquiries.map(e => 
+        e.id === enquiryId 
+          ? { ...e, status: 'moved to projects' }
+          : e
+      );
       set({ enquiries: updatedEnquiries, loading: false });
 
       toast.success('Successfully converted to project');

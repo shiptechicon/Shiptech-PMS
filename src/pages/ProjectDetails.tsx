@@ -37,6 +37,7 @@ export default function ProjectDetails() {
     updateProjectStartDate,
     updateProjectStatus,
     project,
+    tasks,
   } = useProjectStore();
 
   const [loading, setLoading] = useState(true);
@@ -56,17 +57,20 @@ export default function ProjectDetails() {
     { name: string; deadline: string; assignees: string[] }[]
   >([]);
 
-  const calculateCompletedPercentage = (task: Task): number => {
-    if (!task.children || task.children.length === 0) {
-      return task.completed ? 100 : 0;
+  const calculateCompletedPercentage = (taskId: string): number => {
+    const childTasks = tasks.filter(task => task.parentId === taskId);
+    
+    if (childTasks.length === 0) {
+      const task = tasks.find(t => t.id === taskId);
+      return task?.completed ? 100 : 0;
     }
 
-    const totalAssignedToChildren = task.children.reduce((sum, child) => 
+    const totalAssignedToChildren = childTasks.reduce((sum, child) => 
       sum + (child.percentage || 0), 0);
 
     if (totalAssignedToChildren === 0) return 0;
 
-    const completedSum = task.children.reduce((sum, subtask) => {
+    const completedSum = childTasks.reduce((sum, subtask) => {
       return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
     }, 0);
 
@@ -74,11 +78,15 @@ export default function ProjectDetails() {
   };
 
   const calculateProjectCompletion = (): number => {
-    if (!project || !project.tasks.length) return 0;
-    const totalPercentage = project.tasks.reduce((sum, task) => {
-      return sum + calculateCompletedPercentage(task);
+    if (!tasks.length) return 0;
+    
+    const rootTasks = tasks.filter(task => task.parentId === null);
+    
+    const totalPercentage = rootTasks.reduce((sum, task) => {
+      return sum + calculateCompletedPercentage(task.id);
     }, 0);
-    return Math.round(totalPercentage / project.tasks.length);
+    
+    return Math.round(totalPercentage / rootTasks.length);
   };
 
   useEffect(() => {
@@ -122,27 +130,26 @@ export default function ProjectDetails() {
   }, [id, user, fetchProject, navigate]);
 
   // Calculate analytics for tasks
-  const totalTasks = project?.tasks.length || 0;
+  const totalTasks = tasks.length || 0;
   const completedTasks =
-    project?.tasks.filter((task) => task.completed).length || 0;
+    tasks.filter((task) => task.completed).length || 0;
   const incompleteTasks = totalTasks - completedTasks;
   const projectDueDate = project?.project_due_date
     ? new Date(project.project_due_date).toLocaleDateString()
     : "No due date set";
   const overdueTasks =
-    project?.tasks.filter(
+    tasks.filter(
       (task) =>
         task.deadline && new Date(task.deadline) < new Date() && !task.completed
     ).length || 0;
 
-  const handleAddTask = async (data: Task) => {
-    if (!id) return;
+  const handleAddTask = async (data: Omit<Task, "id" | "completed" | "projectId">) => {
+    if (!id || !project) return;
     try {
       const newTask = {
         ...data,
-        id: crypto.randomUUID(),
-        completed: false,
-        children: [],
+        projectId: project.__id,
+        parentId: currentPath.length > 0 ? currentPath[currentPath.length - 1].id : null,
       };
       await addTask(id, currentPath, newTask);
       toast.success("Task added successfully");
@@ -152,14 +159,10 @@ export default function ProjectDetails() {
     }
   };
 
-  const handleEditTask = async (data: Task) => {
+  const handleEditTask = async (data: Partial<Task>) => {
     if (!id || !editingTask) return;
     try {
-      await updateTask(id, currentPath, editingTask.id, {
-        ...editingTask,
-        ...data,
-      });
-
+      await updateTask(id, currentPath, editingTask.id, data);
       toast.success("Task updated successfully");
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -247,130 +250,135 @@ export default function ProjectDetails() {
     setIsEditingDueDate(false);
   };
 
-  const downloadInvoice = () => {
-    if (!project) return;
+  // download invoice function
+  
+  // const downloadInvoice = () => {
+  //   if (!project) return;
 
-    const calculateTaskTotal = (task: Task): number => {
-      const taskTotal = (task.hours || 0) * (task.costPerHour || 0);
-      const childrenTotal = task.children.reduce(
-        (sum: number, child: Task) => sum + calculateTaskTotal(child),
-        0
-      );
-      return taskTotal + childrenTotal;
-    };
+  //   const calculateTaskTotal = (task: Task): number => {
+  //     const taskTotal = (task.hours || 0) * (task.costPerHour || 0);
+  //     const childrenTotal = task.children.reduce(
+  //       (sum: number, child: Task) => sum + calculateTaskTotal(child),
+  //       0
+  //     );
+  //     return taskTotal + childrenTotal;
+  //   };
 
-    const totalAmount = project.tasks.reduce(
-      (sum: number, task: Task) => sum + calculateTaskTotal(task),
-      0
-    );
+  //   const totalAmount = project.tasks.reduce(
+  //     (sum: number, task: Task) => sum + calculateTaskTotal(task),
+  //     0
+  //   );
 
-    const renderTasksRecursively = (tasks: Task[], level = 0): string => {
-      return tasks
-        .map(
-          (task) => `
-        <tr>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-            ${"&nbsp;".repeat(level * 4)}${task.name}
-            ${
-              task.description
-                ? `<br><span style="color: #666; font-size: 0.9em;">${task.description}</span>`
-                : ""
-            }
-          </td>
-          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">${
-            task.hours || 0
-          }</td>
-          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${
-            task.costPerHour || 0
-          }</td>
-          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${
-            (task.hours || 0) * (task.costPerHour || 0)
-          }</td>
-        </tr>
-        ${renderTasksRecursively(task.children, level + 1)}
-      `
-        )
-        .join("");
-    };
+  //   const renderTasksRecursively = (tasks: Task[], level = 0): string => {
+  //     return tasks
+  //       .map(
+  //         (task) => `
+  //       <tr>
+  //         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+  //           ${"&nbsp;".repeat(level * 4)}${task.name}
+  //           ${
+  //             task.description
+  //               ? `<br><span style="color: #666; font-size: 0.9em;">${task.description}</span>`
+  //               : ""
+  //           }
+  //         </td>
+  //         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">${
+  //           task.hours || 0
+  //         }</td>
+  //         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${
+  //           task.costPerHour || 0
+  //         }</td>
+  //         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">₹${
+  //           (task.hours || 0) * (task.costPerHour || 0)
+  //         }</td>
+  //       </tr>
+  //       ${renderTasksRecursively(task.children, level + 1)}
+  //     `
+  //       )
+  //       .join("");
+  //   };
 
-    const content = `
-      <div style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
-        <div style="text-align: center; margin-bottom: 40px;">
-          <h1 style="color: #2563eb;">PROJECT INVOICE</h1>
-          <p style="color: #666;">Project ID: ${project.__id}</p>
-        </div>
+  //   const content = `
+  //     <div style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
+  //       <div style="text-align: center; margin-bottom: 40px;">
+  //         <h1 style="color: #2563eb;">PROJECT INVOICE</h1>
+  //         <p style="color: #666;">Project ID: ${project.__id}</p>
+  //       </div>
         
-        <div style="margin-bottom: 30px;">
-          <h2>ShipTech-ICON</h2>
-          <p>Center for Innovation Technology Transfer & Industrial Collaboration</p>
-          <p>CITTIC, CUSAT, Kochi, Kerala 682022</p>
-        </div>
+  //       <div style="margin-bottom: 30px;">
+  //         <h2>ShipTech-ICON</h2>
+  //         <p>Center for Innovation Technology Transfer & Industrial Collaboration</p>
+  //         <p>CITTIC, CUSAT, Kochi, Kerala 682022</p>
+  //       </div>
 
-        <div style="margin-bottom: 30px;">
-          <h3>Project Information</h3>
-          <p><strong>Name:</strong> ${project.name}</p>
-          <p><strong>Description:</strong> ${project.description}</p>
-          ${
-            project.project_due_date
-              ? `<p><strong>Due Date:</strong> ${new Date(
-                  project.project_due_date
-                ).toLocaleDateString()}</p>`
-              : ""
-          }
-        </div>
+  //       <div style="margin-bottom: 30px;">
+  //         <h3>Project Information</h3>
+  //         <p><strong>Name:</strong> ${project.name}</p>
+  //         <p><strong>Description:</strong> ${project.description}</p>
+  //         ${
+  //           project.project_due_date
+  //             ? `<p><strong>Due Date:</strong> ${new Date(
+  //                 project.project_due_date
+  //               ).toLocaleDateString()}</p>`
+  //             : ""
+  //         }
+  //       </div>
 
-        <div style="margin-bottom: 30px;">
-          <h3>Customer Details:</h3>
-          <p><strong>${project.customer.name}</strong></p>
-          <p>${project.customer.address}</p>
-          <p>Phone: ${project.customer.phone}</p>
-        </div>
+  //       <div style="margin-bottom: 30px;">
+  //         <h3>Customer Details:</h3>
+  //         <p><strong>${project.customer.name}</strong></p>
+  //         <p>${project.customer.address}</p>
+  //         <p>Phone: ${project.customer.phone}</p>
+  //       </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-          <thead>
-            <tr style="background-color: #f3f4f6;">
-              <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Task</th>
-              <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">Hours</th>
-              <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">Rate/Hour</th>
-              <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${renderTasksRecursively(project.tasks)}
-            <tr style="background-color: #f3f4f6;">
-              <td colspan="3" style="padding: 12px; text-align: right; font-weight: bold;">Total Amount:</td>
-              <td style="padding: 12px; text-align: right; font-weight: bold;">₹${totalAmount}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    `;
+  //       <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+  //         <thead>
+  //           <tr style="background-color: #f3f4f6;">
+  //             <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Task</th>
+  //             <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">Hours</th>
+  //             <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">Rate/Hour</th>
+  //             <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">Amount</th>
+  //           </tr>
+  //         </thead>
+  //         <tbody>
+  //           ${renderTasksRecursively(project.tasks)}
+  //           <tr style="background-color: #f3f4f6;">
+  //             <td colspan="3" style="padding: 12px; text-align: right; font-weight: bold;">Total Amount:</td>
+  //             <td style="padding: 12px; text-align: right; font-weight: bold;">₹${totalAmount}</td>
+  //           </tr>
+  //         </tbody>
+  //       </table>
+  //     </div>
+  //   `;
 
-    const opt = {
-      margin: 1,
-      filename: `project-invoice-${project.__id}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-    };
+  //   const opt = {
+  //     margin: 1,
+  //     filename: `project-invoice-${project.__id}.pdf`,
+  //     image: { type: "jpeg", quality: 0.98 },
+  //     html2canvas: { scale: 2 },
+  //     jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+  //   };
 
-    const element = document.createElement("div");
-    element.innerHTML = content;
-    document.body.appendChild(element);
+  //   const element = document.createElement("div");
+  //   element.innerHTML = content;
+  //   document.body.appendChild(element);
 
-    html2pdf()
-      .set(opt)
-      .from(element)
-      .save()
-      .then(() => {
-        document.body.removeChild(element);
-      });
-  };
+  //   html2pdf()
+  //     .set(opt)
+  //     .from(element)
+  //     .save()
+  //     .then(() => {
+  //       document.body.removeChild(element);
+  //     });
+  // };
+
+
 
   // Function to handle mouse enter on incomplete tasks
+  
   const handleIncompleteTasksHover = () => {
-    const tasks =
-      project?.tasks
+    const IncompleteTasks =
+      tasks
         .filter((task) => !task.completed)
         .map((task) => ({
           name: task.name,
@@ -379,14 +387,14 @@ export default function ProjectDetails() {
             ? task.assignedTo.map((user) => user.fullName)
             : [],
         })) || [];
-    setPopoverTasks(tasks);
+    setPopoverTasks(IncompleteTasks);
     setPopoverOpen(true);
   };
 
   // Function to handle mouse enter on overdue tasks
   const handleOverdueTasksHover = () => {
-    const tasks =
-      project?.tasks
+    const OverdueTasks =
+      tasks
         .filter(
           (task) =>
             task.deadline &&
@@ -400,7 +408,7 @@ export default function ProjectDetails() {
             ? task.assignedTo.map((user) => user.fullName)
             : [],
         })) || [];
-    setPopoverTasks(tasks);
+    setPopoverTasks(OverdueTasks);
     setPopoverOpen(true);
   };
 
@@ -454,7 +462,7 @@ export default function ProjectDetails() {
           )}
           {project.status === "completed" && (
             <button
-              onClick={downloadInvoice}
+              // onClick={downloadInvoice}
               className="inline-flex items-center px-4 py-2   font-medium rounded-md text-black bg-white border-[1px]  hover:opacity-70"
             >
               <FileDown className="mr-2 h-4 w-4" />
@@ -678,16 +686,19 @@ export default function ProjectDetails() {
                   <td className="py-2 font-medium text-gray-500">
                     Project Status
                   </td>
-                  <td className="py-2">
+
+                  {/* project status */}
+
+                  {/* <td className="py-2">
                     <ProjectStatusSelect
                       project={{
                         id: project.id as string,
                         status: project.status,
                       }}
                       updateProjectStatus={updateProjectStatus}
-                      tasks={project.tasks}
+                      tasks={tasks}
                     />
-                  </td>
+                  </td> */}
                 </tr>
                 <tr>
                   <td className="py-2 font-medium text-gray-500">
@@ -711,7 +722,7 @@ export default function ProjectDetails() {
 
         {/* Tasks Section */}
         <TaskList
-          tasks={project.tasks}
+          tasks={tasks.filter(task => task.parentId === null)}
           onAddClick={() => {
             setEditingTask(null);
             setIsModalOpen(true);
@@ -723,6 +734,7 @@ export default function ProjectDetails() {
           onDeleteClick={handleDeleteTask}
           onTaskClick={handleTaskClick}
           isAdmin={isAdmin}
+          exceptionCase={false}
         />
 
         {/* Comments Section */}

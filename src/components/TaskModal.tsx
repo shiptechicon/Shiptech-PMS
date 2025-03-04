@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useProjectStore, Task, User } from "../store/projectStore";
-import { UserData } from "../store/authStore";
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -17,8 +16,8 @@ export default function TaskModal({
   onSubmit,
   initialData,
 }: TaskModalProps) {
-  const { id : projectId, "*": taskPath } = useParams();
-  const { fetchUsers, fetchProject } = useProjectStore();
+  const { id: projectId } = useParams();
+  const { individualTaskSubtasks: siblingTasks,users,fetchUsers } = useProjectStore();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -30,31 +29,14 @@ export default function TaskModal({
     percentage: 0,
   });
 
-  const [siblingTasks, setSiblingTasks] = useState<Task[]>([]);
   const [availablePercentage, setAvailablePercentage] = useState(0);
-  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const getUsers = async () => {
-      try {
-        const usersCollection = await fetchUsers();
-        const verifiedUsers = usersCollection
-          .filter((user) => {
-            const userDetails = user as unknown as UserData;
-            return userDetails.verified && userDetails.role !== "customer";
-          })
-          .map(({ id, fullName, email }) => ({ id, fullName, email }));
+    fetchUsers()
 
-        setUsers(verifiedUsers);
-      } catch (error) {
-        console.error("Error getting users:", error);
-      }
-    };
-
-    getUsers();
-  }, [isOpen, fetchUsers]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (initialData) {
@@ -81,74 +63,6 @@ export default function TaskModal({
   }, [initialData, isOpen]);
 
   useEffect(() => {
-    const fetchSiblingTasks = async () => {
-      if (!projectId || !isOpen) return;
-
-      try {
-        // First fetch the project
-        const project = await fetchProject(projectId);
-        if (!project) return;
-
-
-        let currentLevel = project.tasks;
-        let siblings: Task[] = [];
-
-        // Parse the task path to get task IDs
-        const taskIds = taskPath?.split("/").filter(Boolean) || [];
-
-        if(taskIds.length === 2 && taskIds[1] === projectId && currentLevel.length !== 0){
-          siblings = currentLevel.filter((task) => task.id !== initialData?.id);
-          setSiblingTasks(siblings);
-          return;
-        }
-
-
-        for (const id of taskIds) {
-          const task = currentLevel.find(task => task.id === id);
-          if (task) {
-            currentLevel = task.children;
-          } else {
-            currentLevel = [];
-            break;
-          }
-        }
-
-        if(currentLevel.length === 0){
-          setAvailablePercentage(100);
-          return;
-        }
-
-        siblings = currentLevel.filter((task) => task.id !== initialData?.id);
-        setSiblingTasks(siblings);
-
-
-        // Calculate total percentage excluding current task
-        const otherTasksTotal = siblings.reduce((acc, task) => {
-          if (initialData && task.id === initialData.id) return acc;
-          return acc + (task.percentage || 0);
-        }, 0);
-
-        // If editing, add back current task's percentage to available amount
-        const currentTaskPercentage = initialData?.percentage || 0;
-        const available =
-          100 - otherTasksTotal + (initialData ? currentTaskPercentage : 0);
-
-        // Adjust form data percentage if it exceeds available
-        if (formData.percentage > available) {
-          setFormData((prev) => ({
-            ...prev,
-            percentage: available,
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching sibling tasks:", error);
-      }
-    };
-
-    fetchSiblingTasks();
-  }, [projectId, taskPath, isOpen]);
-
-  useEffect(() => {
     calculateAvailablePercentage();
   }, [siblingTasks]);
 
@@ -157,29 +71,31 @@ export default function TaskModal({
     const taskData = {
       ...formData,
       id: initialData?.id || "",
+      projectId: projectId || "",
+      parentId: initialData?.parentId || "",
       completed: initialData?.completed || false,
-      children: initialData?.children || [],
+      createdAt: initialData?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
-    onSubmit(taskData);
+    onSubmit(taskData as Task);
     onClose();
   };
 
   const handleAssignedToChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOptions = Array.from(e.target.selectedOptions);
     const selectedUsers = selectedOptions
-      .map((option) => users.find((user) => user.id === option.value))
+      .map((option) => users.find((user : User) => user.id === option.value))
       .filter((user): user is User => user !== undefined);
 
     setFormData((prev) => ({ ...prev, assignedTo: selectedUsers }));
   };
 
   const calculateAvailablePercentage = () => {
-
     const totalAllocated = siblingTasks
       .filter((task) => !initialData || task.id !== initialData.id)
       .reduce((sum, task) => sum + (task.percentage || 0), 0);
 
-    const availablePercentage = 100 - totalAllocated ;
+    const availablePercentage = 100 - totalAllocated;
     setAvailablePercentage(availablePercentage);
   };
 
@@ -301,7 +217,7 @@ export default function TaskModal({
                     className="mt-1 border-2 border-gray-300 p-2 block w-full rounded-md  focus:border-blue-500 focus:ring-blue-500"
                     size={4}
                   >
-                    {users.map((user) => (
+                    {users.map((user:User) => (
                       <option
                         key={user.id}
                         value={user.id}

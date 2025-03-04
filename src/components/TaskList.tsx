@@ -25,22 +25,22 @@ export default function TaskList({
 
   console.log("exceptionCase",exceptionCase)
 
-  const calculateCompletedPercentage = (task: Task): number => {
-    if (!task.children || task.children.length === 0) {
-      return task.completed ? 100 : 0;
-    }
+  // const calculateCompletedPercentage = (task: Task): number => {
+  //   if (!task.children || task.children.length === 0) {
+  //     return task.completed ? 100 : 0;
+  //   }
 
-    const totalAssignedToChildren = task.children.reduce((sum, child) => 
-      sum + (child.percentage || 0), 0);
+  //   const totalAssignedToChildren = task.children.reduce((sum, child) => 
+  //     sum + (child.percentage || 0), 0);
 
-    if (totalAssignedToChildren === 0) return 0;
+  //   if (totalAssignedToChildren === 0) return 0;
 
-    const completedSum = task.children.reduce((sum, subtask) => {
-      return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
-    }, 0);
+  //   const completedSum = task.children.reduce((sum, subtask) => {
+  //     return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
+  //   }, 0);
 
-    return Math.round((completedSum / totalAssignedToChildren) * 100);
-  };
+  //   return Math.round((completedSum / totalAssignedToChildren) * 100);
+  // };
 
   // Helper function to get color based on percentage
   const getProgressColor = (percentage: number) => {
@@ -71,7 +71,8 @@ export default function TaskList({
         ) : (
           <div className="divide-y divide-gray-200">
             {tasks.map((task) => {
-              const completedPercentage = calculateCompletedPercentage(task);
+              // const completedPercentage = calculateCompletedPercentage(task);
+              const completedPercentage = 0;
               const assignedPercentage = task.percentage || 0;
 
               return (
@@ -100,9 +101,9 @@ export default function TaskList({
                             style={{ width: `${completedPercentage}%` }}
                           />
                         </div>
-                        {task.children && task.children.length > 0 && (
+                        {task.timeEntries && task.timeEntries.length > 0 && (
                           <p className="text-xs text-gray-400 mt-2">
-                            {task.children.length} subtask{task.children.length !== 1 ? 's' : ''}
+                            {task.timeEntries.length} time entries
                           </p>
                         )}
                       </div>

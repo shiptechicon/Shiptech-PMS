@@ -7,6 +7,8 @@ import {
   deleteDoc,
   updateDoc,
   getDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 
@@ -26,6 +28,8 @@ export interface TimeEntry {
 
 export interface Task {
   id: string;
+  projectId: string;
+  parentId: string | null;
   name: string;
   description: string;
   hours?: number;
@@ -33,12 +37,11 @@ export interface Task {
   assignedTo?: User[];
   deadline?: string | null;
   completed: boolean;
-  children: Task[];
-  projectId?: string;
-  path?: string;
   timeEntries?: TimeEntry[];
   percentage: number;
   maxAllowedPercentage?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Project {
@@ -52,7 +55,6 @@ export interface Project {
     phone: string;
     address: string;
   };
-  tasks: Task[];
   createdAt: string;
   status: "completed" | "ongoing" | "not-started";
   type: "project";
@@ -67,7 +69,9 @@ interface PathItem {
 interface ProjectState {
   projects: Project[];
   project: Project | null;
-  userTasks: Task[];
+  tasks: Task[];
+  individualTask: Task | null;
+  individualTaskSubtasks: Task[];
   loading: boolean;
   error: string | null;
   currentPath: PathItem[];
@@ -76,14 +80,12 @@ interface ProjectState {
     projectId: string | null;
     startTime: string | null;
   };
+  userTasks: Task[];
   setCurrentPath: (path: PathItem[]) => void;
   fetchProjects: () => Promise<void>;
   fetchProject: (id: string) => Promise<Project | null>;
   createProject: (
-    project: Omit<Project, "id" | "__id" | "createdAt" | "project_due_date"> & {
-      tasks: Task[];
-      type: "project";
-    }
+    project: Omit<Project, "id" | "__id" | "createdAt" | "project_due_date">
   ) => Promise<void>;
   updateProject: (
     id: string,
@@ -92,12 +94,11 @@ interface ProjectState {
   deleteProject: (projectId: string) => Promise<void>;
   addTask: (
     projectId: string,
-    path: PathItem[],
+    parentTaskId:string,
     task: Omit<Task, "id" | "children" | "completed">
   ) => Promise<void>;
   updateTask: (
     projectId: string,
-    path: PathItem[],
     taskId: string,
     data: Partial<Task>
   ) => Promise<void>;
@@ -106,8 +107,8 @@ interface ProjectState {
     path: PathItem[],
     taskId: string
   ) => Promise<void>;
-  getTaskByPath: (projectId: string, path: PathItem[]) => Promise<Task | null>;
-  toggleTaskCompletion: (projectId: string, path: PathItem[]) => Promise<void>;
+  getTaskByPath: (projectId: string, taskId: string) => Promise<Task | null>;
+  toggleTaskCompletion: (projectId: string, taskId: string) => Promise<void>;
   updateProjectDueDate: (
     projectId: string,
     dueDate: string | null
@@ -145,7 +146,9 @@ const calculateDurationWithDecimals = (startTime: string): number => {
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: [],
   project: null,
-  userTasks: [],
+  tasks: [],
+  individualTask: null,
+  individualTaskSubtasks: [],
   loading: false,
   error: null,
   currentPath: [],
@@ -155,6 +158,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     startTime: null,
   },
   users: [],
+  userTasks: [],
 
   setCurrentPath: (path) => set({ currentPath: path }),
 
@@ -165,7 +169,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const projects = querySnapshot.docs.map((doc) => ({
         ...doc.data(),
         id: doc.id,
-        tasks: doc.data().tasks || [],
       })) as Project[];
       set({ projects, loading: false });
     } catch (error) {
@@ -177,19 +180,35 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   fetchProject: async (id: string) => {
     try {
       set({ loading: true, error: null });
+
+      // Fetch project
       const docRef = doc(db, "projects", id);
       const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const project = {
-          ...docSnap.data(),
-          id: docSnap.id,
-          tasks: docSnap.data().tasks || [],
-        } as Project;
-        set({ loading: false, project: project });
-        return project;
+
+      if (!docSnap.exists()) {
+        set({ loading: false });
+        return null;
       }
-      set({ loading: false });
-      return null;
+
+      const project = { ...docSnap.data(), id: docSnap.id } as Project;
+
+      // Fetch tasks for this project
+      const tasksSnapshot = await getDocs(
+        query(collection(db, "tasks"), where("projectId", "==", project.__id))
+      );
+
+      const tasks = tasksSnapshot.docs.map((doc) => ({
+        ...doc.data(),
+        id: doc.id,
+      })) as Task[];
+
+      set({
+        project,
+        tasks,
+        loading: false,
+      });
+
+      return project;
     } catch (error) {
       console.error("Error fetching project:", error);
       set({ error: (error as Error).message, loading: false });
@@ -205,7 +224,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         __id: `p-${projectData.projectNumber}`,
         createdAt: new Date().toISOString(),
         type: "project" as const,
-        tasks: [],
         project_due_date: null,
         project_start_date: null,
         status: "not-started" as const,
@@ -218,6 +236,28 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       console.error("Error creating project:", error);
       set({ error: (error as Error).message, loading: false });
       throw error;
+    }
+  },
+
+  fetchUsers: async () => {
+    try {
+      const querySnapshot = await getDocs(
+        query(
+          collection(db, "users"),
+          where("verified", "==", true),
+          where("role", "!=", "customer")
+        )
+      );
+      const users = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as User[];
+
+      set({ users });
+      return users;
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      return [];
     }
   },
 
@@ -301,78 +341,70 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  getTaskByPath: async (projectId, path) => {
+  getTaskByPath: async (projectId: string, taskId: string) => {
     try {
-      let project = get().project;
-      if (project?.id !== projectId) {
-        project = await get().fetchProject(projectId);
+      set({ loading: true, error: null });
+
+      // Fetch the task directly from tasks collection
+      const taskDoc = await getDoc(doc(db, "tasks", taskId));
+      if (!taskDoc.exists()) {
+        set({ loading: false });
+        return null;
       }
 
-      if (!project) return null;
+      const task = { ...taskDoc.data(), id: taskDoc.id } as Task;
 
-      let current: Task | null = null;
-      let items = project.tasks;
+      // Fetch subtasks
+      const subtasksSnapshot = await getDocs(
+        query(collection(db, "tasks"), where("parentId", "==", task.id))
+      );
 
-      for (const pathItem of path) {
-        const found = items.find((item) => item.id === pathItem.id);
-        if (!found) return null;
-        current = found;
-        items = found.children || [];
-      }
+      const subtasks = subtasksSnapshot.docs.map((doc) => ({
+        ...doc.data(),
+        id: doc.id,
+      })) as Task[];
 
-      return current;
+      set({
+        individualTask: task,
+        individualTaskSubtasks: subtasks,
+        loading: false,
+      });
+
+      return task;
     } catch (error) {
-      console.error("Error getting task by path:", error);
+      console.error("Error fetching task:", error);
+      set({ error: (error as Error).message, loading: false });
       return null;
     }
   },
 
-  addTask: async (projectId, path, taskData) => {
+  addTask: async (
+    projectId: string,
+    parentTaskId: string | null,
+    taskData: Omit<Task, "id">
+  ) => {
     try {
       set({ loading: true, error: null });
-      const project = await get().fetchProject(projectId);
-      if (!project) throw new Error("Project not found");
 
-      const newTask: Task = {
+      const newTask = {
         ...taskData,
-        id: crypto.randomUUID(),
-        name: taskData.name || "",
-        description: taskData.description || "",
-        completed: false,
-        children: [],
-        timeEntries: [],
-        percentage: taskData.percentage || 0,
+        projectId,
+        parentId: parentTaskId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
-      const updateNestedTasks = (
-        tasks: Task[],
-        currentPath: PathItem[]
-      ): Task[] => {
-        if (currentPath.length === 0) {
-          return [...tasks, newTask];
-        }
+      const docRef = await addDoc(collection(db, "tasks"), newTask);
+      const taskWithId = { ...newTask, id: docRef.id } as Task;
 
-        return tasks.map((task) => {
-          if (task.id === currentPath[0].id) {
-            return {
-              ...task,
-              children: updateNestedTasks(
-                task.children || [],
-                currentPath.slice(1)
-              ),
-            };
-          }
-          return task;
-        });
-      };
+      if (parentTaskId === get().individualTask?.id) {
+        set((state) => ({
+          individualTaskSubtasks: [...state.individualTaskSubtasks, taskWithId],
+          loading: false,
+        }));
+      }
 
-      const updatedTasks =
-        path.length === 0
-          ? [...project.tasks, newTask]
-          : updateNestedTasks(project.tasks, path);
-
-      await get().updateProject(projectId, { ...project, tasks: updatedTasks });
-      set({ loading: false });
+      return taskWithId;
     } catch (error) {
       console.error("Error adding task:", error);
       set({ error: (error as Error).message, loading: false });
@@ -380,42 +412,35 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  updateTask: async (projectId, path, taskId, data) => {
+  updateTask: async (
+    projectId: string,
+    taskId: string,
+    data: Partial<Task>
+  ) => {
     try {
       set({ loading: true, error: null });
-      const project = await get().fetchProject(projectId);
-      if (!project) throw new Error("Project not found");
 
-      const updateNestedTask = (tasks: Task[]): Task[] => {
-        return tasks.map((task) => {
-          if (task.id === taskId) {
-            return {
-              ...task,
-              ...data,
-              percentage:
-                typeof data.percentage === "number"
-                  ? Math.min(data.percentage, 100)
-                  : task.percentage,
-              children: task.children || [],
-            };
-          }
-          if (task.children && task.children.length > 0) {
-            return {
-              ...task,
-              children: updateNestedTask(task.children),
-            };
-          }
-          return task;
-        });
+      const updateData = {
+        ...data,
+        updatedAt: new Date().toISOString(),
       };
 
-      const updatedTasks = updateNestedTask(project.tasks);
-      const updatedProject = { ...project, tasks: updatedTasks };
+      await updateDoc(doc(db, "tasks", taskId), updateData);
 
-      // Update Firebase
-      await get().updateProject(projectId, updatedProject);
-
-      set({ loading: false, project: updatedProject as Project });
+      // Update local state
+      if (taskId === get().individualTask?.id) {
+        set((state) => ({
+          individualTask: { ...state.individualTask!, ...updateData },
+          loading: false,
+        }));
+      } else {
+        set((state) => ({
+          individualTaskSubtasks: state.individualTaskSubtasks.map((task) =>
+            task.id === taskId ? { ...task, ...updateData } : task
+          ),
+          loading: false,
+        }));
+      }
     } catch (error) {
       console.error("Error updating task:", error);
       set({ error: (error as Error).message, loading: false });
@@ -423,25 +448,28 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  deleteTask: async (projectId, path, taskId) => {
+  deleteTask: async (projectId: string, taskId: string) => {
     try {
       set({ loading: true, error: null });
-      const project = await get().fetchProject(projectId);
-      if (!project) throw new Error("Project not found");
 
-      const deleteNestedTask = (tasks: Task[]): Task[] => {
-        return tasks.filter((task) => {
-          if (task.id === taskId) return false;
-          if (task.children && task.children.length > 0) {
-            task.children = deleteNestedTask(task.children);
-          }
-          return true;
+      // Delete the task
+      await deleteDoc(doc(db, "tasks", taskId));
+
+      // Update local state
+      if (taskId === get().individualTask?.id) {
+        set({
+          individualTask: null,
+          individualTaskSubtasks: [],
+          loading: false,
         });
-      };
-
-      const updatedTasks = deleteNestedTask(project.tasks);
-      await get().updateProject(projectId, { ...project, tasks: updatedTasks });
-      set({ loading: false });
+      } else {
+        set((state) => ({
+          individualTaskSubtasks: state.individualTaskSubtasks.filter(
+            (task) => task.id !== taskId
+          ),
+          loading: false,
+        }));
+      }
     } catch (error) {
       console.error("Error deleting task:", error);
       set({ error: (error as Error).message, loading: false });
@@ -449,13 +477,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  toggleTaskCompletion: async (projectId, path) => {
+  toggleTaskCompletion: async (projectId, taskId) => {
     try {
-      const task = await get().getTaskByPath(projectId, path);
+      const task = await get().getTaskByPath(projectId, taskId);
       if (!task) throw new Error("Task not found");
 
-      const lastPathItem = path[path.length - 1];
-      await get().updateTask(projectId, path.slice(0, -1), lastPathItem.id, {
+      await get().updateTask(projectId, taskId, {
         completed: !task.completed,
       });
     } catch (error) {
@@ -514,47 +541,24 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         return;
       }
 
-      const querySnapshot = await getDocs(collection(db, "projects"));
-      const projects = querySnapshot.docs.map((doc) => ({
+      // Fetch all projects first
+      const projectsSnapshot = await getDocs(collection(db, "projects"));
+      const projects = projectsSnapshot.docs.map((doc) => ({
         ...doc.data(),
         id: doc.id,
-        tasks: doc.data().tasks || [],
       })) as Project[];
 
-      const flattenTasks = (
-        tasks: Task[],
-        projectId: string,
-        parentPath: string = ""
-      ): Task[] => {
-        return tasks.reduce((acc: Task[], task) => {
-          const currentPath = parentPath ? `${parentPath}/${task.id}` : task.id;
-          const isAssignedToUser = task.assignedTo?.some(
-            (user) => user.id === currentUser.uid
-          );
+      // Fetch all tasks
+      const tasksSnapshot = await getDocs(collection(db, "tasks"));
+      const allTasks = tasksSnapshot.docs.map((doc) => ({
+        ...doc.data(),
+        id: doc.id,
+      })) as Task[];
 
-          const flatTask = isAssignedToUser
-            ? [
-                {
-                  ...task,
-                  projectId,
-                  path: currentPath,
-                },
-              ]
-            : [];
-
-          return [
-            ...acc,
-            ...flatTask,
-            ...flattenTasks(task.children || [], projectId, currentPath),
-          ];
-        }, []);
-      };
-
-      const userTasks = projects.reduce((acc: Task[], project) => {
-        if (!project.id) return acc;
-        const projectTasks = flattenTasks(project.tasks, project.id);
-        return [...acc, ...projectTasks];
-      }, []);
+      // Filter tasks assigned to current user
+      const userTasks = allTasks.filter((task) =>
+        task.assignedTo?.some((user) => user.id === currentUser.uid)
+      );
 
       set({ userTasks, loading: false, projects });
     } catch (error) {
@@ -834,26 +838,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       console.error("Error updating project status:", error);
       set({ error: (error as Error).message, loading: false });
       throw error;
-    }
-  },
-
-  fetchUsers: async () => {
-    if (get().users.length > 0) {
-      return get().users;
-    }
-
-    try {
-      const querySnapshot = await getDocs(collection(db, "users"));
-      const users = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as User[];
-
-      set({ users });
-      return users;
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      return [];
     }
   },
 

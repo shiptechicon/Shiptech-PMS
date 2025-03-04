@@ -4,18 +4,7 @@ import { Task } from '@/store/projectStore';
 import { useAuthStore } from '@/store/authStore';
 
 interface ItemDetailsProps {
-  item: {
-    id: string;
-    description?: string;
-    assignedTo?: {
-      fullName: string;
-    }[];
-    deadline?: string;
-    completed: boolean;
-    hours?: number;
-    costPerHour?: number;
-    children?: Task[];
-  };
+  item: Task;
   tasks?: Task[];
   onEditClick?: () => void;
   onToggleComplete?: () => void;
@@ -32,8 +21,8 @@ export default function ItemDetails({
   canComplete = true
 }: ItemDetailsProps) {
   const { userData } = useAuthStore();
-  const allChildrenComplete = item.children?.length 
-    ? item.children.every(child => child.completed)
+  const allChildrenComplete = tasks?.length 
+    ? tasks.every(child => child.completed)
     : true;
 
   const calculateProgress = () => {
@@ -90,12 +79,12 @@ export default function ItemDetails({
               {onToggleComplete && (
                 <button
                   onClick={onToggleComplete}
-                  disabled={!canComplete || (item.children?.length && !allChildrenComplete) as boolean} 
+                  disabled={!canComplete || (tasks?.length && !allChildrenComplete) as boolean} 
                   className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
                     item.completed
                       ? 'text-yellow-600 hover:text-yellow-700'
                       : 'text-green-600 hover:text-green-700'
-                    } ${(!canComplete || (item.children?.length && !allChildrenComplete)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    } ${(!canComplete || (tasks?.length && !allChildrenComplete)) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {item.completed ? (
                     <>
@@ -166,7 +155,7 @@ export default function ItemDetails({
               <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
               <div className="flex items-center space-x-2">
                 <ItemStatusBadge completed={item.completed} />
-                {(item.children?.length && item.children.length > 0 && !allChildrenComplete) ? (
+                {(tasks?.length && tasks.length > 0 && !allChildrenComplete) ? (
                   <span className="text-sm text-red-600">
                     (Cannot complete - subtasks pending)
                   </span>

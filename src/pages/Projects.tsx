@@ -29,7 +29,6 @@ export default function Projects() {
           phone: customerPhone,
           address: customerAddress,
         },
-        tasks: [],
         status: "not-started",
         type: "project",
       });
