@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, UserPlus } from "lucide-react";
 import { TimeEntry, useProjectStore } from "../store/projectStore";
+import { useCustomerStore, Customer } from "@/store/customerStore";
 import toast from "react-hot-toast";
 
 interface User {
@@ -17,7 +18,7 @@ interface Task {
   hours?: number;
   costPerHour?: number;
   assignedTo?: User[];
-  deadline?: string;
+  deadline?: string | null;
   completed: boolean;
   children: Task[];
   projectId?: string;
@@ -35,13 +36,19 @@ interface FormData {
     address: string;
   };
   tasks: Task[];
+  projectNumber: string;
+  status: "completed" | "ongoing" | "not-started";
+  type: "project";
 }
 
 export default function ProjectForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { createProject, updateProject, fetchProject, loading } =
-    useProjectStore();
+  const { createProject, updateProject, fetchProject, loading } = useProjectStore();
+  const { fetchCustomers, customers } = useCustomerStore();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
@@ -51,6 +58,9 @@ export default function ProjectForm() {
       address: "",
     },
     tasks: [],
+    projectNumber: "",
+    status: "not-started",
+    type: "project"
   });
 
   useEffect(() => {
@@ -62,18 +72,51 @@ export default function ProjectForm() {
             name: project.name,
             description: project.description,
             customer: project.customer,
-            tasks: project.tasks || [], // Ensure tasks is an array   
-            projectNumber: project.projectNumber,
+            tasks: project.tasks || [],
+            projectNumber: project.projectNumber || "",
             status: project.status,
-            type: project.type,
-            project_due_date: project.project_due_date,
+            type: project.type
           });
+          
+          // Find the selected customer if customer exists
+          const customer = customers.find(c => 
+            c.name === project.customer.name && 
+            c.contactPersons[0]?.phone === project.customer.phone
+          );
+          if (customer) {
+            setSelectedCustomer(customer);
+          }
         }
       }
     };
 
+    fetchCustomers(); // Load customers when component mounts
     loadProject();
-  }, [id, fetchProject]);
+  }, [id, fetchProject, fetchCustomers, customers]);
+
+  // Filter customers based on search term
+  const filteredCustomers = customers.filter((customer: Customer) => 
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setFormData(prev => ({
+      ...prev,
+      customer: {
+        name: customer.name,
+        phone: customer.contactPersons[0]?.phone || "",
+        address: customer.address,
+      },
+    }));
+    setShowCustomerDropdown(false);
+  };
+
+  const handleAddNewCustomer = () => {
+    // Save current path to localStorage
+    localStorage.setItem('last_visited', window.location.pathname);
+    navigate('/dashboard/customers/new');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,11 +136,11 @@ export default function ProjectForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className=" p-6 space-y-8">
+    <form onSubmit={handleSubmit} className="p-6 space-y-8">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <button type="button" onClick={() => navigate(-1)}>
-            <ArrowLeft className=" h-7 w-7" />
+            <ArrowLeft className="h-7 w-7" />
           </button>
           <h2 className="text-2xl font-bold">
             {id ? "Edit Project" : "Create New Project"}
@@ -133,6 +176,21 @@ export default function ProjectForm() {
       <div className="grid gap-3 px-[10%]">
         <div className="space-y-6 bg-white border-[1px] rounded-xl px-6 py-10">
           <div className="grid grid-cols-1 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Project Number
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.projectNumber}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, projectNumber: e.target.value }))
+                }
+                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Project Name
@@ -172,59 +230,77 @@ export default function ProjectForm() {
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             Customer Details
           </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Name
-              </label>
+          <div className="relative">
+            <div className="flex items-center space-x-2">
               <input
                 type="text"
-                required
-                value={formData.customer.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, name: e.target.value },
-                  }))
-                }
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setShowCustomerDropdown(true)}
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
+              <button
+                type="button"
+                onClick={handleAddNewCustomer}
+                className="mt-1 p-2 text-gray-600 hover:text-gray-900"
+              >
+                <UserPlus size={20} />
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Phone
-              </label>
-              <input
-                type="tel"
-                required
-                value={formData.customer.phone}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, phone: e.target.value },
-                  }))
-                }
-                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Address
-              </label>
-              <textarea
-                required
-                value={formData.customer.address}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, address: e.target.value },
-                  }))
-                }
-                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                rows={2}
-              />
-            </div>
+            
+            {showCustomerDropdown && (
+              <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-300">
+                {filteredCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="p-2 hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleCustomerSelect(customer)}
+                  >
+                    {customer.name}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {selectedCustomer && (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={selectedCustomer.name}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  readOnly
+                  value={selectedCustomer.email}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Address
+                </label>
+                <textarea
+                  readOnly
+                  value={selectedCustomer.address}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </form>

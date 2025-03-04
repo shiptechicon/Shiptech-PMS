@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { useCustomerStore, Customer, ContactPerson } from "@/store/customerStore";
+import { useAuthStore } from "@/store/authStore";
 import toast from "react-hot-toast";
 import { uploadToGitHub } from '@/lib/github';
 import { Image } from 'lucide-react';
@@ -10,6 +11,7 @@ export default function CustomerForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { createCustomer, updateCustomer, fetchCustomer, loading } = useCustomerStore();
+  const { signUpCustomer } = useAuthStore();
   
   const [formData, setFormData] = useState<Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>>({
     name: "",
@@ -23,6 +25,7 @@ export default function CustomerForm() {
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [generatedPassword, setGeneratedPassword] = useState<string>("");
   
   useEffect(() => {
     const loadCustomer = async () => {
@@ -66,6 +69,19 @@ export default function CustomerForm() {
     loadCustomer();
   }, [id, fetchCustomer]);
   
+  // Function to generate password from customer name
+  const generatePassword = (name: string) => {
+    const formattedName = name.replace(/\s+/g, '_').toLowerCase();
+    return `${formattedName}@123`;
+  };
+
+  // Update password when name changes
+  useEffect(() => {
+    if (formData.name) {
+      setGeneratedPassword(generatePassword(formData.name));
+    }
+  }, [formData.name]);
+
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -139,6 +155,16 @@ export default function CustomerForm() {
               await updateCustomer(customerId, { logoUrl });
             }
           }
+        }
+
+        // Sign up the customer with generated password
+        try {
+          await signUpCustomer(formData.email, generatedPassword, formData.name);
+          toast.success("Customer account created successfully");
+        } catch (error) {
+          console.error("Customer signup error:", error);
+          toast.error("Failed to create customer account");
+          return;
         }
         
         toast.success("Customer created successfully");
@@ -262,6 +288,35 @@ export default function CustomerForm() {
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
+
+            {!id && (
+              <div>
+                <label className="block font-medium text-gray-700">
+                  Generated Password
+                </label>
+                <div className="mt-1 flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={generatedPassword}
+                    readOnly
+                    className="p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedPassword);
+                      toast.success("Password copied to clipboard");
+                    }}
+                    className="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  This password will be used for customer login
+                </p>
+              </div>
+            )}
             
             {/* Logo Upload Section */}
             <div>

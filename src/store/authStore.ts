@@ -26,6 +26,7 @@ interface AuthState {
   error: string | null;
   initialized: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUpCustomer: (email: string, password: string, fullName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<User | null>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -112,10 +113,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Store user data in Firestore
       await setDoc(doc(db, 'users', user.uid), userData);
 
-      // Store credentials in localStorage
-      localStorage.setItem('userCredentials', JSON.stringify({ email, password }));
-
-      set({ user, userData, loading: false });
+      set({loading: false});
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
       throw error;

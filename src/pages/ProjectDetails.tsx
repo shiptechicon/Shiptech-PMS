@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "../store/projectStore";
+import { useCustomerStore } from "../store/customerStore";
 import {
   Loader2,
   Pencil,
@@ -9,6 +10,7 @@ import {
   Calendar,
   Check,
   X,
+  Key,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
@@ -18,7 +20,7 @@ import toast from "react-hot-toast";
 import TaskModal from "../components/TaskModal";
 import TaskList from "../components/TaskList";
 import ProjectComments from "../components/ProjectComments";
-import CreateCustomerModal from "../components/CreateCustomerModal";
+import CustomerCredentialsModal from "../components/CustomerCredentialsModal";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import { Task } from "../store/projectStore";
 import TaskPopover from "../components/TaskPopover";
@@ -38,6 +40,7 @@ export default function ProjectDetails() {
     updateProjectStatus,
     project,
   } = useProjectStore();
+  const { fetchCustomers, customers } = useCustomerStore();
 
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -49,7 +52,8 @@ export default function ProjectDetails() {
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [tempStartDate, setTempStartDate] = useState<string>("");
   const [showStartDateConfirm, setShowStartDateConfirm] = useState(false);
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState("");
   const { user } = useAuthStore();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverTasks, setPopoverTasks] = useState<
@@ -87,6 +91,7 @@ export default function ProjectDetails() {
 
       try {
         setLoading(true);
+        await fetchCustomers();
         const p = await fetchProject(id);
         const data = p;
         if (data) {
@@ -119,7 +124,7 @@ export default function ProjectDetails() {
 
     loadProject();
     checkUserRole();
-  }, [id, user, fetchProject, navigate]);
+  }, [id, user, fetchProject, navigate, fetchCustomers]);
 
   // Calculate analytics for tasks
   const totalTasks = project?.tasks.length || 0;
@@ -440,22 +445,31 @@ export default function ProjectDetails() {
           {isAdmin && (
             <>
               <button
-                onClick={() => setShowCustomerModal(true)}
-                className="inline-flex items-center px-4 py-2  font-medium rounded-md text-black bg-white border-[1px]  hover:opacity-70"
+                onClick={() => {
+                  const customer = customers.find(
+                    c => c.name === project.customer.name && 
+                    c.contactPersons[0]?.phone === project.customer.phone
+                  );
+                  setCustomerEmail(customer?.email || "");
+                  setShowCredentialsModal(true);
+                }}
+                className="inline-flex items-center px-4 py-2 font-medium rounded-md text-black bg-white border-[1px] hover:opacity-70"
               >
-                Create Customer Account
+                <Key className="mr-2 h-4 w-4" />
+                Customer Credentials
               </button>
-              <CreateCustomerModal
-                isOpen={showCustomerModal}
-                onClose={() => setShowCustomerModal(false)}
-                projectId={id || ""}
+              <CustomerCredentialsModal
+                isOpen={showCredentialsModal}
+                onClose={() => setShowCredentialsModal(false)}
+                customerEmail={customerEmail}
+                customerName={project.customer.name}
               />
             </>
           )}
           {project.status === "completed" && (
             <button
               onClick={downloadInvoice}
-              className="inline-flex items-center px-4 py-2   font-medium rounded-md text-black bg-white border-[1px]  hover:opacity-70"
+              className="inline-flex items-center px-4 py-2 font-medium rounded-md text-black bg-white border-[1px] hover:opacity-70"
             >
               <FileDown className="mr-2 h-4 w-4" />
               Download Invoice
@@ -464,7 +478,7 @@ export default function ProjectDetails() {
           {isAdmin && (
             <button
               onClick={() => navigate(`/dashboard/projects/${id}/edit`)}
-              className="inline-flex items-center px-4 py-2   font-medium rounded-md text-black bg-white border-[1px] hover:opacity-70"
+              className="inline-flex items-center px-4 py-2 font-medium rounded-md text-black bg-white border-[1px] hover:opacity-70"
             >
               <Pencil className="mr-2 h-4 w-4" />
               Edit Project
