@@ -12,7 +12,7 @@ interface CalendarItem {
   dueDate: string;
   type: 'project' | 'task' | 'todo';
   projectId?: string;
-  taskPath?: string;
+  parentId?: string | null;
   completed?: boolean;
 }
 
@@ -25,7 +25,7 @@ interface CalendarDay {
 export default function ProjectCalendar() {
   const navigate = useNavigate();
   const { projects, fetchProjects } = useProjectStore();
-  const { tasks } = useTaskStore();
+  const { tasks , getTaskPath } = useTaskStore();
   const { userData } = useAuthStore();
   const { todos, fetchUserTodos } = useTodoStore();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -127,7 +127,7 @@ export default function ProjectCalendar() {
           dueDate: task.deadline!,
           type: 'task' as const,
           projectId: task.projectId,
-          taskPath: '',
+          parentId: task.parentId,
           completed: task.completed,
         });
       }
@@ -152,13 +152,14 @@ export default function ProjectCalendar() {
     });
   };
 
-  const handleItemClick = (item: CalendarItem) => {
+  const handleItemClick = async(item: CalendarItem) => {
     switch (item.type) {
       case 'project':
         navigate(`/dashboard/projects/${item.id}`);
         break;
       case 'task':
-        navigate(`/dashboard/projects/${item.projectId}/task/${item.id}`);
+        const taskPath = await getTaskPath(item.id as string, item.projectId as string);
+        navigate(`/dashboard/projects/${item.projectId}/task/${taskPath}`);
         break;
       case 'todo':
         navigate('/dashboard/todos');

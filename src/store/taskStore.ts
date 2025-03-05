@@ -50,18 +50,33 @@ interface TaskState {
   loading: boolean;
   error: string | null;
   fetchTask: (taskId: string) => Promise<Task | null>;
-  fetchUserTasks: (user: {id: string, name: string , email: string}) => Promise<void>;
+  fetchUserTasks: (user: {
+    id: string;
+    name: string;
+    email: string;
+  }) => Promise<void>;
   addTask: (task: Omit<Task, "id">) => Promise<void>;
-  updateTask: (id: string, updates: Omit<Partial<Task>, 'id' | 'children'>, isParent?: boolean) => Promise<void>;
+  updateTask: (
+    id: string,
+    updates: Omit<Partial<Task>, "id" | "children">,
+    isParent?: boolean
+  ) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   fetchAllTasksWithChildren: (
     projectId: string,
-    taskId?: string
+    taskId?: string,
+    forceFetch?: boolean
   ) => Promise<Task[]>;
   checkActiveTime: (taskId: string) => Promise<number | null>;
   getTaskTimeEntries: (taskId: string) => Promise<TimeEntry[] | null>;
-  startTimer: (taskId: string, user: { id: string; name: string }) => Promise<void>;
-  stopTimer: (taskId: string, user: { id: string; name: string }) => Promise<void>;
+  startTimer: (
+    taskId: string,
+    user: { id: string; name: string }
+  ) => Promise<void>;
+  stopTimer: (
+    taskId: string,
+    user: { id: string; name: string }
+  ) => Promise<void>;
   searchTaskFromTree: (taskId: string, tasks: Task[]) => Task | null;
   convertNodesToTree: (nodes: Task[]) => Task[];
   fetchSiblingTasks: (
@@ -105,7 +120,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
 
-  fetchUserTasks: async (user: {id: string, name: string , email: string}) => {
+  fetchUserTasks: async (user: { id: string; name: string; email: string }) => {
     try {
       set({ loading: true, error: null });
 
@@ -129,19 +144,26 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
 
-  fetchAllTasksWithChildren: async (projectId: string, taskId?: string) => {
+  fetchAllTasksWithChildren: async (
+    projectId: string,
+    taskId?: string,
+    forceFetch = false
+  ) => {
     try {
-      if (
-        get().tasks.length > 0 &&
-        get().tasks.some((task) => task.projectId === projectId)
-      ) {
-        if (taskId) {
-          const task = get().searchTaskFromTree(taskId, get().tasks);
-          if (task) {
-            set({ task, loading: false });
+
+      if (!forceFetch) {
+        if (
+          get().tasks.length > 0 &&
+          get().tasks.some((task) => task.projectId === projectId)
+        ) {
+          if (taskId) {
+            const task = get().searchTaskFromTree(taskId, get().tasks);
+            if (task) {
+              set({ task, loading: false });
+            }
           }
+          return get().tasks;
         }
-        return get().tasks;
       }
 
       set({ loading: true, error: null });
@@ -177,10 +199,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   ) => {
     let taskN: Task[] = [];
     if (parentId) {
-      taskN = get().taskNodes.filter((task) => task.parentId === parentId)
+      taskN = get().taskNodes.filter((task) => task.parentId === parentId);
     } else {
       taskN = get().taskNodes.filter(
-        (task) => (task.parentId === null || task.parentId === undefined || task.parentId === "") && task.projectId === projectId
+        (task) =>
+          (task.parentId === null ||
+            task.parentId === undefined ||
+            task.parentId === "") &&
+          task.projectId === projectId
       );
     }
 
@@ -237,7 +263,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
 
-  updateTask: async (id, updates , isParent = false) => {
+  updateTask: async (id, updates, isParent = false) => {
     try {
       set({ loading: true, error: null });
       const taskRef = doc(db, "tasks", id);
@@ -248,13 +274,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         ),
       });
       set({ tasks: get().convertNodesToTree(get().taskNodes) });
-      
-      if(isParent){
-        set({ task: get().searchTaskFromTree(updates.parentId as string, get().tasks) });
-      }else{
+
+      if (isParent) {
+        set({
+          task: get().searchTaskFromTree(
+            updates.parentId as string,
+            get().tasks
+          ),
+        });
+      } else {
         set({ task: get().searchTaskFromTree(id, get().tasks) });
       }
-
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
@@ -292,23 +322,25 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   startTimer: async (taskId: string, user: { id: string; name: string }) => {
     const task = get().tasks.find((t) => t.id === taskId);
     const startTime = new Date().toISOString();
-    
+
     if (task) {
       const newTimeEntry: TimeEntry = {
         id: `${taskId}-${Date.now()}`,
         userId: user.id,
         userName: user.name,
         startTime,
-        duration: 0, 
+        duration: 0,
       };
 
       const updatedTimeEntries = task.timeEntries || [];
-      const existingEntry = updatedTimeEntries.find(entry => entry.userId === newTimeEntry.userId);
+      const existingEntry = updatedTimeEntries.find(
+        (entry) => entry.userId === newTimeEntry.userId
+      );
 
       if (existingEntry) {
-        existingEntry.startTime = startTime; 
+        existingEntry.startTime = startTime;
       } else {
-        updatedTimeEntries.push(newTimeEntry); 
+        updatedTimeEntries.push(newTimeEntry);
       }
 
       await get().updateTask(taskId, { timeEntries: updatedTimeEntries });
@@ -318,13 +350,19 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   stopTimer: async (taskId: string, user: { id: string; name: string }) => {
     const task = get().tasks.find((t) => t.id === taskId);
     if (task && task.timeEntries) {
-      const existingEntry = task.timeEntries.find(entry => entry.userId === user.id);
+      const existingEntry = task.timeEntries.find(
+        (entry) => entry.userId === user.id
+      );
       if (existingEntry) {
         const endTime = new Date().toISOString();
-        const duration = Math.floor((new Date(endTime).getTime() - new Date(existingEntry.startTime).getTime()) / 60000); // duration in minutes
+        const duration = Math.floor(
+          (new Date(endTime).getTime() -
+            new Date(existingEntry.startTime).getTime()) /
+            60000
+        ); // duration in minutes
 
-        existingEntry.duration += duration; 
-        existingEntry.startTime = endTime; 
+        existingEntry.duration += duration;
+        existingEntry.startTime = endTime;
       }
 
       await get().updateTask(taskId, { timeEntries: task.timeEntries });
@@ -375,18 +413,20 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   getTaskPath: async (taskId: string, projectId: string) => {
-    const projectTasks = await get().fetchAllTasksWithChildren(projectId);
+    const projectTasks = await get().fetchAllTasksWithChildren(projectId , undefined , true);
     const task = get().searchTaskFromTree(taskId, projectTasks);
     const path: string[] = [];
 
     const buildPath = (currentTask: Task | null) => {
       if (currentTask) {
-        path.unshift(currentTask.name);
-        buildPath(get().searchTaskFromTree(currentTask.parentId as string, projectTasks));
+        path.unshift(currentTask.id);
+        buildPath(
+          get().searchTaskFromTree(currentTask.parentId as string, projectTasks)
+        );
       }
     };
 
     buildPath(task);
-    return `/${path.join('/')}`;
+    return `${path.join("/")}`;
   },
 }));
