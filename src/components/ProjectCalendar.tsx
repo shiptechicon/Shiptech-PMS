@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Task, useProjectStore } from '../store/projectStore';
+import { useProjectStore } from '../store/projectStore';
 import { useTodoStore } from '../store/todoStore';
 import { useAuthStore } from '../store/authStore';
+import { Task, useTaskStore } from '../store/taskStore';
 
 interface CalendarItem {
   id?: string;
@@ -24,6 +25,7 @@ interface CalendarDay {
 export default function ProjectCalendar() {
   const navigate = useNavigate();
   const { projects, fetchProjects } = useProjectStore();
+  const { tasks } = useTaskStore();
   const { userData } = useAuthStore();
   const { todos, fetchUserTodos } = useTodoStore();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -56,23 +58,13 @@ export default function ProjectCalendar() {
         ...projects.map(project => ({
           id: project.id,
           name: project.name,
-          dueDate: userData.role === 'admin' ? project.project_due_date! : '',
+          dueDate: userData?.role === 'admin' ? project.project_due_date! : '',
           type: 'project' as const,
           completed: false,
         })).filter(item => item.dueDate),
 
         // All tasks with deadlines from all projects
-        ...projects.flatMap(project => 
-          getAllTasksWithDeadlines(project.tasks).map(task => ({
-            id: task.id,
-            name: task.name,
-            dueDate: task.deadline!,
-            type: 'task' as const,
-            projectId: project.id,
-            taskPath: task.path,
-            completed: task.completed,
-          }))
-        ),
+        ...getAllTasksWithDeadlines(tasks),
 
         // Todo deadlines
         ...todos.map(todo => ({
@@ -123,13 +115,21 @@ export default function ProjectCalendar() {
   }, [currentDate, projects, todos, userData]);
 
   // Helper function to recursively get all tasks with deadlines
-  const getAllTasksWithDeadlines = (tasks: Task[]): Task[] => {
-    return tasks.reduce((acc: Task[], task: Task) => {
-      const tasksWithDeadlines: Task[] = [];
+  const getAllTasksWithDeadlines = (tasks: Task[]): CalendarItem[] => { 
+    return tasks.reduce((acc: CalendarItem[], task: Task) => {
+      const tasksWithDeadlines: CalendarItem[] = [];
       
       // Add current task if it has a deadline
       if (task.deadline) {
-        tasksWithDeadlines.push(task);
+        tasksWithDeadlines.push({
+          id: task.id,
+          name: task.name,
+          dueDate: task.deadline!,
+          type: 'task' as const,
+          projectId: task.projectId,
+          taskPath: '',
+          completed: task.completed,
+        });
       }
       
       // Recursively add child tasks with deadlines

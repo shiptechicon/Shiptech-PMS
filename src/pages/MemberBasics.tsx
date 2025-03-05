@@ -19,13 +19,17 @@ export default function MemberBasics() {
     loading: tasksLoading,
     projects,
   } = useProjectStore();
-  const { user } = useAuthStore();
+  const { user , userData } = useAuthStore();
   const { checkAttendance } = useAttendanceStore();
   const { todos, loading: todosLoading, fetchUserTodos } = useTodoStore();
   const [hasMarkedAttendance, setHasMarkedAttendance] = React.useState(true);
 
   useEffect(() => {
-    fetchUserTasks(user?.uid as string);
+    fetchUserTasks({
+      id: user?.uid as string,
+      name: userData?.fullName as string,
+      email: userData?.email as string,
+    });
     fetchUserTodos();
   }, [fetchUserTasks, fetchUserTodos, user?.uid]);
 

@@ -50,7 +50,7 @@ interface TaskState {
   loading: boolean;
   error: string | null;
   fetchTask: (taskId: string) => Promise<Task | null>;
-  fetchUserTasks: (userId: string) => Promise<void>;
+  fetchUserTasks: (user: {id: string, name: string , email: string}) => Promise<void>;
   addTask: (task: Omit<Task, "id">) => Promise<void>;
   updateTask: (id: string, updates: Omit<Partial<Task>, 'id' | 'children'>, isParent?: boolean) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
@@ -69,6 +69,7 @@ interface TaskState {
     taskId: string,
     projectId: string
   ) => Promise<Task[]>;
+  getTaskPath: (taskId: string, projectId: string) => Promise<string>;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -104,13 +105,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
 
-  fetchUserTasks: async (userId: string) => {
+  fetchUserTasks: async (user: {id: string, name: string , email: string}) => {
     try {
       set({ loading: true, error: null });
 
       const q = query(
         collection(db, "tasks"),
-        where("assignedTo", "array-contains", userId)
+        where("assignedTo", "array-contains", {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        })
       );
       const querySnapshot = await getDocs(q);
 
@@ -162,7 +167,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
       return [];
-    } finally {
     }
   },
 
@@ -172,11 +176,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     projectId: string
   ) => {
     let taskN: Task[] = [];
-    console.log(parentId, "parentId");
     if (parentId) {
       taskN = get().taskNodes.filter((task) => task.parentId === parentId)
     } else {
-      console.log(get().taskNodes, "taskNodes");
       taskN = get().taskNodes.filter(
         (task) => (task.parentId === null || task.parentId === undefined || task.parentId === "") && task.projectId === projectId
       );
@@ -370,5 +372,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     set({ tasks: JSON.parse(JSON.stringify(tree)) });
     return JSON.parse(JSON.stringify(tree));
+  },
+
+  getTaskPath: async (taskId: string, projectId: string) => {
+    const projectTasks = await get().fetchAllTasksWithChildren(projectId);
+    const task = get().searchTaskFromTree(taskId, projectTasks);
+    const path: string[] = [];
+
+    const buildPath = (currentTask: Task | null) => {
+      if (currentTask) {
+        path.unshift(currentTask.name);
+        buildPath(get().searchTaskFromTree(currentTask.parentId as string, projectTasks));
+      }
+    };
+
+    buildPath(task);
+    return `/${path.join('/')}`;
   },
 }));
