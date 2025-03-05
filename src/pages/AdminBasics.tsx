@@ -10,14 +10,14 @@ export default function AdminBasics() {
           <ProjectCalendar />
         </div> */}
         
-        <div className="bg-white rounded-lg shadow p-6">
+        {/* <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Incoming Mails</h3>
           <div className="space-y-4">
             <div className="border-b pb-4">
               <p className="font-medium text-gray-500">No new messages</p>
             </div>
           </div>
-        </div>
+        </div> */}
       {/* </div> */}
     </div>
   );

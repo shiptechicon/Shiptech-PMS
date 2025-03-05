@@ -20,24 +20,23 @@ import TaskList from "../components/TaskList";
 import ProjectComments from "../components/ProjectComments";
 import CreateCustomerModal from "../components/CreateCustomerModal";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
-import { Task } from "../store/projectStore";
+import { useTaskStore, Task } from "../store/taskStore";
+
 import TaskPopover from "../components/TaskPopover";
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addTask, updateTask, deleteTask, fetchAllTasksWithChildren, tasks } =
+    useTaskStore();
   const {
     fetchProject,
-    addTask,
-    updateTask,
-    deleteTask,
     currentPath,
     setCurrentPath,
     updateProjectDueDate,
     updateProjectStartDate,
     updateProjectStatus,
     project,
-    tasks,
   } = useProjectStore();
 
   const [loading, setLoading] = useState(true);
@@ -56,37 +55,51 @@ export default function ProjectDetails() {
   const [popoverTasks, setPopoverTasks] = useState<
     { name: string; deadline: string; assignees: string[] }[]
   >([]);
+  const [totalTasks, setTotalTasks] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
+  const [incompleteTasks, setIncompleteTasks] = useState(0);
+  const [projectDueDate, setProjectDueDate] = useState<string>("");
+  const [overdueTasks, setOverdueTasks] = useState(0);
+  const [completedPercentage, setCompletedPercentage] = useState<number>(0);
 
-  const calculateCompletedPercentage = (taskId: string): number => {
-    const childTasks = tasks.filter(task => task.parentId === taskId);
-    
-    if (childTasks.length === 0) {
-      const task = tasks.find(t => t.id === taskId);
-      return task?.completed ? 100 : 0;
+  const calculateCompletedPercentage = (task: Task): number => {
+    if (!task.children || task.children.length === 0) {
+      return task.completed ? 100 : 0;
     }
 
-    const totalAssignedToChildren = childTasks.reduce((sum, child) => 
+    const totalAssignedToChildren = task.children.reduce((sum, child) => 
       sum + (child.percentage || 0), 0);
 
     if (totalAssignedToChildren === 0) return 0;
 
-    const completedSum = childTasks.reduce((sum, subtask) => {
+    const completedSum = task.children.reduce((sum, subtask) => {
       return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
     }, 0);
 
-    return Math.round((completedSum / totalAssignedToChildren) * 100);
+    console.log(completedSum, "completedSum");
+    console.log(totalAssignedToChildren, "totalAssignedToChildren");
+    console.log((completedSum / totalAssignedToChildren) * 100, "percentage");
+
+    const comp =  Math.round((completedSum / totalAssignedToChildren) * 100);
+    return Number(((comp * task.percentage) / 100).toFixed(1));
   };
+  
 
   const calculateProjectCompletion = (): number => {
     if (!tasks.length) return 0;
+
+    const rootTasks = tasks;
+    console.log(rootTasks, "rootTasks");
     
-    const rootTasks = tasks.filter(task => task.parentId === null);
-    
-    const totalPercentage = rootTasks.reduce((sum, task) => {
-      return sum + calculateCompletedPercentage(task.id);
-    }, 0);
-    
-    return Math.round(totalPercentage / rootTasks.length);
+    let sum = 0;
+
+    rootTasks.forEach((task) => {
+      console.log(task, "task");
+      let value = calculateCompletedPercentage(task);
+      console.log(value, "value");
+      sum += value;
+    });
+    return sum;
   };
 
   useEffect(() => {
@@ -98,6 +111,7 @@ export default function ProjectDetails() {
         let p = await fetchProject(id);
         const data = p;
         if (data) {
+          await fetchAllTasksWithChildren(id);
           if (data.project_due_date) {
             setTempDueDate(data.project_due_date);
           }
@@ -127,31 +141,44 @@ export default function ProjectDetails() {
 
     loadProject();
     checkUserRole();
-  }, [id, user, fetchProject, navigate]);
+  }, [id, user]);
 
-  // Calculate analytics for tasks
-  const totalTasks = tasks.length || 0;
-  const completedTasks =
-    tasks.filter((task) => task.completed).length || 0;
-  const incompleteTasks = totalTasks - completedTasks;
-  const projectDueDate = project?.project_due_date
-    ? new Date(project.project_due_date).toLocaleDateString()
-    : "No due date set";
-  const overdueTasks =
-    tasks.filter(
-      (task) =>
-        task.deadline && new Date(task.deadline) < new Date() && !task.completed
-    ).length || 0;
+  useEffect(() => {
+    // Calculate analytics for tasks
+    const totalTasks = tasks.length || 0;
+    const completedTasks = tasks.filter((task) => task.completed).length || 0;
+    const incompleteTasks = totalTasks - completedTasks;
+    const projectDueDate = project?.project_due_date
+      ? new Date(project.project_due_date).toLocaleDateString()
+      : "No due date set";
+    const overdueTasks =
+      tasks.filter(
+        (task) =>
+          task.deadline &&
+          new Date(task.deadline) < new Date() &&
+          !task.completed
+      ).length || 0;
 
-  const handleAddTask = async (data: Omit<Task, "id" | "completed" | "projectId">) => {
+    setTotalTasks(totalTasks);
+    setCompletedTasks(completedTasks);
+    setIncompleteTasks(incompleteTasks);
+    setProjectDueDate(projectDueDate);
+    setOverdueTasks(overdueTasks);
+  }, [tasks]);
+
+  const handleAddTask = async (data: Omit<Task, "id">) => {
     if (!id || !project) return;
     try {
       const newTask = {
         ...data,
-        projectId: project.__id,
-        parentId: currentPath.length > 0 ? currentPath[currentPath.length - 1].id : null,
+        projectId: project.id as string,
+        parentId:
+          currentPath.length > 0
+            ? currentPath[currentPath.length - 1].id
+            : null,
       };
-      await addTask(id, currentPath, newTask);
+      console.log(newTask, "newTask");
+      await addTask(newTask as Task);
       toast.success("Task added successfully");
     } catch (error) {
       console.error("Failed to add task:", error);
@@ -162,7 +189,7 @@ export default function ProjectDetails() {
   const handleEditTask = async (data: Partial<Task>) => {
     if (!id || !editingTask) return;
     try {
-      await updateTask(id, currentPath, editingTask.id, data);
+      await updateTask(editingTask.id, data);
       toast.success("Task updated successfully");
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -174,7 +201,7 @@ export default function ProjectDetails() {
     if (!id) return;
     if (window.confirm("Are you sure you want to delete this task?")) {
       try {
-        await deleteTask(id, currentPath, taskId);
+        await deleteTask(taskId);
         toast.success("Task deleted successfully");
       } catch (error) {
         console.error("Failed to delete task:", error);
@@ -210,7 +237,7 @@ export default function ProjectDetails() {
   const confirmDueDateChange = async () => {
     if (!id) return;
     try {
-      await updateProjectDueDate(id, tempDueDate || null);
+      await updateProjectDueDate(id, tempDueDate);
       toast.success("Project due date updated successfully");
       setIsEditingDueDate(false);
       setShowDueDateConfirm(false);
@@ -223,7 +250,7 @@ export default function ProjectDetails() {
   const confirmStartDateChange = async () => {
     if (!id) return;
     try {
-      await updateProjectStartDate(id, tempStartDate || null);
+      await updateProjectStartDate(id, tempStartDate);
       const updatedProject = await fetchProject(id);
       if (updatedProject) {
         toast.success("Project start date updated successfully");
@@ -251,7 +278,7 @@ export default function ProjectDetails() {
   };
 
   // download invoice function
-  
+
   // const downloadInvoice = () => {
   //   if (!project) return;
 
@@ -304,7 +331,7 @@ export default function ProjectDetails() {
   //         <h1 style="color: #2563eb;">PROJECT INVOICE</h1>
   //         <p style="color: #666;">Project ID: ${project.__id}</p>
   //       </div>
-        
+
   //       <div style="margin-bottom: 30px;">
   //         <h2>ShipTech-ICON</h2>
   //         <p>Center for Innovation Technology Transfer & Industrial Collaboration</p>
@@ -372,10 +399,13 @@ export default function ProjectDetails() {
   //     });
   // };
 
-
-
   // Function to handle mouse enter on incomplete tasks
-  
+
+  useEffect(() => {
+    const projectCompletionPercentage = calculateProjectCompletion();
+    setCompletedPercentage(projectCompletionPercentage);
+  }, [tasks]);
+
   const handleIncompleteTasksHover = () => {
     const IncompleteTasks =
       tasks
@@ -384,7 +414,7 @@ export default function ProjectDetails() {
           name: task.name,
           deadline: task.deadline ? task.deadline : "",
           assignees: task.assignedTo
-            ? task.assignedTo.map((user) => user.fullName)
+            ? task.assignedTo.map((user) => user.name)
             : [],
         })) || [];
     setPopoverTasks(IncompleteTasks);
@@ -396,16 +426,16 @@ export default function ProjectDetails() {
     const OverdueTasks =
       tasks
         .filter(
-          (task) =>
+          (task: Task) =>
             task.deadline &&
             new Date(task.deadline) < new Date() &&
             !task.completed
         )
-        .map((task) => ({
+        .map((task: Task) => ({
           name: task.name,
           deadline: task.deadline ? task.deadline : "",
           assignees: task.assignedTo
-            ? task.assignedTo.map((user) => user.fullName)
+            ? task.assignedTo.map((user) => user.name)
             : [],
         })) || [];
     setPopoverTasks(OverdueTasks);
@@ -416,6 +446,10 @@ export default function ProjectDetails() {
   const closePopover = () => {
     setPopoverOpen(false);
   };
+
+  useEffect(() => {
+    console.log(tasks, "tasks on project details");
+  }, [tasks]);
 
   if (loading) {
     return (
@@ -432,8 +466,6 @@ export default function ProjectDetails() {
       </div>
     );
   }
-
-  const projectCompletionPercentage = calculateProjectCompletion();
 
   return (
     <div className="p-6">
@@ -689,7 +721,7 @@ export default function ProjectDetails() {
 
                   {/* project status */}
 
-                  {/* <td className="py-2">
+                  <td className="py-2">
                     <ProjectStatusSelect
                       project={{
                         id: project.id as string,
@@ -698,7 +730,7 @@ export default function ProjectDetails() {
                       updateProjectStatus={updateProjectStatus}
                       tasks={tasks}
                     />
-                  </td> */}
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-2 font-medium text-gray-500">
@@ -708,9 +740,9 @@ export default function ProjectDetails() {
                     <div className="w-full bg-gray-200 rounded-full">
                       <div
                         className="bg-blue-600 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full"
-                        style={{ width: `${projectCompletionPercentage}%` }}
+                        style={{ width: `${completedPercentage}%` }}
                       >
-                        {projectCompletionPercentage}%
+                        {completedPercentage}%
                       </div>
                     </div>
                   </td>
@@ -722,7 +754,7 @@ export default function ProjectDetails() {
 
         {/* Tasks Section */}
         <TaskList
-          tasks={tasks.filter(task => task.parentId === null)}
+          tasks={tasks}
           onAddClick={() => {
             setEditingTask(null);
             setIsModalOpen(true);
@@ -742,6 +774,7 @@ export default function ProjectDetails() {
       </div>
 
       <TaskModal
+        tasks={tasks}
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);

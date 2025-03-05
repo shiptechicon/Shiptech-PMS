@@ -1,6 +1,6 @@
 import { User, Calendar, Clock, DollarSign, Check, AlertCircle } from 'lucide-react';
 import ItemStatusBadge from './ItemStatusBadge';
-import { Task } from '@/store/projectStore';
+import { Task } from '@/store/taskStore';
 import { useAuthStore } from '@/store/authStore';
 
 interface ItemDetailsProps {
@@ -110,7 +110,7 @@ export default function ItemDetails({
                   {item.assignedTo.map((user, index) => (
                     <div key={index} className="flex items-center">
                       <User className="h-4 w-4 text-gray-400 mr-2" />
-                      <p>{user.fullName}</p>
+                      <p>{user.name}</p>
                     </div>
                   ))}
                 </div>

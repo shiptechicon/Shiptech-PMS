@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import toast from 'react-hot-toast';
+import { Task, useTaskStore } from './taskStore';
 
 export interface Deliverable {
   id: string;
@@ -33,6 +34,10 @@ export interface Enquiry {
   status: string;
 }
 
+interface TaskWithEnquiryId extends Task {
+  enquiryId: string;
+}
+
 interface EnquiryState {
   enquiries: Enquiry[];
   loading: boolean;
@@ -44,6 +49,8 @@ interface EnquiryState {
   deleteEnquiry: (id: string) => Promise<void>;
   convertToProject: (enquiryId: string) => Promise<void>;
   updateEnquiryStatus: (id: string, status: string) => Promise<void>;
+  addTaskToEnquiry: (enquiryId: string, task: Omit<TaskWithEnquiryId, 'id'>) => Promise<void>;
+  deleteTaskFromEnquiry: (taskId: string) => Promise<void>;
 }
 
 export const useEnquiryStore = create<EnquiryState>((set, get) => ({
@@ -206,5 +213,16 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       set({ error: (error as Error).message, loading: false });
       toast.error('Failed to update status');
     }
-  }
+  },
+
+  addTaskToEnquiry: async (enquiryId, task) => {
+    const { addTask } = useTaskStore.getState();
+    const taskWithEnquiryId = { ...task, enquiryId }; // Ensure enquiryId is included
+    await addTask(taskWithEnquiryId);
+  },
+
+  deleteTaskFromEnquiry: async (taskId) => {
+    const { deleteTask } = useTaskStore.getState();
+    await deleteTask(taskId);
+  },
 }));

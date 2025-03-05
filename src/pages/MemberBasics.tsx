@@ -10,23 +10,24 @@ import {
   UserCheck,
   ListTodo,
 } from "lucide-react";
-
+import { useTaskStore } from "../store/taskStore";
+import { useAuthStore } from "@/store/authStore";
 export default function MemberBasics() {
   const navigate = useNavigate();
+  const { fetchUserTasks , tasks : userTasks } = useTaskStore();
   const {
-    userTasks,
-    fetchUserTasks,
     loading: tasksLoading,
     projects,
   } = useProjectStore();
+  const { user } = useAuthStore();
   const { checkAttendance } = useAttendanceStore();
   const { todos, loading: todosLoading, fetchUserTodos } = useTodoStore();
   const [hasMarkedAttendance, setHasMarkedAttendance] = React.useState(true);
 
   useEffect(() => {
-    fetchUserTasks();
+    fetchUserTasks(user?.uid as string);
     fetchUserTodos();
-  }, [fetchUserTasks, fetchUserTodos]);
+  }, [fetchUserTasks, fetchUserTodos, user?.uid]);
 
   useEffect(() => {
     const checkUserAttendance = async () => {

@@ -1,6 +1,6 @@
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Task } from '../store/projectStore';
-
+import { Task } from '../store/taskStore';
+import {  useEffect } from 'react';
 
 interface TaskListProps {
   tasks: Task[];
@@ -23,24 +23,23 @@ export default function TaskList({
   exceptionCase,
 }: TaskListProps) {
 
-  console.log("exceptionCase",exceptionCase)
 
-  // const calculateCompletedPercentage = (task: Task): number => {
-  //   if (!task.children || task.children.length === 0) {
-  //     return task.completed ? 100 : 0;
-  //   }
+  const calculateCompletedPercentage = (task: Task): number => {
+    if (!task.children || task.children.length === 0) {
+      return task.completed ? 100 : 0;
+    }
 
-  //   const totalAssignedToChildren = task.children.reduce((sum, child) => 
-  //     sum + (child.percentage || 0), 0);
+    const totalAssignedToChildren = task.children.reduce((sum, child) => 
+      sum + (child.percentage || 0), 0);
 
-  //   if (totalAssignedToChildren === 0) return 0;
+    if (totalAssignedToChildren === 0) return 0;
 
-  //   const completedSum = task.children.reduce((sum, subtask) => {
-  //     return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
-  //   }, 0);
+    const completedSum = task.children.reduce((sum, subtask) => {
+      return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
+    }, 0);
 
-  //   return Math.round((completedSum / totalAssignedToChildren) * 100);
-  // };
+    return Math.round((completedSum / totalAssignedToChildren) * 100);
+  };
 
   // Helper function to get color based on percentage
   const getProgressColor = (percentage: number) => {
@@ -71,8 +70,7 @@ export default function TaskList({
         ) : (
           <div className="divide-y divide-gray-200">
             {tasks.map((task) => {
-              // const completedPercentage = calculateCompletedPercentage(task);
-              const completedPercentage = 0;
+              const completedPercentage = calculateCompletedPercentage(task);
               const assignedPercentage = task.percentage || 0;
 
               return (

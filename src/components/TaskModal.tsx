@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useParams } from "react-router-dom";
-import { useProjectStore, Task, User } from "../store/projectStore";
+import { useProjectStore, User } from "../store/projectStore";
+import { Task, useTaskStore } from "../store/taskStore";
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: Task) => Promise<void>;
   initialData?: Task;
+  tasks: Task[];
 }
 
 export default function TaskModal({
@@ -15,16 +17,18 @@ export default function TaskModal({
   onClose,
   onSubmit,
   initialData,
+  tasks,
 }: TaskModalProps) {
   const { id: projectId } = useParams();
-  const { individualTaskSubtasks: siblingTasks,users,fetchUsers } = useProjectStore();
+  const { users, fetchUsers } = useProjectStore();
+  const [siblingTasks, setSiblingTasks] = useState<Task[]>([]);
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     hours: undefined as number | undefined,
     costPerHour: undefined as number | undefined,
-    assignedTo: [] as { id: string; fullName: string; email: string }[],
+    assignedTo: [] as { id: string; name: string; email: string }[],
     deadline: "",
     percentage: 0,
   });
@@ -33,9 +37,7 @@ export default function TaskModal({
 
   useEffect(() => {
     if (!isOpen) return;
-
-    fetchUsers()
-
+    fetchUsers();
   }, [isOpen]);
 
   useEffect(() => {
@@ -63,7 +65,35 @@ export default function TaskModal({
   }, [initialData, isOpen]);
 
   useEffect(() => {
-    calculateAvailablePercentage();
+    const fetchSibTasks = async () => {
+      // const sib = await fetchSiblingTasks(
+      //   initialData?.parentId || "",
+      //   initialData?.id || "",
+      //   projectId || ""
+      // );
+
+      if (initialData?.parentId) {
+        setSiblingTasks(
+          tasks.filter(
+            (task) => task.parentId === initialData?.parentId
+          ) as Task[]
+        );
+      } else {
+        setSiblingTasks(tasks);
+      }
+
+      console.log(tasks, "passed tasks");
+    };
+    fetchSibTasks();
+    return () => {
+      setSiblingTasks([]);
+    };
+  }, [isOpen, initialData , tasks]);
+
+  useEffect(() => {
+    if (siblingTasks) {
+      calculateAvailablePercentage();
+    }
   }, [siblingTasks]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -75,19 +105,27 @@ export default function TaskModal({
       parentId: initialData?.parentId || "",
       completed: initialData?.completed || false,
       createdAt: initialData?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
+    
     onSubmit(taskData as Task);
     onClose();
   };
-
   const handleAssignedToChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOptions = Array.from(e.target.selectedOptions);
     const selectedUsers = selectedOptions
-      .map((option) => users.find((user : User) => user.id === option.value))
-      .filter((user): user is User => user !== undefined);
+      .map(
+        (option) => users.find((user: User) => user.id === option.value) || null
+      )
+      .filter((user): user is User => user !== null);
 
-    setFormData((prev) => ({ ...prev, assignedTo: selectedUsers }));
+    const assignedTo = selectedUsers.map((user) => ({
+      id: user.id,
+      name: user.fullName,
+      email: user.email,
+    }));
+
+    setFormData((prev) => ({ ...prev, assignedTo }));
   };
 
   const calculateAvailablePercentage = () => {
@@ -217,7 +255,7 @@ export default function TaskModal({
                     className="mt-1 border-2 border-gray-300 p-2 block w-full rounded-md  focus:border-blue-500 focus:ring-blue-500"
                     size={4}
                   >
-                    {users.map((user:User) => (
+                    {users.map((user: User) => (
                       <option
                         key={user.id}
                         value={user.id}
@@ -260,8 +298,7 @@ export default function TaskModal({
                         Current: {formData.percentage}%
                       </span>
                       <span className="text-sm text-gray-500">
-                        Available:{" "}
-                        {availablePercentage}%
+                        Available: {availablePercentage}%
                       </span>
                     </div>
                     <input
@@ -283,18 +320,14 @@ export default function TaskModal({
                         className="absolute top-0 left-0 h-full bg-blue-600 transition-all duration-150"
                         style={{
                           width: `${
-                            (formData.percentage /
-                              availablePercentage) *
-                            100
+                            (formData.percentage / availablePercentage) * 100
                           }%`,
                         }}
                       />
                     </div>
                     <div className="flex justify-between text-xs text-gray-500">
                       <span>0%</span>
-                      <span>
-                        {Math.floor(availablePercentage / 2)}%
-                      </span>
+                      <span>{Math.floor(availablePercentage / 2)}%</span>
                       <span>{availablePercentage}%</span>
                     </div>
                   </div>
@@ -314,7 +347,6 @@ export default function TaskModal({
                       className="w-20 p-1 text-sm border rounded text-center"
                     />
                   </div>
-                
                 </div>
               </form>
             </div>

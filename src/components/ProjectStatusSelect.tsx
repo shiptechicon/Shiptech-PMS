@@ -1,7 +1,7 @@
-import {  Task } from "@/store/projectStore";
+import { Task, useTaskStore } from "../store/taskStore";
 import { ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import CompletionSummaryModal from './CompletionSummaryModal';
+import CompletionSummaryModal from "./CompletionSummaryModal";
 import { toast } from "react-hot-toast";
 
 const statusOptions = [
@@ -21,17 +21,21 @@ const statusOptions = [
 interface ProjectStatusSelectProps {
   project: {
     id: string;
-    status: 'completed' | 'ongoing' | 'not-started';
+    status: "completed" | "ongoing" | "not-started";
   };
-  updateProjectStatus?: (status: 'completed' | 'ongoing' | 'not-started', projectId: string) => Promise<void>;
+  updateProjectStatus?: (
+    projectId: string,
+    status: "completed" | "ongoing" | "not-started"
+  ) => Promise<void>;
   tasks?: Task[];
 }
 
 const ProjectStatusSelect = ({
   project,
   updateProjectStatus,
-  tasks = []
+  tasks = [],
 }: ProjectStatusSelectProps) => {
+  const { fetchAllTasksWithChildren } = useTaskStore();
   const [isOpen, setIsOpen] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -57,11 +61,14 @@ const ProjectStatusSelect = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [project]);
 
-  const handleStatusChange = async (option: typeof statusOptions[0]) => {
-    
-    if (option.value === 'completed') {
+  const handleStatusChange = async (option: (typeof statusOptions)[0]) => {
+
+    if (option.value === "completed") {
       // Check if all tasks are completed
-      const hasUncompletedTasks = tasks.some(task => {
+
+      const allTasks = await fetchAllTasksWithChildren(project.id);
+
+      const hasUncompletedTasks = allTasks.some((task) => {
         const checkTaskCompletion = (t: Task): boolean => {
           if (!t.completed) return true;
           if (t.children && t.children.length > 0) {
@@ -73,27 +80,22 @@ const ProjectStatusSelect = ({
       });
 
       if (hasUncompletedTasks) {
-        toast.error("All tasks must be completed before marking project as complete");
+        toast.error(
+          "All tasks must be completed before marking project as complete"
+        );
         return;
       }
 
       setShowCompletionModal(true);
-      if (updateProjectStatus) {
-        await updateProjectStatus(
-          option.value as 'completed' | 'ongoing' | 'not-started',
-          project.id
-        );
-      }
-    } else {
-      if (updateProjectStatus) {
-        await updateProjectStatus(
-          option.value as 'completed' | 'ongoing' | 'not-started',
-          project.id
-        );
-      }
     }
-    console.log("option", option);
-    
+
+    if (updateProjectStatus && project.id) {
+      await updateProjectStatus(
+        project.id,
+        option.value as "completed" | "ongoing" | "not-started"
+      );
+    }
+
     setSelected(option);
     setIsOpen(false);
   };
@@ -103,7 +105,11 @@ const ProjectStatusSelect = ({
       <div className="relative inline-block w-40" ref={dropdownRef}>
         {/* Selected Status (Badge) */}
         <div
-          className={`${updateProjectStatus ? 'cursor-pointer text-base' : 'text-[12px]'} flex items-center gap-1 w-fit min-w-28 justify-center  px-4 py-2 rounded-full text-sm text-center transition-all ${selected.color}`}
+          className={`${
+            updateProjectStatus ? "cursor-pointer text-base" : "text-[12px]"
+          } flex items-center gap-1 w-fit min-w-28 justify-center  px-4 py-2 rounded-full text-sm text-center transition-all ${
+            selected.color
+          }`}
           onClick={() => {
             if (updateProjectStatus) setIsOpen(!isOpen);
           }}
@@ -139,7 +145,10 @@ const ProjectStatusSelect = ({
         onClose={() => {
           setShowCompletionModal(false);
           // Reset selected status if user cancels
-          setSelected(statusOptions.find(s => s.value === project.status) || statusOptions[1]);
+          setSelected(
+            statusOptions.find((s) => s.value === project.status) ||
+              statusOptions[1]
+          );
         }}
         onComplete={async () => {
           setShowCompletionModal(false);

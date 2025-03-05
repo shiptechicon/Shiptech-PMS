@@ -1,7 +1,16 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "../store/projectStore";
-import { Loader2, ArrowLeft, Play, Square, Clock, User, Plus, Minus } from "lucide-react";
+import {
+  Loader2,
+  ArrowLeft,
+  Play,
+  Square,
+  Clock,
+  User,
+  Plus,
+  Minus,
+} from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -9,33 +18,30 @@ import toast from "react-hot-toast";
 import TaskModal from "../components/TaskModal";
 import TaskList from "../components/TaskList";
 import ItemDetails from "../components/ItemDetails";
-import { Task, TimeEntry } from "../store/projectStore";
-
+import { Task, useTaskStore, TimeEntry } from "../store/taskStore";
 export default function TaskDetails() {
   const { id: projectId, "*": taskPath } = useParams();
+  const taskId = taskPath?.split("/")[taskPath.split("/").length - 1];
+
   const navigate = useNavigate();
+  const { loading, setCurrentPath } = useProjectStore();
   const {
-    getTaskByPath,
+    tasks,
     addTask,
+    fetchAllTasksWithChildren,
+    task,
+    checkActiveTime,
     updateTask,
     deleteTask,
-    individualTask: task,
-    individualTaskSubtasks: subtasks,
-    loading,
-    setCurrentPath,
+    getTaskTimeEntries,
     startTimer,
     stopTimer,
-    getTaskTimeEntries,
-    toggleTaskCompletion,
-    checkActiveTimer,
-    tasks,
-  } = useProjectStore();
+  } = useTaskStore();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [elapsedTime, setElapsedTime] = useState<string>("00:00:00");
-  const { user } = useAuthStore();
+  const { user, userData } = useAuthStore();
   const [currentDuration, setCurrentDuration] = useState<number>(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -47,12 +53,14 @@ export default function TaskDetails() {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
   const getChildTasks = (parentId: string) => {
-    return tasks.filter(task => task.parentId === parentId);
+    return tasks.filter((task) => task.parentId === parentId);
   };
 
   const loadTask = async () => {
@@ -62,21 +70,16 @@ export default function TaskDetails() {
     }
 
     try {
-      const taskId = taskPath.split("/").pop()!;
-      const pathParts = taskPath.split("/");
-      const projectIdIndex = pathParts.indexOf("projects") + 1;
-      const projectId = pathParts[projectIdIndex];
-      console.log(taskId,projectId)
-      await getTaskByPath(projectId, taskId);
+      await fetchAllTasksWithChildren(projectId, taskId);
     } catch (error) {
       console.error("Error loading task:", error);
-      toast.error("Failed to load task");-
+      toast.error("Failed to load task");
       navigate(`/dashboard/projects/${projectId}`);
     }
   };
 
   const findUserEntry = (entries: TimeEntry[]) => {
-    const userEntry = entries.find(entry => entry.userId === user?.uid);
+    const userEntry = entries.find((entry) => entry.userId === user?.uid);
     if (userEntry) {
       setCurrentDuration(userEntry.duration || 0);
       // Display the current duration
@@ -96,7 +99,22 @@ export default function TaskDetails() {
 
     const initializeActiveTimer = async () => {
       try {
-        await checkActiveTimer();
+        const timer = task?.timeEntries?.find(
+          (entry) => entry.userId === user?.uid
+        );
+        console.log(timer, "timer");
+
+        if (timer) {
+          const localTimer = localStorage.getItem("activeTimer");
+          if (localTimer) {
+            const parsedTimer = JSON.parse(localTimer);
+            if (parsedTimer.taskId === task?.id) {
+              setIsTimerActive(true);
+            }
+          }
+          setCurrentDuration(timer.duration);
+          setElapsedTime(formatTimeDisplay(timer.duration * 60));
+        }
       } catch (error) {
         console.error("Error checking active timer:", error);
       }
@@ -115,15 +133,7 @@ export default function TaskDetails() {
       setIsAdmin(false);
       setCurrentPath([]);
     };
-  }, [
-    projectId,
-    taskPath,
-    user,
-    getTaskByPath,
-    navigate,
-    setCurrentPath,
-    checkActiveTimer,
-  ]);
+  }, [projectId, taskPath, user, taskId , task]);
 
   // Timer effect
   useEffect(() => {
@@ -173,11 +183,11 @@ export default function TaskDetails() {
     }
 
     try {
-      await toggleTaskCompletion(projectId, task.id);
+      await updateTask(task.id, {
+        completed: !task.completed,
+      });
       toast.success(
-        task.completed
-          ? "Task marked as complete"
-          : "Task marked as incomplete"
+        task.completed ? "Task marked as complete" : "Task marked as incomplete"
       );
     } catch (error) {
       console.error("Error toggling task completion:", error);
@@ -185,12 +195,14 @@ export default function TaskDetails() {
     }
   };
 
-  const handleAddTask = async (data: Omit<Task, "id" | "completed" | "projectId">) => {
+  const handleAddTask = async (data: Omit<Task, "id">) => {
     if (!projectId || !task) return;
     try {
-      await addTask(projectId, task.id, {
+      await addTask({
         ...data,
-        completed: false
+        completed: false,
+        projectId: task.projectId,
+        parentId: task.id,
       });
       toast.success("Task added successfully");
     } catch (error) {
@@ -202,7 +214,7 @@ export default function TaskDetails() {
   const handleEditTask = async (data: Partial<Task>) => {
     if (!projectId || !task) return;
     try {
-      await updateTask(projectId, task.id, data);
+      await updateTask(data.id as string, data, true);
       toast.success("Task updated successfully");
     } catch (error) {
       console.error("Failed to update task:", error);
@@ -214,7 +226,7 @@ export default function TaskDetails() {
     if (!projectId) return;
     if (window.confirm("Are you sure you want to delete this task?")) {
       try {
-        await deleteTask(projectId, taskId);
+        await deleteTask(taskId);
         toast.success("Task deleted successfully");
       } catch (error) {
         console.error("Failed to delete task:", error);
@@ -231,12 +243,18 @@ export default function TaskDetails() {
   const handleStartTimer = async () => {
     try {
       if (!projectId || !task) return;
-      await startTimer(projectId, task.id);
+      await startTimer(task.id, {
+        id: user?.uid || "",
+        name: userData?.fullName || "",
+      });
       setIsTimerActive(true);
-      localStorage.setItem("activeTimer", JSON.stringify({
-        startTime: new Date().toISOString(),
-        taskId: task.id,
-      }));
+      localStorage.setItem(
+        "activeTimer",
+        JSON.stringify({
+          startTime: new Date().toISOString(),
+          taskId: task.id,
+        })
+      );
     } catch (error) {
       console.error("Error starting timer:", error);
       toast.error("Failed to start timer");
@@ -246,19 +264,23 @@ export default function TaskDetails() {
   const handleStopTimer = async () => {
     try {
       if (!projectId || !task) return;
-      await stopTimer(projectId, task.id);
+      await stopTimer(task.id, {
+        id: user?.uid || "",
+        name: userData?.fullName || "",
+      });
       setIsTimerActive(false);
       localStorage.removeItem("activeTimer");
-      
+
       // Update current duration from the latest time entries
-      const entries = await getTaskTimeEntries(projectId, task.id);
-      const userEntry = entries.find(entry => entry.userId === user?.uid);
-      if (userEntry) {
-        setCurrentDuration(userEntry.duration || 0);
-        const totalSeconds = Math.floor(userEntry.duration * 60);
-        setElapsedTime(formatTimeDisplay(totalSeconds));
+      const entries = await getTaskTimeEntries(task.id);
+      if (entries) {
+        const userEntry = entries.find((entry) => entry.userId === user?.uid);
+        if (userEntry) {
+          setCurrentDuration(userEntry.duration || 0);
+          const totalSeconds = Math.floor(userEntry.duration * 60);
+          setElapsedTime(formatTimeDisplay(totalSeconds));
+        }
       }
-      setTimeEntries(entries); // Refetch time entries
     } catch (error) {
       console.error("Error stopping timer:", error);
       toast.error("Failed to stop timer");
@@ -294,17 +316,15 @@ export default function TaskDetails() {
   useEffect(() => {
     const isAssignedToCurrentUser = (task: Task) => {
       // return task.assignedTo?.some((u) => u.id === user?.uid);
-      const result =  task.assignedTo?.find((u) => u.id === user?.uid);
-      console.log("result",result)
-      if(!result){
-        return false
+      const result = task.assignedTo?.find((u) => u.id === user?.uid);
+      if (!result) {
+        return false;
       }
-      return true
+      return true;
     };
 
     if (task) {
-      const result2 = isAssignedToCurrentUser(task)
-      console.log("result2",result2)
+      const result2 = isAssignedToCurrentUser(task);
       setExceptionCase(result2);
     }
   }, [task, user]);
@@ -318,9 +338,9 @@ export default function TaskDetails() {
   const handleManualTimeAdd = async () => {
     try {
       if (!projectId || !task) return;
-      
-      const totalMinutes = (manualHours * 60) + manualMinutes;
-      
+
+      const totalMinutes = manualHours * 60 + manualMinutes;
+
       if (totalMinutes <= 0) {
         toast.error("Please enter a valid time");
         return;
@@ -329,12 +349,14 @@ export default function TaskDetails() {
       // Add the new time to the current duration
       const newDuration = currentDuration + totalMinutes;
       // Find existing time entry for current user
-      const existingEntry = task.timeEntries?.find(entry => entry.userId === user?.uid);
+      const existingEntry = task.timeEntries?.find(
+        (entry) => entry.userId === user?.uid
+      );
 
       let updatedTimeEntries;
       if (existingEntry) {
         // Update existing entry
-        updatedTimeEntries = task.timeEntries?.map(entry => {
+        updatedTimeEntries = task.timeEntries?.map((entry) => {
           if (entry.userId === user?.uid) {
             console.log("entry", entry);
             const newDuration = entry.duration + totalMinutes;
@@ -351,33 +373,27 @@ export default function TaskDetails() {
         updatedTimeEntries = [
           ...(task.timeEntries || []),
           {
-            userId: user?.uid || '',
-            userName: user?.email || '',
+            userId: user?.uid || "",
+            userName: user?.email || "",
             duration: totalMinutes,
             startTime: new Date().toISOString(),
-            id: crypto.randomUUID()
-          }
+            id: crypto.randomUUID(),
+          },
         ];
       }
 
-      await updateTask(projectId, task.id, {
+      await updateTask(task.id, {
         ...task,
-        timeEntries: updatedTimeEntries
+        timeEntries: updatedTimeEntries,
       });
-      
 
-      setTask({
-        ...task,
-        timeEntries: updatedTimeEntries
-      });
       // Update the display with the new total duration
       setCurrentDuration(newDuration);
       setElapsedTime(formatTimeDisplay(newDuration * 60)); // Convert minutes to seconds and format
 
       setShowManualEntry(false);
-      const entries = await getTaskTimeEntries(projectId, task.id);
-      findUserEntry(entries);
-      setTimeEntries(entries); // Refetch time entries
+      const entries = await getTaskTimeEntries(task.id);
+      findUserEntry(entries || []);
       toast.success("Time added successfully");
     } catch (error) {
       console.error("Error updating time:", error);
@@ -438,7 +454,7 @@ export default function TaskDetails() {
                 </>
               )}
             </button>
-            
+
             <button
               onClick={handleOpenManualEntry}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
@@ -452,7 +468,7 @@ export default function TaskDetails() {
 
       <ItemDetails
         item={task}
-        tasks={subtasks}
+        tasks={task.children}
         onEditClick={() => {
           setEditingTask(task);
           setIsModalOpen(true);
@@ -462,14 +478,14 @@ export default function TaskDetails() {
         canComplete={isAdmin || exceptionCase}
       />
 
-      {timeEntries.length > 0 && (
+      {(task.timeEntries?.length ?? 0) > 0 && (
         <div className="bg-white shadow rounded-lg mb-6">
           <div className="border-b border-gray-200 bg-gray-50 px-6 py-3">
             <h3 className="text-lg font-medium text-gray-900">Time Spent</h3>
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {aggregateTimeByUser(timeEntries).map((userTime) => (
+              {aggregateTimeByUser(task.timeEntries || []).map((userTime) => (
                 <div
                   key={userTime.email}
                   className="flex items-center justify-between"
@@ -490,7 +506,7 @@ export default function TaskDetails() {
       )}
 
       <TaskList
-        tasks={subtasks}
+        tasks={task.children as Task[]}
         onAddClick={() => setIsModalOpen(true)}
         onEditClick={(task) => {
           setEditingTask(task);
@@ -504,6 +520,7 @@ export default function TaskDetails() {
       />
 
       <TaskModal
+        tasks={task.children as Task[]}
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
@@ -517,11 +534,12 @@ export default function TaskDetails() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
             <h3 className="text-lg font-medium mb-4">Add Time Manually</h3>
-            
+
             <div className="mb-4 p-3 bg-gray-50 rounded-md">
               <div className="text-sm text-gray-500 mb-1">Current Duration</div>
               <div className="text-lg font-medium">
-                {Math.floor(currentDuration / 60)}h {Math.floor(currentDuration % 60)}m
+                {Math.floor(currentDuration / 60)}h{" "}
+                {Math.floor(currentDuration % 60)}m
               </div>
             </div>
 
@@ -541,7 +559,9 @@ export default function TaskDetails() {
                     type="number"
                     min="0"
                     value={manualHours}
-                    onChange={(e) => setManualHours(Math.max(0, parseInt(e.target.value) || 0))}
+                    onChange={(e) =>
+                      setManualHours(Math.max(0, parseInt(e.target.value) || 0))
+                    }
                     className="w-full text-center border-y p-2"
                   />
                   <button
@@ -552,14 +572,16 @@ export default function TaskDetails() {
                   </button>
                 </div>
               </div>
-              
+
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Minutes to Add
                 </label>
                 <div className="flex items-center">
                   <button
-                    onClick={() => setManualMinutes(Math.max(0, manualMinutes - 15))}
+                    onClick={() =>
+                      setManualMinutes(Math.max(0, manualMinutes - 15))
+                    }
                     className="p-2 bg-gray-100 rounded-l-md hover:bg-gray-200"
                   >
                     <Minus className="h-4 w-4" />
@@ -569,11 +591,17 @@ export default function TaskDetails() {
                     min="0"
                     max="59"
                     value={manualMinutes}
-                    onChange={(e) => setManualMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                    onChange={(e) =>
+                      setManualMinutes(
+                        Math.max(0, Math.min(59, parseInt(e.target.value) || 0))
+                      )
+                    }
                     className="w-full text-center border-y p-2"
                   />
                   <button
-                    onClick={() => setManualMinutes(Math.min(59, manualMinutes + 15))}
+                    onClick={() =>
+                      setManualMinutes(Math.min(59, manualMinutes + 15))
+                    }
                     className="p-2 bg-gray-100 rounded-r-md hover:bg-gray-200"
                   >
                     <Plus className="h-4 w-4" />
@@ -583,10 +611,18 @@ export default function TaskDetails() {
             </div>
 
             <div className="mb-4 p-3 bg-blue-50 rounded-md">
-              <div className="text-sm text-blue-600 mb-1">New Total Duration</div>
+              <div className="text-sm text-blue-600 mb-1">
+                New Total Duration
+              </div>
               <div className="text-lg font-medium text-blue-700">
-                {Math.floor((currentDuration + manualHours * 60 + manualMinutes) / 60)}h{" "}
-                {Math.floor((currentDuration + manualHours * 60 + manualMinutes) % 60)}m
+                {Math.floor(
+                  (currentDuration + manualHours * 60 + manualMinutes) / 60
+                )}
+                h{" "}
+                {Math.floor(
+                  (currentDuration + manualHours * 60 + manualMinutes) % 60
+                )}
+                m
               </div>
             </div>
 
