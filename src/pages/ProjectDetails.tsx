@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "../store/projectStore";
-import { useCustomerStore } from "../store/customerStore";
+import { useCustomerStore, Customer } from "@/store/customerStore";
 import {
   Loader2,
   Pencil,
@@ -40,7 +40,7 @@ export default function ProjectDetails() {
     updateProjectStatus,
     project,
   } = useProjectStore();
-  const { fetchCustomers, customers } = useCustomerStore();
+  const { fetchCustomers, customers, fetchCustomer } = useCustomerStore();
 
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -59,6 +59,7 @@ export default function ProjectDetails() {
   const [popoverTasks, setPopoverTasks] = useState<
     { name: string; deadline: string; assignees: string[] }[]
   >([]);
+  const [customerDetails, setCustomerDetails] = useState<Customer | null>(null);
 
   const calculateCompletedPercentage = (task: Task): number => {
     if (!task.children || task.children.length === 0) {
@@ -122,9 +123,37 @@ export default function ProjectDetails() {
       }
     };
 
+    const loadData = async () => {
+      if (project?.customer?.name) {
+        // Find customer by name
+        const customerData = await fetchCustomer(project.customer.name);
+        if (customerData) {
+          setCustomerDetails(customerData);
+        }
+      }
+    };
+
     loadProject();
     checkUserRole();
-  }, [id, user, fetchProject, navigate, fetchCustomers]);
+    loadData();
+  }, [id, user, fetchProject, navigate, fetchCustomers, fetchCustomer]);
+
+  useEffect(() => {
+    const loadCustomerDetails = async () => {
+      if (project?.customer?.name) {
+        await fetchCustomers();
+        const customer = customers.find(
+          c => c.name === project.customer.name && 
+          c.contactPersons[0]?.phone === project.customer.phone
+        );
+        if (customer) {
+          setCustomerDetails(customer);
+        }
+      }
+    };
+
+    loadCustomerDetails();
+  }, [project?.customer, fetchCustomers, customers]);
 
   // Calculate analytics for tasks
   const totalTasks = project?.tasks.length || 0;
@@ -676,20 +705,6 @@ export default function ProjectDetails() {
                 )}
                 <tr>
                   <td className="py-2 font-medium text-gray-500">
-                    Customer Name
-                  </td>
-                  <td className="py-2">{project.customer.name}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 font-medium text-gray-500">Phone</td>
-                  <td className="py-2">{project.customer.phone}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 font-medium text-gray-500">Address</td>
-                  <td className="py-2">{project.customer.address}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 font-medium text-gray-500">
                     Project Status
                   </td>
                   <td className="py-2">
@@ -720,6 +735,69 @@ export default function ProjectDetails() {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Customer Details Section */}
+        <div className="bg-white rounded-xl border-[1px] overflow-hidden">
+          <div className="border-b border-gray-200 px-6 py-3">
+            <h3 className="text-lg font-medium text-gray-900">
+              Customer Details
+            </h3>
+          </div>
+          <div className="px-6 py-4">
+            {customerDetails ? (
+              <div className="grid grid-cols-2 gap-4">
+                {customerDetails.logoUrl && (
+                  <div className="col-span-2">
+                    <p className="text-sm font-medium text-gray-500">Logo</p>
+                    <img 
+                      src={customerDetails.logoUrl} 
+                      alt="Customer Logo" 
+                      className="mt-1 max-h-20 object-contain"
+                    />
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Name</p>
+                  <p className="mt-1">{customerDetails.name || project.customer.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Email</p>
+                  <p className="mt-1">{customerDetails.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">GST Number</p>
+                  <p className="mt-1">{customerDetails.gstNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">End Client</p>
+                  <p className="mt-1">{customerDetails.endClient}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Address</p>
+                  <p className="mt-1">{customerDetails.address || project.customer.address}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Billing Address</p>
+                  <p className="mt-1">{customerDetails.billingAddress}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Contact Persons</p>
+                  <div className="mt-1 space-y-2">
+                    {customerDetails.contactPersons.map((person, index) => (
+                      <div key={index} className="flex items-center space-x-4">
+                        <span className="text-sm text-gray-700">{person.name}</span>
+                        <span className="text-sm text-gray-500">-</span>
+                        <span className="text-sm text-gray-700">{person.phone}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No customer details found.</p>
+            )}
           </div>
         </div>
 
