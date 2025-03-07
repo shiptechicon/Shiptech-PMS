@@ -8,7 +8,9 @@ import {
   updateDoc, 
   deleteDoc, 
   serverTimestamp, 
-  Timestamp
+  Timestamp,
+  query,
+  where
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -148,6 +150,27 @@ export const useCustomerStore = create<CustomerState>((set) => ({
   deleteCustomer: async (id) => {
     set({ loading: true, error: null });
     try {
+      // First, get the customer's email
+      const customerDoc = await getDoc(doc(db, 'customers', id));
+      if (!customerDoc.exists()) {
+        throw new Error('Customer not found');
+      }
+      const customerData = customerDoc.data();
+      const customerEmail = customerData.email;
+
+      // Find the user document in the users collection
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', customerEmail));
+      const userSnapshot = await getDocs(q);
+      
+      if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        
+        // Delete the user document from Firestore
+        await deleteDoc(doc(db, 'users', userDoc.id));
+      }
+
+      // Finally, delete the customer document
       await deleteDoc(doc(db, 'customers', id));
       
       set(state => ({

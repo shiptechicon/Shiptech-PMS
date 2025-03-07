@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, ArrowLeft, UserPlus } from "lucide-react";
+import { ArrowLeft, UserPlus } from "lucide-react";
 import { TimeEntry, useProjectStore } from "../store/projectStore";
 import { useCustomerStore, Customer } from "@/store/customerStore";
 import toast from "react-hot-toast";
@@ -39,16 +39,19 @@ interface FormData {
   projectNumber: string;
   status: "completed" | "ongoing" | "not-started";
   type: "project";
+  project_due_date?: string | null;
+  project_start_date?: string | null;
 }
 
 export default function ProjectForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { createProject, updateProject, fetchProject, loading } = useProjectStore();
+  const { createProject, updateProject, fetchProject } = useProjectStore();
   const { fetchCustomers, customers } = useCustomerStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>(() => {
     // Try to load saved form data from localStorage
     const savedData = localStorage.getItem('projectFormData');
@@ -73,32 +76,54 @@ export default function ProjectForm() {
   useEffect(() => {
     const loadProject = async () => {
       if (id) {
-        const project = await fetchProject(id);
-        if (project) {
-          setFormData({
-            name: project.name,
-            description: project.description,
-            customer: project.customer,
-            tasks: project.tasks || [],
-            projectNumber: project.projectNumber || "",
-            status: project.status,
-            type: project.type
-          });
-          
-          // Find the selected customer if customer exists
-          const customer = customers.find(c => 
-            c.name === project.customer.name && 
-            c.contactPersons[0]?.phone === project.customer.phone
-          );
-          if (customer) {
-            setSelectedCustomer(customer);
+        try {
+          const project = await fetchProject(id);
+          if (project) {
+            // Clear any existing form data from localStorage first
+            localStorage.removeItem('projectFormData');
+            
+            // Set the form data
+            setFormData({
+              name: project.name || "",
+              description: project.description || "",
+              projectNumber: project.projectNumber || "",
+              status: project.status || "not-started",
+              customer: {
+                name: project.customer?.name || "",
+                phone: project.customer?.phone || "",
+                address: project.customer?.address || "",
+              },
+              tasks: project.tasks || [],
+              project_due_date: project.project_due_date || null,
+              project_start_date: project.project_start_date || null,
+              type: "project" as const,
+            });
+            
+            // Find and set the selected customer
+            const customer = customers.find(c => 
+              c.name === project.customer?.name && 
+              c.contactPersons[0]?.phone === project.customer?.phone
+            );
+            if (customer) {
+              setSelectedCustomer(customer);
+            }
           }
+        } catch (error) {
+          console.error("Error loading project:", error);
+          toast.error("Failed to load project");
         }
       }
     };
 
-    fetchCustomers(); // Load customers when component mounts
-    loadProject();
+    // Only fetch customers once when component mounts
+    if (customers.length === 0) {
+      fetchCustomers();
+    }
+    
+    // Only load project data once when id is available
+    if (id) {
+      loadProject();
+    }
 
     // Check for newly created customer
     const newCustomerId = localStorage.getItem('newCustomerId');
@@ -109,12 +134,27 @@ export default function ProjectForm() {
       }
       localStorage.removeItem('newCustomerId');
     }
-  }, [id, fetchProject, fetchCustomers, customers]);
+  }, [id]); // Remove unnecessary dependencies
 
-  // Save form data to localStorage whenever it changes
+  // Separate useEffect for handling new customers
   useEffect(() => {
-    localStorage.setItem('projectFormData', JSON.stringify(formData));
-  }, [formData]);
+    const newCustomerId = localStorage.getItem('newCustomerId');
+    if (newCustomerId) {
+      const newCustomer = customers.find(c => c.id === newCustomerId);
+      if (newCustomer) {
+        handleCustomerSelect(newCustomer);
+        localStorage.removeItem('newCustomerId');
+      }
+    }
+  }, [customers]);
+
+  // Modify the useEffect for localStorage
+  useEffect(() => {
+    // Only save to localStorage if we're not editing an existing project
+    if (!id) {
+      localStorage.setItem('projectFormData', JSON.stringify(formData));
+    }
+  }, [formData, id]);
 
   // Filter customers based on search term
   const filteredCustomers = customers.filter((customer: Customer) => 
@@ -123,15 +163,16 @@ export default function ProjectForm() {
 
   const handleCustomerSelect = (customer: Customer) => {
     setSelectedCustomer(customer);
-    setFormData(prev => ({
-      ...prev,
+    setFormData(prevData => ({
+      ...prevData,
       customer: {
         name: customer.name,
         phone: customer.contactPersons[0]?.phone || "",
         address: customer.address,
-      },
+      }
     }));
     setShowCustomerDropdown(false);
+    setSearchTerm("");
   };
 
   const handleAddNewCustomer = () => {
@@ -141,21 +182,51 @@ export default function ProjectForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
     try {
-      if (id) {
-        await updateProject(id, formData);
-        toast.success("Project updated successfully");
-      } else {
-        await createProject(formData);
-        toast.success("Project created successfully");
+      if (!selectedCustomer) {
+        toast.error("Please select a customer");
+        setIsSubmitting(false);
+        return;
       }
-      // Clear saved form data after successful submission
-      localStorage.removeItem('projectFormData');
-      navigate("/dashboard/projects");
+
+      // Create form data using the latest selectedCustomer data
+      const currentFormData = {
+        ...formData,
+        customer: {
+          name: selectedCustomer.name,
+          phone: selectedCustomer.contactPersons[0]?.phone || "",
+          address: selectedCustomer.address,
+        }
+      };
+
+      if (id) {
+        await updateProject(id, currentFormData);
+        toast.success("Project updated successfully");
+        localStorage.removeItem('projectFormData');
+        navigate(`/dashboard/projects/${id}`, { replace: true });
+      } else {
+        await createProject(currentFormData);
+        toast.success("Project created successfully");
+        localStorage.removeItem('projectFormData');
+        navigate("/dashboard/projects");
+      }
     } catch (error) {
-      console.error(error);
-      toast.error(id ? "Failed to update project" : "Failed to create project");
+      console.error("Error submitting project:", error);
+      toast.error("Failed to save project");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prevData => ({
+      ...prevData,
+      [name]: value
+    }));
   };
 
   return (
@@ -179,19 +250,9 @@ export default function ProjectForm() {
           </button>
           <button
             type="submit"
-            disabled={loading}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black/90 hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                {id ? "Updating..." : "Creating..."}
-              </>
-            ) : id ? (
-              "Update Project"
-            ) : (
-              "Create Project"
-            )}
+            {id ? "Update Project" : "Create Project"}
           </button>
         </div>
       </div>
@@ -205,11 +266,10 @@ export default function ProjectForm() {
               </label>
               <input
                 type="text"
+                name="projectNumber"
                 required
                 value={formData.projectNumber}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, projectNumber: e.target.value }))
-                }
+                onChange={handleInputChange}
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
@@ -220,11 +280,10 @@ export default function ProjectForm() {
               </label>
               <input
                 type="text"
+                name="name"
                 required
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
+                onChange={handleInputChange}
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
@@ -234,14 +293,10 @@ export default function ProjectForm() {
                 Description
               </label>
               <textarea
+                name="description"
                 required
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
+                onChange={handleInputChange}
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 rows={3}
               />
@@ -302,12 +357,12 @@ export default function ProjectForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Email
+                  Phone
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   readOnly
-                  value={selectedCustomer.email}
+                  value={selectedCustomer.contactPersons[0]?.phone || ""}
                   className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
                 />
               </div>
