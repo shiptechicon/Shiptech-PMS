@@ -58,12 +58,12 @@ const editorStyle = {
 export default function EnquiryForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { createEnquiry, updateEnquiry, fetchEnquiry, loading } =
-    useEnquiryStore();
+  const { createEnquiry, updateEnquiry, fetchEnquiry, loading: storeLoading } = useEnquiryStore();
   const { fetchCustomers, customers } = useCustomerStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     enquiryNumber: "",
     name: "",
@@ -77,7 +77,9 @@ export default function EnquiryForm() {
   });
 
   useEffect(() => {
-    const loadEnquiry = async () => {
+    const loadData = async () => {
+      await fetchCustomers();
+      
       if (id) {
         const enquiry = await fetchEnquiry(id);
         if (enquiry) {
@@ -93,8 +95,7 @@ export default function EnquiryForm() {
             inputsRequired: enquiry.inputsRequired ?? [],
             charges: enquiry.charges ?? [],
           });
-          
-          // Find the selected customer if customer_id exists
+
           if (enquiry.customer_id) {
             const customer = customers.find(c => c.id === enquiry.customer_id);
             if (customer) {
@@ -105,23 +106,57 @@ export default function EnquiryForm() {
       }
     };
 
-    fetchCustomers(); // Load customers when component mounts
-    loadEnquiry();
-  }, [id, fetchEnquiry, fetchCustomers, customers]);
-
-  // Filter customers based on search term
-  const filteredCustomers = customers.filter((customer: Customer) => 
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    loadData();
+  }, [id, fetchEnquiry, fetchCustomers]);
 
   const handleCustomerSelect = (customer: Customer) => {
     setSelectedCustomer(customer);
     setFormData(prev => ({
       ...prev,
-      customer_id: customer.id || "",
+      customer_id: customer.id || '',
     }));
     setShowCustomerDropdown(false);
+    setSearchTerm("");
   };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    
+    try {
+      setIsSubmitting(true);
+      
+      if (!selectedCustomer?.id) {
+        toast.error("Please select a customer");
+        return;
+      }
+
+      const submitData = {
+        ...formData,
+        customer_id: selectedCustomer.id,
+        scopeOfWork: formData.scopeOfWork.toString('html'),
+      };
+
+      if (id) {
+        await updateEnquiry(id, submitData);
+        toast.success("Enquiry updated successfully");
+      } else {
+        await createEnquiry(submitData);
+        toast.success("Enquiry created successfully");
+      }
+      navigate("/dashboard/enquiries");
+    } catch (error) {
+      console.error("Error submitting enquiry:", error);
+      toast.error(id ? "Failed to update enquiry" : "Failed to create enquiry");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Filter customers based on search term
+  const filteredCustomers = customers.filter((customer: Customer) => 
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleAddNewCustomer = () => {
     // Save current path to localStorage
@@ -237,24 +272,6 @@ export default function EnquiryForm() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const scopeOfWorkHtml = formData.scopeOfWork.toString('html');
-      if (id) {
-        await updateEnquiry(id, { ...formData, scopeOfWork: scopeOfWorkHtml });
-        toast.success("Enquiry updated successfully");
-      } else {
-        await createEnquiry({ ...formData, scopeOfWork: scopeOfWorkHtml });
-        toast.success("Enquiry created successfully");
-      }
-      navigate("/dashboard/enquiries");
-    } catch (error) {
-      console.error("Enquiry submission error:", error);
-      toast.error(id ? "Failed to update enquiry" : "Failed to create enquiry");
-    }
-  };
-
   return (
     <form onSubmit={handleSubmit} className=" p-6 space-y-8 ">
       <div className="flex justify-between items-center">
@@ -279,10 +296,10 @@ export default function EnquiryForm() {
           </button>
           <button
             type="submit"
-            disabled={loading}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black/90 hover:bg-black/80 focus:outline-none "
+            disabled={isSubmitting || storeLoading}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black/90 hover:bg-black/80 focus:outline-none"
           >
-            {loading ? (
+            {isSubmitting || storeLoading ? (
               <>
                 <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
                 {id ? "Updating..." : "Creating..."}

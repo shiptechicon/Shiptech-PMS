@@ -146,7 +146,7 @@ export default function EnquiryDetails() {
           </div>
         </div>
 
-        {/* Customer Details Section - Updated */}
+        {/* Customer Details Section */}
         <div className="bg-white border-[1px] rounded-xl overflow-hidden">
           <div className="border-b border-gray-200 px-6 py-3">
             <h3 className="text-lg font-medium text-gray-900">
