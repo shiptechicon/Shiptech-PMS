@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCurrencyStore } from '../store/currencyStore';
 import { Edit2, Trash2, Plus, X } from 'lucide-react';
 import { Currency as CurrencyType } from '../store/currencyStore';
+import { CurrencyDetails } from '../store/enquiryStore';
 
 interface CurrencyModalProps {
   isOpen: boolean;
@@ -34,7 +35,6 @@ const CurrencyModal: React.FC<CurrencyModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("formData",formData)
     await onSubmit(formData);
     onClose()
   };
@@ -86,6 +86,24 @@ const CurrencyModal: React.FC<CurrencyModalProps> = ({
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
             />
           </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="mandatory"
+              disabled={isSubmitting}
+              checked={formData.mandatory}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, mandatory: e.target.checked }))
+              }
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:bg-gray-100"
+            />
+            <label
+              htmlFor="mandatory"
+              className="ml-2 block text-sm text-gray-900"
+            >
+              Mandatory
+            </label>
+          </div>
           <div className="flex justify-end space-x-3 mt-4">
             <button
               type="button"
@@ -115,17 +133,28 @@ const CurrencyModal: React.FC<CurrencyModalProps> = ({
   );
 };
 
-export default function Currency() {
+interface CurrencyProps {
+  addCurrency: (currency: CurrencyDetails | undefined) => void;
+  initialCurrency?: CurrencyDetails;
+}
+
+export default function Currency({ addCurrency, initialCurrency }: CurrencyProps) {
   const { currencies, loading, fetchCurrencies, createCurrency, updateCurrency, deleteCurrency } =
     useCurrencyStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('');
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(initialCurrency?.id || '');
   const [editingCurrency, setEditingCurrency] = useState<CurrencyType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchCurrencies();
   }, [fetchCurrencies]);
+
+  useEffect(() => {
+    if (initialCurrency) {
+      setSelectedCurrency(initialCurrency.id);
+    }
+  }, [initialCurrency]);
 
   const handleOpenModal = (currency?: CurrencyType) => {
     if (currency) {
@@ -152,9 +181,14 @@ export default function Currency() {
       setIsSubmitting(true);
       if (editingCurrency?.id) {
         await updateCurrency(editingCurrency.id, data);
+        const updatedCurrency = { ...data, id: editingCurrency.id };
+        setSelectedCurrency(editingCurrency.id);
+        addCurrency(updatedCurrency);
       } else {
         const newId = await createCurrency(data);
+        const newCurrency = { ...data, id: newId };
         setSelectedCurrency(newId);
+        addCurrency(newCurrency);
       }
       handleCloseModal();
     } catch (error) {
@@ -170,11 +204,32 @@ export default function Currency() {
         setIsSubmitting(true);
         await deleteCurrency(id);
         setSelectedCurrency('');
+        addCurrency(undefined);
       } catch (error) {
         console.error('Error deleting currency:', error);
       } finally {
         setIsSubmitting(false);
       }
+    }
+  };
+
+  const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setSelectedCurrency(value);
+    
+    if (!value) {
+      addCurrency(undefined);
+      return;
+    }
+
+    const selectedCurrency = currencies.find(c => c.id === value);
+    if (selectedCurrency) {
+      addCurrency({
+        id: selectedCurrency.id!,
+        name: selectedCurrency.name,
+        symbol: selectedCurrency.symbol,
+        mandatory: selectedCurrency.mandatory
+      });
     }
   };
 
@@ -198,7 +253,7 @@ export default function Currency() {
       <div className="relative">
         <select
           value={selectedCurrency}
-          onChange={(e) => setSelectedCurrency(e.target.value)}
+          onChange={handleCurrencyChange}
           disabled={isSubmitting || loading}
           className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm disabled:bg-gray-100"
         >
@@ -242,4 +297,4 @@ export default function Currency() {
       />
     </div>
   );
-} 
+}
