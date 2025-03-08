@@ -210,12 +210,12 @@ export default function CustomerDetails() {
             <p>Created: {customer.createdAt ? (
               typeof customer.createdAt.toDate === 'function' ? 
                 new Date(customer.createdAt.toDate()).toLocaleString() : 
-                new Date(customer.createdAt).toLocaleString()
+                new Date(customer.createdAt.toDate()).toLocaleString()
             ) : 'Unknown'}</p>
             <p>Last Updated: {customer.updatedAt ? (
               typeof customer.updatedAt.toDate === 'function' ? 
                 new Date(customer.updatedAt.toDate()).toLocaleString() : 
-                new Date(customer.updatedAt).toLocaleString()
+                new Date(customer.updatedAt.toDate()).toLocaleString()
             ) : 'Unknown'}</p>
           </div>
         </div>
