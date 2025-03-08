@@ -9,10 +9,11 @@ import {
   deleteDoc, 
   serverTimestamp, 
   Timestamp,
-  query,
-  where
+  where,
+  query
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Project } from './projectStore';
 
 export interface ContactPerson {
   name: string;
@@ -22,8 +23,10 @@ export interface ContactPerson {
 export interface Customer {
   id?: string;
   name: string;
+  userId? : string;
   address: string;
   billingAddress: string;
+  phone ? : string;
   gstNumber: string;
   contactPersons: ContactPerson[];
   endClient: string;
@@ -39,6 +42,13 @@ interface CustomerState {
   error: string | null;
   fetchCustomers: () => Promise<Customer[]>;
   fetchCustomer: (id: string) => Promise<Customer | null>;
+  fetchCustomerByUserId: (id: string) => Promise<Customer | null>;
+  fetchCustomerProjects : (customer : { 
+    id: string;
+    name: string;
+    phone: string;
+    address : string
+  }) => Promise<Project[]>;
   createCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Customer>;
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
@@ -48,6 +58,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
   customers: [],
   loading: false,
   error: null,
+  projects: [],
 
   fetchCustomers: async () => {
     set({ loading: true, error: null });
@@ -75,6 +86,8 @@ export const useCustomerStore = create<CustomerState>((set) => ({
   },
 
   fetchCustomer: async (id: string) => {
+    console.log('fetchCustomer', id);
+    
     set({ loading: true, error: null });
     try {
       const customerDoc = await getDoc(doc(db, 'customers', id));
@@ -100,6 +113,71 @@ export const useCustomerStore = create<CustomerState>((set) => ({
       return null;
     }
   },
+
+  fetchCustomerByUserId: async (id: string) => {
+
+    set({ loading: true, error: null });
+    try {
+      const customersCollection = collection(db, 'customers');
+      const q = query(customersCollection, where('userId', '==', id));
+      const customersSnapshot = await getDocs(q);
+
+      if (customersSnapshot.empty) {
+        set({ loading: false });
+        return null;
+      }
+
+      const customerDoc = customersSnapshot.docs[0];
+
+
+      if (!customerDoc.exists()) {
+        set({ loading: false });
+        return null;
+      }
+      
+      const customerData = {
+        id: customerDoc.id,
+        ...customerDoc.data()
+      } as Customer;
+      
+      set({ loading: false });
+      return customerData;
+    } catch (error) {
+      console.error('Error fetching customer:', error);
+      set({ error: 'Failed to fetch customer', loading: false });
+      return null;
+    }
+  },
+
+  fetchCustomerProjects: async (customer : {
+    id: string;
+    name: string;
+    phone: string;
+    address : string
+  }) => {
+    try {
+
+      const projectsCollection = collection(db, 'projects');
+      const q = query(projectsCollection, where('customer', '==' , customer));
+      const projectsSnapshot = await getDocs(q);
+      
+      if (projectsSnapshot.empty) {
+        return [];
+      }
+      
+      const projectsList = projectsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Project[];
+      
+      return projectsList;
+      
+    } catch (error) {
+      console.error('Error fetching customer projects:', error);
+      return [];
+    }
+  },
+
   createCustomer: async (customer) => {
     set({ loading: true, error: null });
     try {
@@ -173,8 +251,11 @@ export const useCustomerStore = create<CustomerState>((set) => ({
         await deleteDoc(doc(db, 'users', userDoc.id));
       }
 
+      
+
       // Finally, delete the customer document
       await deleteDoc(doc(db, 'customers', id));
+      
       
       set(state => ({
         customers: state.customers.filter(customer => customer.id !== id),

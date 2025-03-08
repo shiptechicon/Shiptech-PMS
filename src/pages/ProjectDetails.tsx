@@ -88,7 +88,6 @@ export default function ProjectDetails() {
     const comp =  Math.round((completedSum / totalAssignedToChildren) * 100);
     return Number(((comp * task.percentage) / 100).toFixed(1));
   };
-  
 
   const calculateProjectCompletion = (): number => {
     if (!tasks.length) return 0;
