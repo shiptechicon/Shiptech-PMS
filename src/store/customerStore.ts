@@ -78,6 +78,9 @@ export const useCustomerStore = create<CustomerState>((set) => ({
     set({ loading: true, error: null });
     try {
       const customerDoc = await getDoc(doc(db, 'customers', id));
+
+      console.log('customerDoc', customerDoc.data());
+      
       
       if (!customerDoc.exists()) {
         set({ loading: false });

@@ -27,6 +27,7 @@ export interface Project {
   name: string;
   description: string;
   customer: {
+    id : string;
     name: string;
     phone: string;
     address: string;
@@ -195,6 +196,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         projectNumber: projectData.projectNumber || currentProject.projectNumber,
         status: projectData.status || currentProject.status,
         customer: {
+          id: projectData.customer?.id || currentProject.customer?.id || "",
           name: projectData.customer?.name || currentProject.customer?.name || "",
           phone: projectData.customer?.phone || currentProject.customer?.phone || "",
           address: projectData.customer?.address || currentProject.customer?.address || "",

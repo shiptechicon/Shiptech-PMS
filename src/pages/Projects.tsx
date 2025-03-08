@@ -15,6 +15,7 @@ export default function Projects() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerID, setCustomerID] = useState("");
   const [showForm, setShowForm] = useState(false);
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -25,6 +26,7 @@ export default function Projects() {
         name: projectName,
         description: projectDescription,
         customer: {
+          id : customerID,
           name: customerName,
           phone: customerPhone,
           address: customerAddress,
@@ -37,6 +39,7 @@ export default function Projects() {
       setProjectDescription("");
       setCustomerName("");
       setCustomerPhone("");
+      setCustomerID("");
       setCustomerAddress("");
       setShowForm(false);
       toast.success("Project created successfully");

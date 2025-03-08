@@ -117,7 +117,7 @@ export default function ProjectDetails() {
         const p = await fetchProject(id);
         const data = p;
         if (data) {
-          await fetchAllTasksWithChildren(id);
+          await fetchAllTasksWithChildren(id , undefined , true);
           if (data.project_due_date) {
             setTempDueDate(data.project_due_date);
           }
@@ -145,19 +145,22 @@ export default function ProjectDetails() {
       }
     };
 
-    const loadData = async () => {
-      if (project?.customer?.name) {
-        // Find customer by name
-        const customerData = await fetchCustomer(project.customer.name);
-        if (customerData) {
-          setCustomerDetails(customerData);
-        }
-      }
-    };
 
     loadProject();
     checkUserRole();
   }, [id, user, fetchProject, navigate]);
+
+  useEffect(() => {
+    if (project) {
+      fetchCustomer(project.customer.id).then(
+        (customer) => {
+          console.log(customer, "customer");
+          
+          setCustomerDetails(customer);
+        }
+      );
+    }
+  }, [project]);
 
   useEffect(() => {
     // Calculate analytics for tasks
