@@ -4,6 +4,9 @@ import { MonthlyAttendance } from "@/pages/Attendance";
 import { useLeaveStore } from "@/store/leaveStore";
 import { useWorkFromStore } from "@/store/workfromhomestore";
 import { useAuthStore } from "@/store/authStore";
+import { getDoc, doc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { useOOOStore } from "@/store/oooStore";
 
 interface CalendarDay {
   date: Date;
@@ -37,6 +40,13 @@ export default function AttendanceCalendar({
   const [selectedStatus, setSelectedStatus] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [requestUserName, setRequestUserName] = useState<string>("");
+  const {
+    oooRequests,
+    fetchUserOOORequests,
+    cancelOOORequest,
+    updateOOOStatus,
+  } = useOOOStore();
 
   // Generate calendar days for the current month
   useEffect(() => {
@@ -160,7 +170,8 @@ export default function AttendanceCalendar({
         type: "leave",
         status: leave.status,
         id: leave.id,
-        reason: leave.reason
+        reason: leave.reason,
+        leaveType: leave.leaveType
       });
     }
 
@@ -178,16 +189,43 @@ export default function AttendanceCalendar({
         type: "workfrom",
         status: workFrom.status,
         id: workFrom.id,
+        reason: workFrom.reason
+      });
+    }
+
+    // Check OOO
+    const ooo = oooRequests.find((o) => {
+      const start = new Date(o.startDate);
+      const end = new Date(o.endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+      return date >= start && date <= end && o.userId === userId;
+    });
+    if (ooo) {
+      statuses.push({
+        type: "ooo",
+        status: ooo.status,
+        id: ooo.id,
+        reason: ooo.reason
       });
     }
 
     return statuses;
   };
 
-  const handleClick = (e: React.MouseEvent, status: any) => {
+  const handleClick = async (e: React.MouseEvent, status: any) => {
     e.preventDefault();
     if (status?.status === "pending") {
       setSelectedStatus(status);
+      
+      // Get user's full name
+      const userId = selectedUser || user?.uid;
+      if (userId) {
+        const fullName = await getUserFullName(userId);
+        setRequestUserName(fullName);
+      }
+
       if (selectedUser && selectedUser !== user?.uid) {
         setShowAdminDialog(true);
       } else if (!selectedUser) {
@@ -201,6 +239,8 @@ export default function AttendanceCalendar({
       cancelWorkFromHome(selectedStatus.id);
     } else if (selectedStatus.type === "leave") {
       cancelLeaveRequest(selectedStatus.id);
+    } else if (selectedStatus.type === "ooo") {
+      cancelOOORequest(selectedStatus.id);
     }
     setShowDialog(false);
     setSelectedStatus(null);
@@ -226,6 +266,13 @@ export default function AttendanceCalendar({
           await updateWorkFromStatus(selectedStatus.id, "rejected");
         }
         await fetchUserWorkFromRequests(selectedUser as string);
+      } else if (selectedStatus.type === "ooo") {
+        if (action === "approve") {
+          await updateOOOStatus(selectedStatus.id, "approved");
+        } else {
+          await updateOOOStatus(selectedStatus.id, "rejected");
+        }
+        await fetchUserOOORequests(selectedUser as string);
       }
     } finally {
       setIsApproving(false);
@@ -243,20 +290,21 @@ export default function AttendanceCalendar({
       };
     }
     if (status.type === "leave") {
+      const leaveTypeText = status.leaveType === 'half' ? ' (Half)' : '';
       if (status.status === "pending") {
         return {
           bg: "bg-red-200 animate-pulse",
-          text: "Leave Pending"
+          text: `Leave${leaveTypeText} Pending`
         };
       } else if (status.status === "approved") {
         return {
           bg: "bg-red-200",
-          text: "Leave Approved"
+          text: `Leave${leaveTypeText} Approved`
         };
       } else {
         return {
           bg: "bg-red-100",
-          text: "Leave Rejected"
+          text: `Leave${leaveTypeText} Rejected`
         };
       }
     }
@@ -278,10 +326,35 @@ export default function AttendanceCalendar({
         };
       }
     }
+    if (status.type === "ooo") {
+      if (status.status === "pending") {
+        return {
+          bg: "bg-purple-200 animate-pulse",
+          text: "OOO Pending"
+        };
+      } else if (status.status === "approved") {
+        return {
+          bg: "bg-purple-200",
+          text: "OOO Approved"
+        };
+      } else {
+        return {
+          bg: "bg-purple-100",
+          text: "OOO Rejected"
+        };
+      }
+    }
     return {
       bg: "bg-white",
       text: ""
     };
+  };
+
+  // Add this function to get user's full name
+  const getUserFullName = async (userId: string) => {
+    const userDoc = await getDoc(doc(db, "users", userId));
+    const userData = userDoc.data();
+    return userData?.fullName || "Unknown User";
   };
 
   return (
@@ -372,11 +445,34 @@ export default function AttendanceCalendar({
 
       {showDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
             <h3 className="text-lg font-medium mb-4">Cancel Request</h3>
-            <p className="mb-6">
-              Are you sure you want to cancel this request?
-            </p>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                <span className="font-medium">Employee:</span> {requestUserName}
+              </p>
+              {selectedStatus?.type === "leave" && (
+                <>
+                  <p className="text-sm text-gray-600 mb-2">
+                    <span className="font-medium">Leave Type:</span> {selectedStatus.leaveType === 'half' ? 'Half Day' : 'Full Day'}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-2">
+                    <span className="font-medium">Reason for Leave:</span> {selectedStatus.reason}
+                  </p>
+                </>
+              )}
+              {selectedStatus?.type === "workfrom" && (
+                <p className="text-sm text-gray-600 mb-2">
+                  <span className="font-medium">Reason for WFH:</span> {selectedStatus.reason}
+                </p>
+              )}
+              {selectedStatus?.type === "ooo" && (
+                <p className="text-sm text-gray-600 mb-2">
+                  <span className="font-medium">Reason for OOO:</span> {selectedStatus.reason}
+                </p>
+              )}
+            </div>
+            <p className="mb-6">Are you sure you want to cancel this request?</p>
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowDialog(false)}
@@ -410,13 +506,33 @@ export default function AttendanceCalendar({
 
       {showAdminDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
             <h3 className="text-lg font-medium mb-4">Review Request</h3>
-            {selectedStatus.type === "leave" && (
-              <p className="mb-4 text-gray-600">
-                Reason: {selectedStatus.reason}
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                <span className="font-medium">Employee:</span> {requestUserName}
               </p>
-            )}
+              {selectedStatus?.type === "leave" && (
+                <>
+                  <p className="text-sm text-gray-600 mb-2">
+                    <span className="font-medium">Leave Type:</span> {selectedStatus.leaveType === 'half' ? 'Half Day' : 'Full Day'}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-2">
+                    <span className="font-medium">Reason for Leave:</span> {selectedStatus.reason}
+                  </p>
+                </>
+              )}
+              {selectedStatus?.type === "workfrom" && (
+                <p className="text-sm text-gray-600 mb-2">
+                  <span className="font-medium">Reason for WFH:</span> {selectedStatus.reason}
+                </p>
+              )}
+              {selectedStatus?.type === "ooo" && (
+                <p className="text-sm text-gray-600 mb-2">
+                  <span className="font-medium">Reason for OOO:</span> {selectedStatus.reason}
+                </p>
+              )}
+            </div>
             <p className="mb-6">What would you like to do with this request?</p>
             <div className="flex justify-end space-x-4">
               <button
