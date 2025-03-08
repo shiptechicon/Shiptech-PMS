@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, ArrowLeft, Plus, Trash2 } from "lucide-react";
-import { useCustomerStore, Customer, ContactPerson } from "@/store/customerStore";
+import {
+  useCustomerStore,
+  Customer,
+  ContactPerson,
+} from "@/store/customerStore";
 import { useAuthStore } from "@/store/authStore";
 import toast from "react-hot-toast";
-import { uploadToGitHub } from '@/lib/github';
-import { Image } from 'lucide-react';
+import { uploadToGitHub } from "@/lib/github";
+import { Image } from "lucide-react";
 
 export default function CustomerForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { createCustomer, updateCustomer, fetchCustomer, loading } = useCustomerStore();
+  const { createCustomer, updateCustomer, fetchCustomer, loading } =
+    useCustomerStore();
   const { signUpCustomer } = useAuthStore();
-  
-  const [formData, setFormData] = useState<Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>>({
+
+  const [formData, setFormData] = useState<
+    Omit<Customer, "id" | "createdAt" | "updatedAt">
+  >({
     name: "",
     address: "",
     billingAddress: "",
@@ -26,7 +33,7 @@ export default function CustomerForm() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [generatedPassword, setGeneratedPassword] = useState<string>("");
-  
+
   useEffect(() => {
     const loadCustomer = async () => {
       if (id) {
@@ -34,20 +41,26 @@ export default function CustomerForm() {
         if (customer) {
           // Handle backward compatibility for customers without contactPersons array
           let contactPersons = customer.contactPersons || [];
-          
+
           // If old format data exists, convert it to new format
-          if ('contactPerson' in customer && 'phone' in customer && contactPersons.length === 0) {
-            contactPersons = [{ 
-              name: customer.contactPerson as string, 
-              phone: customer.phone as string 
-            }];
+          if (
+            "contactPerson" in customer &&
+            "phone" in customer &&
+            contactPersons.length === 0
+          ) {
+            contactPersons = [
+              {
+                name: customer.contactPerson as string,
+                phone: customer.phone as string,
+              },
+            ];
           }
-          
+
           // If no contact persons exist, initialize with an empty one
           if (contactPersons.length === 0) {
             contactPersons = [{ name: "", phone: "" }];
           }
-          
+
           setFormData({
             name: customer.name,
             address: customer.address,
@@ -68,10 +81,10 @@ export default function CustomerForm() {
 
     loadCustomer();
   }, [id, fetchCustomer]);
-  
+
   // Function to generate password from customer name
   const generatePassword = (name: string) => {
-    const formattedName = name.replace(/\s+/g, '_').toLowerCase();
+    const formattedName = name.replace(/\s+/g, "_").toLowerCase();
     return `${formattedName}@123`;
   };
 
@@ -86,7 +99,7 @@ export default function CustomerForm() {
     const file = e.target.files?.[0];
     if (file) {
       setLogoFile(file);
-      
+
       // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setLogoPreview(previewUrl);
@@ -94,62 +107,81 @@ export default function CustomerForm() {
   };
   const uploadLogo = async (customerId: string): Promise<string | null> => {
     if (!logoFile) return formData.logoUrl || null;
-    
-    const fileName = `logo-${Date.now()}.${logoFile.name.split('.').pop()}`;
+
+    const fileName = `logo-${Date.now()}.${logoFile.name.split(".").pop()}`;
     const path = `customers/${customerId}/${fileName}`;
-    
+
     try {
       const response = await uploadToGitHub(logoFile, path);
-      
+
       return response;
     } catch (error) {
-      console.error('Error uploading logo:', error);
+      console.error("Error uploading logo:", error);
       return null;
     }
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate that at least one contact person has both name and phone
     const hasValidContact = formData.contactPersons.some(
-      contact => contact.name.trim() !== "" && contact.phone.trim() !== ""
+      (contact) => contact.name.trim() !== "" && contact.phone.trim() !== ""
     );
-    
+
     if (!hasValidContact) {
-      toast.error("At least one contact person with name and phone is required");
+      toast.error(
+        "At least one contact person with name and phone is required"
+      );
       return;
     }
-      
+
     // Filter out empty contact persons
     const filteredData = {
       ...formData,
       contactPersons: formData.contactPersons.filter(
-        contact => contact.name.trim() !== "" || contact.phone.trim() !== ""
+        (contact) => contact.name.trim() !== "" || contact.phone.trim() !== ""
       ),
     };
-      
+
     try {
       if (id) {
         // Upload logo if changed
         const logoUrl = await uploadLogo(id);
-        
+
         await updateCustomer(id, {
           ...filteredData,
           logoUrl: logoUrl || filteredData.logoUrl,
         });
         toast.success("Customer updated successfully");
       } else {
+
+        const cus = await signUpCustomer(
+          formData.email,
+          generatedPassword,
+          formData.name
+        );
+
+        if(!cus) {
+          toast.error("Failed to create customer account");
+          throw new Error("Failed to create customer account");
+        }
+
+        toast.success("Customer account created successfully");
+
         // For new customer, create first to get ID
-        const newCustomer = await createCustomer(filteredData);
-        
+        const newCustomer = await createCustomer({
+          userId: cus?.uid,
+          ...filteredData,
+        });
+
         if (newCustomer && logoFile) {
           // Get the ID from the returned customer object
           const customerId = newCustomer.id;
-          
+
           if (customerId) {
             // Upload logo with the new customer ID
             const logoUrl = await uploadLogo(customerId);
-            
+
             if (logoUrl) {
               // Update the customer with the logo URL
               await updateCustomer(customerId, { logoUrl });
@@ -157,29 +189,19 @@ export default function CustomerForm() {
           }
         }
 
-        // Sign up the customer with generated password
-        try {
-          await signUpCustomer(formData.email, generatedPassword, formData.name);
-          toast.success("Customer account created successfully");
-        } catch (error) {
-          console.error("Customer signup error:", error);
-          toast.error("Failed to create customer account");
-          return;
-        }
-        
         toast.success("Customer created successfully");
 
         // Store the new customer ID in localStorage
         if (newCustomer?.id) {
-          localStorage.setItem('newCustomerId', newCustomer.id);
+          localStorage.setItem("newCustomerId", newCustomer.id);
         }
       }
 
       // Check for last_visited path in localStorage
-      const lastVisited = localStorage.getItem('last_visited');
+      const lastVisited = localStorage.getItem("last_visited");
       if (lastVisited) {
         // Remove the last_visited path from localStorage
-        localStorage.removeItem('last_visited');
+        localStorage.removeItem("last_visited");
         // Navigate to the last visited path
         navigate(lastVisited);
       } else {
@@ -188,46 +210,49 @@ export default function CustomerForm() {
       }
     } catch (error) {
       console.error("Customer submission error:", error);
-      toast.error(id ? "Failed to update customer" : "Failed to create customer");
+      toast.error(
+        id ? "Failed to update customer" : "Failed to create customer"
+      );
     }
   };
-  
+
   const addContactPerson = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      contactPersons: [...prev.contactPersons, { name: "", phone: "" }]
+      contactPersons: [...prev.contactPersons, { name: "", phone: "" }],
     }));
   };
-  
+
   const removeContactPerson = (index: number) => {
     if (formData.contactPersons.length <= 1) {
       toast.error("At least one contact person is required");
       return;
     }
-    
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      contactPersons: prev.contactPersons.filter((_, i) => i !== index)
+      contactPersons: prev.contactPersons.filter((_, i) => i !== index),
     }));
   };
-  
-  const updateContactPerson = (index: number, field: keyof ContactPerson, value: string) => {
-    setFormData(prev => ({
+
+  const updateContactPerson = (
+    index: number,
+    field: keyof ContactPerson,
+    value: string
+  ) => {
+    setFormData((prev) => ({
       ...prev,
-      contactPersons: prev.contactPersons.map((contact, i) => 
+      contactPersons: prev.contactPersons.map((contact, i) =>
         i === index ? { ...contact, [field]: value } : contact
-      )
+      ),
     }));
   };
-  
+
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-8">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-          >
+          <button type="button" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-7 w-7" />
           </button>
           <h2 className="text-2xl font-bold">
@@ -280,9 +305,7 @@ export default function CustomerForm() {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700">
-                Email
-              </label>
+              <label className="block font-medium text-gray-700">Email</label>
               <input
                 type="email"
                 required
@@ -322,7 +345,7 @@ export default function CustomerForm() {
                 </p>
               </div>
             )}
-            
+
             {/* Logo Upload Section */}
             <div>
               <label className="block font-medium text-gray-700">
@@ -331,9 +354,9 @@ export default function CustomerForm() {
               <div className="mt-1 flex items-center space-x-4">
                 <div className="flex-shrink-0 h-20 w-20 border border-gray-300 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
                   {logoPreview ? (
-                    <img 
-                      src={logoPreview} 
-                      alt="Logo preview" 
+                    <img
+                      src={logoPreview}
+                      alt="Logo preview"
                       className="h-full w-full object-contain"
                     />
                   ) : (
@@ -373,10 +396,13 @@ export default function CustomerForm() {
                   Add Contact
                 </button>
               </div>
-              
+
               <div className="space-y-3">
                 {formData.contactPersons.map((contact, index) => (
-                  <div key={index} className="flex items-start space-x-2 p-3 border border-gray-200 rounded-md bg-gray-50">
+                  <div
+                    key={index}
+                    className="flex items-start space-x-2 p-3 border border-gray-200 rounded-md bg-gray-50"
+                  >
                     <div className="flex-grow grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
@@ -386,7 +412,9 @@ export default function CustomerForm() {
                           type="text"
                           required={index === 0}
                           value={contact.name}
-                          onChange={(e) => updateContactPerson(index, 'name', e.target.value)}
+                          onChange={(e) =>
+                            updateContactPerson(index, "name", e.target.value)
+                          }
                           className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                       </div>
@@ -398,7 +426,9 @@ export default function CustomerForm() {
                           type="tel"
                           required={index === 0}
                           value={contact.phone}
-                          onChange={(e) => updateContactPerson(index, 'phone', e.target.value)}
+                          onChange={(e) =>
+                            updateContactPerson(index, "phone", e.target.value)
+                          }
                           className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                       </div>
@@ -426,16 +456,17 @@ export default function CustomerForm() {
                 type="text"
                 value={formData.gstNumber}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, gstNumber: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    gstNumber: e.target.value,
+                  }))
                 }
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700">
-                Address
-              </label>
+              <label className="block font-medium text-gray-700">Address</label>
               <textarea
                 required
                 value={formData.address}
@@ -454,7 +485,10 @@ export default function CustomerForm() {
               <textarea
                 value={formData.billingAddress}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, billingAddress: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    billingAddress: e.target.value,
+                  }))
                 }
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 rows={3}
@@ -472,7 +506,10 @@ export default function CustomerForm() {
                 type="text"
                 value={formData.endClient}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, endClient: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    endClient: e.target.value,
+                  }))
                 }
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />

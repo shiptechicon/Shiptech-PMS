@@ -1,6 +1,6 @@
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Task } from '../store/projectStore';
-
+import { Task } from '../store/taskStore';
+import {  useEffect } from 'react';
 
 interface TaskListProps {
   tasks: Task[];
@@ -23,7 +23,6 @@ export default function TaskList({
   exceptionCase,
 }: TaskListProps) {
 
-  console.log("exceptionCase",exceptionCase)
 
   const calculateCompletedPercentage = (task: Task): number => {
     if (!task.children || task.children.length === 0) {
@@ -100,9 +99,9 @@ export default function TaskList({
                             style={{ width: `${completedPercentage}%` }}
                           />
                         </div>
-                        {task.children && task.children.length > 0 && (
+                        {task.timeEntries && task.timeEntries.length > 0 && (
                           <p className="text-xs text-gray-400 mt-2">
-                            {task.children.length} subtask{task.children.length !== 1 ? 's' : ''}
+                            {task.timeEntries.length} time entries
                           </p>
                         )}
                       </div>

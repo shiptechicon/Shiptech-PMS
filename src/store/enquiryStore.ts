@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import toast from 'react-hot-toast';
+import { Task, useTaskStore } from './taskStore';
 
 export interface Deliverable {
   id: string;
@@ -26,6 +27,11 @@ export interface Enquiry {
   inputsRequired: string[];
   exclusions: string[];
   charges: string[];
+  status: string;
+}
+
+interface TaskWithEnquiryId extends Task {
+  enquiryId: string;
 }
 
 interface EnquiryState {
@@ -38,6 +44,9 @@ interface EnquiryState {
   updateEnquiry: (id: string, enquiry: Omit<Enquiry, 'id' | '__id' | 'createdAt' | 'type'>) => Promise<void>;
   deleteEnquiry: (id: string) => Promise<void>;
   convertToProject: (enquiryId: string) => Promise<void>;
+  updateEnquiryStatus: (id: string, status: string) => Promise<void>;
+  addTaskToEnquiry: (enquiryId: string, task: Omit<TaskWithEnquiryId, 'id'>) => Promise<void>;
+  deleteTaskFromEnquiry: (taskId: string) => Promise<void>;
 }
 
 export const useEnquiryStore = create<EnquiryState>((set, get) => ({
@@ -84,7 +93,8 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         ...enquiryData,
         __id: `e-${enquiryData.enquiryNumber}`,
         createdAt: new Date().toISOString(),
-        type: 'enquiry' as const
+        type: 'enquiry' as const,
+        status: 'on hold' as const
       };
       const docRef = await addDoc(collection(db, 'enquiries'), newEnquiry);
       const enquiryWithId = { ...newEnquiry, id: docRef.id };
@@ -142,26 +152,33 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         address: ''
       };
 
-      // Convert deliverables to tasks
-      const tasks = enquiry.deliverables.map(deliverable => ({
-        id: crypto.randomUUID(),
-        name: deliverable.name,
-        description: deliverable.description || '',
-        hours: deliverable.hours || 0,
-        costPerHour: deliverable.costPerHour || 0,
-        completed: false,
-        children: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
+      const projectId = 'p-' + enquiry.__id.split('-')[1];
 
-      // Create project data
+      // Create tasks in the tasks collection
+      const taskPromises = enquiry.deliverables.map(deliverable => 
+        addDoc(collection(db, 'tasks'), {
+          projectId: projectId,
+          name: deliverable.name,
+          description: deliverable.description || '',
+          hours: deliverable.hours || 0,
+          costPerHour: deliverable.costPerHour || 0,
+          total: deliverable.total,
+          completed: false,
+          parentId: null, // Root level task
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+      );
+
+      // Wait for all tasks to be created
+      await Promise.all(taskPromises);
+
+      // Create project data (without tasks array)
       const projectData = {
         name: enquiry.name,
         description: enquiry.description,
         customer_id: enquiry.customer_id,
         customer, // Include customer details for backward compatibility
-        tasks,
         __id: 'p-' + enquiry.__id.split('-')[1],
         type: 'project' as const,
         createdAt: new Date().toISOString(),
@@ -170,12 +187,18 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
 
       // Create project in Firestore
       await addDoc(collection(db, 'projects'), projectData);
-    
-      // Delete original enquiry
-      await deleteDoc(doc(db, 'enquiries', enquiryId));
 
-      // Update local state
-      const updatedEnquiries = get().enquiries.filter(e => e.id !== enquiryId);
+      // Update enquiry status
+      await updateDoc(doc(db, 'enquiries', enquiryId), {
+        status: 'moved to projects'
+      });
+
+      // Update local state - just update the status instead of filtering out
+      const updatedEnquiries = get().enquiries.map(e => 
+        e.id === enquiryId 
+          ? { ...e, status: 'moved to projects' }
+          : e
+      );
       set({ enquiries: updatedEnquiries, loading: false });
 
       toast.success('Successfully converted to project');
@@ -185,5 +208,33 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       toast.error('Failed to convert to project');
       throw error;
     }
-  }
+  },
+
+  updateEnquiryStatus: async (id: string, status: string) => {
+    try {
+      set({ loading: true, error: null });
+      const docRef = doc(db, 'enquiries', id);
+      await updateDoc(docRef, { status });
+      
+      const updatedEnquiries = get().enquiries.map(enquiry =>
+        enquiry.id === id ? { ...enquiry, status } : enquiry
+      );
+      set({ enquiries: updatedEnquiries, loading: false });
+      toast.success('Status updated successfully');
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+      toast.error('Failed to update status');
+    }
+  },
+
+  addTaskToEnquiry: async (enquiryId, task) => {
+    const { addTask } = useTaskStore.getState();
+    const taskWithEnquiryId = { ...task, enquiryId }; // Ensure enquiryId is included
+    await addTask(taskWithEnquiryId);
+  },
+
+  deleteTaskFromEnquiry: async (taskId) => {
+    const { deleteTask } = useTaskStore.getState();
+    await deleteTask(taskId);
+  },
 }));

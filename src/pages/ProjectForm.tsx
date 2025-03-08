@@ -1,31 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, UserPlus } from "lucide-react";
-import { TimeEntry, useProjectStore } from "../store/projectStore";
+import { useProjectStore } from "../store/projectStore";
 import { useCustomerStore, Customer } from "@/store/customerStore";
 import toast from "react-hot-toast";
+import { useTaskStore , Task } from "@/store/taskStore";
 
-interface User {
-  id: string;
-  fullName: string;
-  email: string;
-}
-
-interface Task {
-  id: string;
-  name: string;
-  description: string;
-  hours?: number;
-  costPerHour?: number;
-  assignedTo?: User[];
-  deadline?: string | null;
-  completed: boolean;
-  children: Task[];
-  projectId?: string;
-  path?: string;
-  timeEntries?: TimeEntry[];
-  percentage: number;
-}
 
 interface FormData {
   name: string;
@@ -45,6 +25,7 @@ interface FormData {
 
 export default function ProjectForm() {
   const { id } = useParams<{ id: string }>();
+  const { fetchAllTasksWithChildren } = useTaskStore();
   const navigate = useNavigate();
   const { createProject, updateProject, fetchProject } = useProjectStore();
   const { fetchCustomers, customers } = useCustomerStore();
@@ -81,6 +62,8 @@ export default function ProjectForm() {
           if (project) {
             // Clear any existing form data from localStorage first
             localStorage.removeItem('projectFormData');
+
+            const tasks = await fetchAllTasksWithChildren(project.__id);
             
             // Set the form data
             setFormData({
@@ -93,7 +76,7 @@ export default function ProjectForm() {
                 phone: project.customer?.phone || "",
                 address: project.customer?.address || "",
               },
-              tasks: project.tasks || [],
+              tasks: tasks,
               project_due_date: project.project_due_date || null,
               project_start_date: project.project_start_date || null,
               type: "project" as const,
@@ -196,6 +179,7 @@ export default function ProjectForm() {
       const currentFormData = {
         ...formData,
         customer: {
+          id : selectedCustomer.id || "",
           name: selectedCustomer.name,
           phone: selectedCustomer.contactPersons[0]?.phone || "",
           address: selectedCustomer.address,
