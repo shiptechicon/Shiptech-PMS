@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Loader2, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Loader2, Trash2, ArrowLeft, UserPlus } from "lucide-react";
 import { useEnquiryStore } from "../store/enquiryStore";
+import { useCustomerStore, Customer } from "@/store/customerStore";
 import toast from "react-hot-toast";
 import RichTextEditor, { ToolbarConfig } from "react-rte";
 
@@ -57,17 +58,17 @@ const editorStyle = {
 export default function EnquiryForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { createEnquiry, updateEnquiry, fetchEnquiry, loading } =
-    useEnquiryStore();
+  const { createEnquiry, updateEnquiry, fetchEnquiry, loading: storeLoading } = useEnquiryStore();
+  const { fetchCustomers, customers } = useCustomerStore();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     enquiryNumber: "",
     name: "",
     description: "",
-    customer: {
-      name: "",
-      phone: "",
-      address: "",
-    },
+    customer_id: "",
     deliverables: [] as Deliverable[],
     exclusions: [] as string[],
     charges: [] as string[],
@@ -76,7 +77,9 @@ export default function EnquiryForm() {
   });
 
   useEffect(() => {
-    const loadEnquiry = async () => {
+    const loadData = async () => {
+      await fetchCustomers();
+      
       if (id) {
         const enquiry = await fetchEnquiry(id);
         if (enquiry) {
@@ -92,12 +95,74 @@ export default function EnquiryForm() {
             inputsRequired: enquiry.inputsRequired ?? [],
             charges: enquiry.charges ?? [],
           });
+
+          if (enquiry.customer_id) {
+            const customer = customers.find(c => c.id === enquiry.customer_id);
+            if (customer) {
+              setSelectedCustomer(customer);
+            }
+          }
         }
       }
     };
 
-    loadEnquiry();
-  }, [id, fetchEnquiry]);
+    loadData();
+  }, [id, fetchEnquiry, fetchCustomers]);
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setFormData(prev => ({
+      ...prev,
+      customer_id: customer.id || '',
+    }));
+    setShowCustomerDropdown(false);
+    setSearchTerm("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    
+    try {
+      setIsSubmitting(true);
+      
+      if (!selectedCustomer?.id) {
+        toast.error("Please select a customer");
+        return;
+      }
+
+      const submitData = {
+        ...formData,
+        customer_id: selectedCustomer.id,
+        scopeOfWork: formData.scopeOfWork.toString('html'),
+      };
+
+      if (id) {
+        await updateEnquiry(id, submitData);
+        toast.success("Enquiry updated successfully");
+      } else {
+        await createEnquiry(submitData);
+        toast.success("Enquiry created successfully");
+      }
+      navigate("/dashboard/enquiries");
+    } catch (error) {
+      console.error("Error submitting enquiry:", error);
+      toast.error(id ? "Failed to update enquiry" : "Failed to create enquiry");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Filter customers based on search term
+  const filteredCustomers = customers.filter((customer: Customer) => 
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAddNewCustomer = () => {
+    // Save current path to localStorage
+    localStorage.setItem('last_visited', window.location.pathname);
+    navigate('/dashboard/customers/new');
+  };
 
   const addDeliverable = () => {
     setFormData((prev) => ({
@@ -207,24 +272,6 @@ export default function EnquiryForm() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const scopeOfWorkHtml = formData.scopeOfWork.toString('html');
-      if (id) {
-        await updateEnquiry(id, { ...formData, scopeOfWork: scopeOfWorkHtml });
-        toast.success("Enquiry updated successfully");
-      } else {
-        await createEnquiry({ ...formData, scopeOfWork: scopeOfWorkHtml });
-        toast.success("Enquiry created successfully");
-      }
-      navigate("/dashboard/enquiries");
-    } catch (error) {
-      console.error("Enquiry submission error:", error);
-      toast.error(id ? "Failed to update enquiry" : "Failed to create enquiry");
-    }
-  };
-
   return (
     <form onSubmit={handleSubmit} className=" p-6 space-y-8 ">
       <div className="flex justify-between items-center">
@@ -249,10 +296,10 @@ export default function EnquiryForm() {
           </button>
           <button
             type="submit"
-            disabled={loading}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black/90 hover:bg-black/80 focus:outline-none "
+            disabled={isSubmitting || storeLoading}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black/90 hover:bg-black/80 focus:outline-none"
           >
-            {loading ? (
+            {isSubmitting || storeLoading ? (
               <>
                 <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
                 {id ? "Updating..." : "Creating..."}
@@ -331,59 +378,77 @@ export default function EnquiryForm() {
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             Customer Details
           </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Name
-              </label>
+          <div className="relative">
+            <div className="flex items-center space-x-2">
               <input
                 type="text"
-                required
-                value={formData.customer.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, name: e.target.value },
-                  }))
-                }
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setShowCustomerDropdown(true)}
                 className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
+              <button
+                type="button"
+                onClick={handleAddNewCustomer}
+                className="mt-1 p-2 text-gray-600 hover:text-gray-900"
+              >
+                <UserPlus size={20} />
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Phone
-              </label>
-              <input
-                type="tel"
-                required
-                value={formData.customer.phone}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, phone: e.target.value },
-                  }))
-                }
-                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Address
-              </label>
-              <textarea
-                required
-                value={formData.customer.address}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: { ...prev.customer, address: e.target.value },
-                  }))
-                }
-                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                rows={2}
-              />
-            </div>
+            
+            {showCustomerDropdown && (
+              <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-300">
+                {filteredCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="p-2 hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleCustomerSelect(customer)}
+                  >
+                    {customer.name}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {selectedCustomer && (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={selectedCustomer.name}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  readOnly
+                  value={selectedCustomer.email}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Address
+                </label>
+                <textarea
+                  readOnly
+                  value={selectedCustomer.address}
+                  className="mt-1 p-2 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm"
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white border-[1px] rounded-xl px-6 py-10">
