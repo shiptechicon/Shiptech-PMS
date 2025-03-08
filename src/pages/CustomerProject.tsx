@@ -1,19 +1,40 @@
-import React, { useEffect, useState } from "react";
+import  { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import ProjectComments from "../components/ProjectComments";
-import { Project, Task } from "@/store/projectStore";
+import { Project } from "@/store/projectStore";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
+import { Task, useTaskStore } from "@/store/taskStore";
+import { Customer, useCustomerStore } from "@/store/customerStore";
+
 
 export default function CustomerProject() {
-  const [project, setProject] = useState<Project | null>(null);
+  const { fetchCustomerProjects, fetchCustomerByUserId } = useCustomerStore();
+  const { tasks, fetchAllTasksWithChildren } = useTaskStore();
   const [loading, setLoading] = useState(true);
-  const { user } = useAuthStore();
+  const [customerProject, setCustomerProject] = useState<Project | null>();
+  const { user, userData } = useAuthStore();
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const navigate = useNavigate();
+  const [progressPercentage, setProgress] = useState(0);
+
+  useEffect(() => {
+    const loadCustomer = async () => {
+      if (user) {
+        try {
+          const cus = await fetchCustomerByUserId(user.uid);
+          setCustomer(cus);
+        } catch (error) {
+          console.error("Error loading customer:", error);
+          toast.error("Failed to load customer");
+        }
+      }
+    };
+
+    loadCustomer();
+  }, [user, navigate]);
 
   useEffect(() => {
     const loadCustomerProject = async () => {
@@ -23,27 +44,18 @@ export default function CustomerProject() {
           return;
         }
 
-        // Get user data to check role and project ID
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-
         if (!userData || userData.role !== "customer") {
           navigate("/dashboard");
           return;
         }
+        const projects = await fetchCustomerProjects({
+          id: customer?.id as string,
+          name: userData.fullName,
+          phone: customer?.contactPersons[0].phone as string,
+          address: customer?.address as string,
+        });
 
-        // Get project data
-        const projectDoc = await getDoc(
-          doc(db, "projects", userData.projectId)
-        );
-        if (projectDoc.exists()) {
-          setProject({
-            ...(projectDoc.data() as Project),
-            id: projectDoc.id,
-          });
-        } else {
-          toast.error("Project not found");
-        }
+        setCustomerProject(projects[0]);
       } catch (error) {
         console.error("Error loading project:", error);
         toast.error("Failed to load project");
@@ -53,22 +65,50 @@ export default function CustomerProject() {
     };
 
     loadCustomerProject();
-  }, [user, navigate]);
+  },[customer])
 
-  const calculateTaskProgress = (
-    tasks: Task[]
-  ): { completed: number; total: number } => {
-    let completed = 0;
-    const total = tasks.length;
+  useEffect(() => {
+    if (customerProject) {
+      fetchAllTasksWithChildren(customerProject.id as string);
+    }
+  }, [customerProject]);
 
-    for (const task of tasks) {
-      if (task.completed) {
-        completed++;
-      }
+  const calculateCompletedPercentage = (task: Task): number => {
+    if (!task.children || task.children.length === 0) {
+      return task.completed ? 100 : 0;
     }
 
-    return { completed, total };
+    const totalAssignedToChildren = task.children.reduce((sum, child) => 
+      sum + (child.percentage || 0), 0);
+
+    if (totalAssignedToChildren === 0) return 0;
+
+    const completedSum = task.children.reduce((sum, subtask) => {
+      return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
+    }, 0);
+
+    const comp =  Math.round((completedSum / totalAssignedToChildren) * 100);
+    return Number(((comp * task.percentage) / 100).toFixed(1));
   };
+
+  const calculateProjectCompletion = (): number => {
+    if (!tasks.length) return 0;
+
+    const rootTasks = tasks;
+
+    let sum = 0;
+
+    rootTasks.forEach((task) => {
+      let value = calculateCompletedPercentage(task);
+      sum += value;
+    });
+    return sum;
+  };
+
+  useEffect(()=>{
+    const progressPercentage = calculateProjectCompletion();
+    setProgress(progressPercentage);
+  },[tasks])
 
   if (loading) {
     return (
@@ -78,7 +118,7 @@ export default function CustomerProject() {
     );
   }
 
-  if (!project) {
+  if (!customerProject) {
     return (
       <div className="p-6">
         <p className="text-red-500">Project not found</p>
@@ -86,17 +126,16 @@ export default function CustomerProject() {
     );
   }
 
-  const { completed, total } = calculateTaskProgress(project.tasks);
-  const progressPercentage =
-    total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Project Header */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-2xl font-bold mb-2 capitalize">{project.name}</h1>
-          <p className="text-gray-600 mb-4">{project.description}</p>
+          <h1 className="text-2xl font-bold mb-2 capitalize">
+            {customerProject.name}
+          </h1>
+          <p className="text-gray-600 mb-4">{customerProject.description}</p>
 
           {/* Progress Bar */}
           <div className="space-y-2">
@@ -111,7 +150,7 @@ export default function CustomerProject() {
               />
             </div>
             <p className="text-sm text-gray-600">
-              {completed} of {total} main tasks completed
+              {tasks.filter(task => task.completed).length} of {tasks.length} main tasks completed
             </p>
           </div>
         </div>
@@ -125,33 +164,37 @@ export default function CustomerProject() {
                 <td className="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100">
                   Project ID
                 </td>
-                <td className="px-4 py-2">{project.__id}</td>
+                <td className="px-4 py-2">{customerProject.__id}</td>
               </tr>
               <tr className="border-b">
                 <td className="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100">
                   Created At
                 </td>
                 <td className="px-4 py-2">
-                  {new Date(project.createdAt).toLocaleDateString()}
+                  {new Date(customerProject.createdAt).toLocaleDateString()}
                 </td>
               </tr>
-              {project.project_start_date && (
+              {customerProject.project_start_date && (
                 <tr className="border-b">
                   <td className="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100">
                     Start Date
                   </td>
                   <td className="px-4 py-2">
-                    {new Date(project.project_start_date).toLocaleDateString()}
+                    {new Date(
+                      customerProject.project_start_date
+                    ).toLocaleDateString()}
                   </td>
                 </tr>
               )}
-              {project.project_due_date && (
+              {customerProject.project_due_date && (
                 <tr className="border-b">
                   <td className="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100">
                     Due Date
                   </td>
                   <td className="px-4 py-2">
-                    {new Date(project.project_due_date).toLocaleDateString()}
+                    {new Date(
+                      customerProject.project_due_date
+                    ).toLocaleDateString()}
                   </td>
                 </tr>
               )}
@@ -162,8 +205,8 @@ export default function CustomerProject() {
                 <td className="px-4 py-2">
                   <ProjectStatusSelect
                     project={{
-                      id: project.id as string,
-                      status: project.status,
+                      id: customerProject.id as string,
+                      status: customerProject.status,
                     }}
                   />
                 </td>
@@ -176,7 +219,7 @@ export default function CustomerProject() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold mb-4">Main Tasks</h2>
           <div className="space-y-4">
-            {project.tasks.map((task) => (
+            {tasks.map((task) => (
               <div
                 key={task.id}
                 className="border rounded-lg p-4 hover:border-blue-100 transition-colors"
@@ -205,7 +248,7 @@ export default function CustomerProject() {
 
         {/* Comments Section */}
         <div className="mt-6">
-          <ProjectComments projectId={project.id as string} />
+          <ProjectComments projectId={customerProject.id as string} />
         </div>
       </div>
     </div>

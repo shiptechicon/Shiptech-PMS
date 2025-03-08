@@ -17,6 +17,8 @@ export interface UserData {
   role: 'admin' | 'member' | 'customer';
   verified: boolean;
   designation: string;
+  phone?: string;
+  address?: string;
 }
 
 interface AuthState {
@@ -26,7 +28,7 @@ interface AuthState {
   error: string | null;
   initialized: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
-  signUpCustomer: (email: string, password: string, fullName: string) => Promise<void>;
+  signUpCustomer: (email: string, password: string, fullName: string) => Promise<User | null>;
   signIn: (email: string, password: string) => Promise<User | null>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -114,6 +116,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await setDoc(doc(db, 'users', user.uid), userData);
 
       set({loading: false});
+      return user;
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
       throw error;
