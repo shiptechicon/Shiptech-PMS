@@ -4,6 +4,7 @@ import { Plus, Loader2, Trash2, ArrowLeft } from "lucide-react";
 import { useEnquiryStore } from "../store/enquiryStore";
 import toast from "react-hot-toast";
 import RichTextEditor, { ToolbarConfig } from "react-rte";
+import Currency from "../components/Currency";
 
 interface Deliverable {
   id: string;
@@ -73,6 +74,7 @@ export default function EnquiryForm() {
     charges: [] as string[],
     scopeOfWork: RichTextEditor.createEmptyValue(),
     inputsRequired: [] as string[],
+    status: "draft"
   });
 
   useEffect(() => {
@@ -91,6 +93,7 @@ export default function EnquiryForm() {
             exclusions: enquiry.exclusions ?? [],
             inputsRequired: enquiry.inputsRequired ?? [],
             charges: enquiry.charges ?? [],
+            status: enquiry.status ?? "draft"
           });
         }
       }
@@ -384,6 +387,10 @@ export default function EnquiryForm() {
               />
             </div>
           </div>
+        </div>
+
+        <div className="bg-white border-[1px] rounded-xl px-6 py-10">
+          <Currency />
         </div>
 
         <div className="bg-white border-[1px] rounded-xl px-6 py-10">
