@@ -8,6 +8,19 @@ import ItemDetails from '../components/ItemDetails';
 import SubTaskList from '../components/SubTaskList';
 import toast from 'react-hot-toast';
 
+interface TaskFormData {
+  name: string;
+  description: string;
+  assignedTo?: User;
+  deadline?: string;
+}
+
+interface User {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
 export default function DeliverableDetails() {
   const { projectId, path } = useParams<{ projectId: string; path: string }>();
   const navigate = useNavigate();
@@ -16,7 +29,6 @@ export default function DeliverableDetails() {
     addTask,
     updateTask,
     deleteTask,
-    currentPath,
     setCurrentPath,
   } = useProjectStore();
   const [item, setItem] = useState<Task | null>(null);
@@ -54,7 +66,7 @@ export default function DeliverableDetails() {
     loadItem();
   }, [projectId, path, getTaskByPath, navigate, setCurrentPath]);
 
-  const handleAddTask = async (data: Omit<Task, 'id' | 'completed' | 'children'>) => {
+  const handleAddTask = async (data: TaskFormData) => {
     if (!projectId || !path) return;
 
     try {
@@ -63,7 +75,18 @@ export default function DeliverableDetails() {
         return { type: type as 'deliverable' | 'subtask', id };
       });
 
-      await addTask(projectId, pathArray, data);
+      const newTask: Omit<Task, 'id' | 'completed' | 'children'> = {
+        name: data.name,
+        description: data.description,
+        assignedTo: data.assignedTo ? [data.assignedTo] : undefined,
+        deadline: data.deadline,
+        hours: 0,
+        costPerHour: 0,
+        timeEntries: [],
+        percentage: 0,
+      };
+
+      await addTask(projectId, pathArray, newTask);
       const updatedItem = await getTaskByPath(projectId, pathArray);
       if (updatedItem) {
         setItem(updatedItem);
@@ -75,7 +98,7 @@ export default function DeliverableDetails() {
     }
   };
 
-  const handleEditTask = async (data: Task) => {
+  const handleEditTask = async (data: TaskFormData) => {
     if (!projectId || !path || !editingTask) return;
 
     try {
@@ -84,7 +107,15 @@ export default function DeliverableDetails() {
         return { type: type as 'deliverable' | 'subtask', id };
       });
 
-      await updateTask(projectId, pathArray, editingTask.id, data);
+      const updatedTask: Task = {
+        ...editingTask,
+        name: data.name,
+        description: data.description,
+        assignedTo: data.assignedTo ? [data.assignedTo] : undefined,
+        deadline: data.deadline,
+      };
+
+      await updateTask(projectId, pathArray, editingTask.id, updatedTask);
       const updatedItem = await getTaskByPath(projectId, pathArray);
       if (updatedItem) {
         setItem(updatedItem);
@@ -119,12 +150,6 @@ export default function DeliverableDetails() {
     }
   };
 
-  const handleTaskClick = (task: Task) => {
-    const newPath = [...currentPath, { type: 'subtask', id: task.id }];
-    const pathString = newPath.map((p) => `${p.type}:${p.id}`).join('/');
-    navigate(`/dashboard/projects/${projectId}/deliverable/${pathString}`);
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -141,6 +166,18 @@ export default function DeliverableDetails() {
     );
   }
 
+  // Convert Task to ItemDetails compatible format
+  const itemDetailsData = {
+    id: item.id,
+    description: item.description || '',
+    assignedTo: item.assignedTo?.map(user => ({ fullName: user.fullName })) || [],
+    deadline: item.deadline || undefined,
+    completed: item.completed,
+    hours: item.hours,
+    costPerHour: item.costPerHour,
+    children: item.children,
+  };
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center space-x-4 mb-8">
@@ -148,10 +185,10 @@ export default function DeliverableDetails() {
         <h1 className="text-2xl font-bold">{item.name}</h1>
       </div>
 
-      <ItemDetails item={item as Task} />
+      <ItemDetails item={itemDetailsData} />
 
       <SubTaskList
-        tasks={item.children || []} // Use fallback empty array 
+        tasks={item.children || []}
         onAddClick={() => {
           setEditingTask(null);
           setIsModalOpen(true);
@@ -161,7 +198,7 @@ export default function DeliverableDetails() {
           setIsModalOpen(true);
         }}
         onDeleteClick={handleDeleteTask}
-        onTaskClick={handleTaskClick}  
+        onTaskClick={() => {}} // This will be handled by the task click handler in SubTaskList
       />
 
       <TaskDetailsModal
@@ -171,7 +208,12 @@ export default function DeliverableDetails() {
           setEditingTask(null);
         }}
         onSubmit={editingTask ? handleEditTask : handleAddTask}
-        initialData={editingTask}
+        initialData={editingTask ? {
+          name: editingTask.name,
+          description: editingTask.description,
+          assignedTo: editingTask.assignedTo?.[0],
+          deadline: editingTask.deadline || undefined,
+        } : undefined}
       />
     </div>
   );

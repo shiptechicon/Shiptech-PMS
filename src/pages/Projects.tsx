@@ -6,7 +6,7 @@ import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import toast from "react-hot-toast";
 
 export default function Projects() {
-  const { projects, loading, fetchProjects, createProject, deleteProject } = useProjectStore();
+  const { projects, loading, createProject, deleteProject , fetchProjects } = useProjectStore();
   const navigate = useNavigate();
 
   const [projectNumber, setProjectNumber] = useState("");
@@ -15,6 +15,7 @@ export default function Projects() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerID, setCustomerID] = useState("");
   const [showForm, setShowForm] = useState(false);
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -25,6 +26,7 @@ export default function Projects() {
         name: projectName,
         description: projectDescription,
         customer: {
+          id : customerID,
           name: customerName,
           phone: customerPhone,
           address: customerAddress,
@@ -37,6 +39,7 @@ export default function Projects() {
       setProjectDescription("");
       setCustomerName("");
       setCustomerPhone("");
+      setCustomerID("");
       setCustomerAddress("");
       setShowForm(false);
       toast.success("Project created successfully");
@@ -61,123 +64,23 @@ export default function Projects() {
   };
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    if(projects.length === 0) {
+      fetchProjects();
+    }
+  }, [projects]);
 
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-6 flex sm:flex-row flex-col gap-3 justify-between items-center">
         Projects
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => navigate('/dashboard/projects/new')}
           className="inline-flex items-center sm:px-4 px-1 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black hover:bg-black"
         >
           <Plus className="mr-2" />
           Create New Project
         </button>
       </h2>
-
-      {showForm && (
-        <form
-          onSubmit={handleCreateProject}
-          className="mb-6 bg-white sm:p-6 p-2 rounded-lg shadow-md"
-        >
-          <div className="grid grid-cols-1 gap-6">
-            <div>
-              <label className="block font-medium text-gray-700">
-                Project Number
-              </label>
-              <input
-                type="text"
-                required
-                value={projectNumber}
-                onChange={(e) => setProjectNumber(e.target.value)}
-                className="mt-1 p-2 w-11/12 sm:w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-medium text-gray-700">
-                Project Name
-              </label>
-              <input
-                type="text"
-                required
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                className="mt-1 p-2 block w-11/12 sm:w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-medium text-gray-700">
-                Description
-              </label>
-              <textarea
-                required
-                value={projectDescription}
-                onChange={(e) => setProjectDescription(e.target.value)}
-                className="mt-1 block w-11/12 sm:w-full p-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <label className="block font-medium text-gray-700">
-                Customer Name
-              </label>
-              <input
-                type="text"
-                required
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="mt-1 p-2 block w-11/12 sm:w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-medium text-gray-700">
-                Customer Phone
-              </label>
-              <input
-                type="tel"
-                required
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                className="mt-1 p-2 block w-11/12 sm:w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-medium text-gray-700">
-                Customer Address
-              </label>
-              <textarea
-                required
-                value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                className="mt-1 p-2 block w-11/12 sm:w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                rows={2}
-              />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black hover:bg-black"
-            >
-              Create Project
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-500"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
 
       {loading ? (
         <div className="flex justify-center items-center h-64">

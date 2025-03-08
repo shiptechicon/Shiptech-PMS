@@ -27,6 +27,7 @@ export interface Project {
   name: string;
   description: string;
   customer: {
+    id : string;
     name: string;
     phone: string;
     address: string;
@@ -176,32 +177,64 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateProject: async (id, projectData) => {
     try {
+      console.log('Starting project update:', { id, projectData });
+      console.log('Customer data received:', projectData.customer);
       set({ loading: true, error: null });
       const docRef = doc(db, "projects", id);
 
+      const currentProject = await get().fetchProject(id);
+      if (!currentProject) {
+        throw new Error("Project not found");
+      }
+
+
       const cleanProjectData = {
-        name: projectData.name || "",
-        description: projectData.description || "",
+        ...currentProject,
+        __id: `p-${projectData.projectNumber}`,
+        name: projectData.name || currentProject.name,
+        description: projectData.description || currentProject.description,
+        projectNumber: projectData.projectNumber || currentProject.projectNumber,
+        status: projectData.status || currentProject.status,
         customer: {
-          name: projectData.customer?.name || "",
-          phone: projectData.customer?.phone || "",
-          address: projectData.customer?.address || "",
+          id: projectData.customer?.id || currentProject.customer?.id || "",
+          name: projectData.customer?.name || currentProject.customer?.name || "",
+          phone: projectData.customer?.phone || currentProject.customer?.phone || "",
+          address: projectData.customer?.address || currentProject.customer?.address || "",
         },
         type: "project" as const,
-        project_due_date: projectData.project_due_date || null,
+        project_due_date: projectData.project_due_date || currentProject.project_due_date || null,
+        project_start_date: projectData.project_start_date || currentProject.project_start_date || null,
       };
 
-      await updateDoc(docRef, cleanProjectData);
+      console.log('Cleaned project data:', cleanProjectData);
+      console.log('Customer data after cleaning:', cleanProjectData.customer);
 
+      // Update Firestore
+      await updateDoc(docRef, cleanProjectData);
+      console.log('Project document updated in Firestore');
+
+      // Update local state
       const updatedProject = {
-        ...get().project,
         ...cleanProjectData,
         id,
-        __id: get().project?.__id,
-        createdAt: get().project?.createdAt,
+        __id: currentProject.__id,
+        createdAt: currentProject.createdAt,
       };
 
-      set({ project: updatedProject as Project, loading: false });
+      console.log('Updating local state with:', updatedProject);
+      console.log('Final customer data:', updatedProject.customer);
+      
+      // Update both the current project and the projects array
+      const currentProjects = get().projects;
+      const updatedProjects = currentProjects.map(p => 
+        p.id === id ? updatedProject : p
+      );
+      
+      set({ 
+        project: updatedProject as Project, 
+        projects: updatedProjects,
+        loading: false 
+      });
     } catch (error) {
       console.error("Error updating project:", error);
       set({ error: (error as Error).message, loading: false });

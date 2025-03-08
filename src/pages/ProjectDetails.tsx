@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectStore } from "../store/projectStore";
+import { useCustomerStore, Customer } from "@/store/customerStore";
 import {
   Loader2,
   Pencil,
@@ -9,6 +10,7 @@ import {
   Calendar,
   Check,
   X,
+  Key,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
@@ -18,7 +20,7 @@ import toast from "react-hot-toast";
 import TaskModal from "../components/TaskModal";
 import TaskList from "../components/TaskList";
 import ProjectComments from "../components/ProjectComments";
-import CreateCustomerModal from "../components/CreateCustomerModal";
+import CustomerCredentialsModal from "../components/CustomerCredentialsModal";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import { useTaskStore, Task } from "../store/taskStore";
 
@@ -38,6 +40,7 @@ export default function ProjectDetails() {
     updateProjectStatus,
     project,
   } = useProjectStore();
+  const { fetchCustomers, customers, fetchCustomer } = useCustomerStore();
 
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -49,7 +52,8 @@ export default function ProjectDetails() {
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [tempStartDate, setTempStartDate] = useState<string>("");
   const [showStartDateConfirm, setShowStartDateConfirm] = useState(false);
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState("");
   const { user } = useAuthStore();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverTasks, setPopoverTasks] = useState<
@@ -61,6 +65,7 @@ export default function ProjectDetails() {
   const [projectDueDate, setProjectDueDate] = useState<string>("");
   const [overdueTasks, setOverdueTasks] = useState(0);
   const [completedPercentage, setCompletedPercentage] = useState<number>(0);
+  const [customerDetails, setCustomerDetails] = useState<Customer | null>(null);
 
   const calculateCompletedPercentage = (task: Task): number => {
     if (!task.children || task.children.length === 0) {
@@ -108,10 +113,11 @@ export default function ProjectDetails() {
 
       try {
         setLoading(true);
-        let p = await fetchProject(id);
+        await fetchCustomers();
+        const p = await fetchProject(id);
         const data = p;
         if (data) {
-          await fetchAllTasksWithChildren(id);
+          await fetchAllTasksWithChildren(id , undefined , true);
           if (data.project_due_date) {
             setTempDueDate(data.project_due_date);
           }
@@ -139,9 +145,22 @@ export default function ProjectDetails() {
       }
     };
 
+
     loadProject();
     checkUserRole();
-  }, [id, user]);
+  }, [id, user, fetchProject, navigate]);
+
+  useEffect(() => {
+    if (project) {
+      fetchCustomer(project.customer.id).then(
+        (customer) => {
+          console.log(customer, "customer");
+          
+          setCustomerDetails(customer);
+        }
+      );
+    }
+  }, [project]);
 
   useEffect(() => {
     // Calculate analytics for tasks
@@ -480,15 +499,24 @@ export default function ProjectDetails() {
           {isAdmin && (
             <>
               <button
-                onClick={() => setShowCustomerModal(true)}
-                className="inline-flex items-center px-4 py-2  font-medium rounded-md text-black bg-white border-[1px]  hover:opacity-70"
+                onClick={() => {
+                  const customer = customers.find(
+                    c => c.name === project.customer.name && 
+                    c.contactPersons[0]?.phone === project.customer.phone
+                  );
+                  setCustomerEmail(customer?.email || "");
+                  setShowCredentialsModal(true);
+                }}
+                className="inline-flex items-center px-4 py-2 font-medium rounded-md text-black bg-white border-[1px] hover:opacity-70"
               >
-                Create Customer Account
+                <Key className="mr-2 h-4 w-4" />
+                Customer Credentials
               </button>
-              <CreateCustomerModal
-                isOpen={showCustomerModal}
-                onClose={() => setShowCustomerModal(false)}
-                projectId={id || ""}
+              <CustomerCredentialsModal
+                isOpen={showCredentialsModal}
+                onClose={() => setShowCredentialsModal(false)}
+                customerEmail={customerEmail}
+                customerName={project.customer.name}
               />
             </>
           )}
@@ -504,7 +532,7 @@ export default function ProjectDetails() {
           {isAdmin && (
             <button
               onClick={() => navigate(`/dashboard/projects/${id}/edit`)}
-              className="inline-flex items-center px-4 py-2   font-medium rounded-md text-black bg-white border-[1px] hover:opacity-70"
+              className="inline-flex items-center px-4 py-2 font-medium rounded-md text-black bg-white border-[1px] hover:opacity-70"
             >
               <Pencil className="mr-2 h-4 w-4" />
               Edit Project
@@ -702,20 +730,6 @@ export default function ProjectDetails() {
                 )}
                 <tr>
                   <td className="py-2 font-medium text-gray-500">
-                    Customer Name
-                  </td>
-                  <td className="py-2">{project.customer.name}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 font-medium text-gray-500">Phone</td>
-                  <td className="py-2">{project.customer.phone}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 font-medium text-gray-500">Address</td>
-                  <td className="py-2">{project.customer.address}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 font-medium text-gray-500">
                     Project Status
                   </td>
 
@@ -749,6 +763,69 @@ export default function ProjectDetails() {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Customer Details Section */}
+        <div className="bg-white rounded-xl border-[1px] overflow-hidden">
+          <div className="border-b border-gray-200 px-6 py-3">
+            <h3 className="text-lg font-medium text-gray-900">
+              Customer Details
+            </h3>
+          </div>
+          <div className="px-6 py-4">
+            {customerDetails ? (
+              <div className="grid grid-cols-2 gap-4">
+                {customerDetails.logoUrl && (
+                  <div className="col-span-2">
+                    <p className="text-sm font-medium text-gray-500">Logo</p>
+                    <img 
+                      src={customerDetails.logoUrl} 
+                      alt="Customer Logo" 
+                      className="mt-1 max-h-20 object-contain"
+                    />
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Name</p>
+                  <p className="mt-1">{customerDetails.name || project.customer.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Email</p>
+                  <p className="mt-1">{customerDetails.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">GST Number</p>
+                  <p className="mt-1">{customerDetails.gstNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">End Client</p>
+                  <p className="mt-1">{customerDetails.endClient}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Address</p>
+                  <p className="mt-1">{customerDetails.address || project.customer.address}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Billing Address</p>
+                  <p className="mt-1">{customerDetails.billingAddress}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Contact Persons</p>
+                  <div className="mt-1 space-y-2">
+                    {customerDetails.contactPersons.map((person, index) => (
+                      <div key={index} className="flex items-center space-x-4">
+                        <span className="text-sm text-gray-700">{person.name}</span>
+                        <span className="text-sm text-gray-500">-</span>
+                        <span className="text-sm text-gray-700">{person.phone}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No customer details found.</p>
+            )}
           </div>
         </div>
 
