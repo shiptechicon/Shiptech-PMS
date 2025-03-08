@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useProjectStore } from "../store/projectStore";
 import { Loader2, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -6,7 +6,7 @@ import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import toast from "react-hot-toast";
 
 export default function Projects() {
-  const { projects, loading, fetchProjects, deleteProject } = useProjectStore();
+  const { projects, loading, createProject, deleteProject , fetchProjects } = useProjectStore();
   const navigate = useNavigate();
 
   const [projectNumber, setProjectNumber] = useState("");
@@ -59,6 +59,12 @@ export default function Projects() {
       toast.error('Failed to delete project');
     }
   };
+
+  useEffect(() => {
+    if(projects.length === 0) {
+      fetchProjects();
+    }
+  }, [projects]);
 
   return (
     <div className="p-6">
