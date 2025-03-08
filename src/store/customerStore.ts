@@ -12,7 +12,8 @@ import {
   query,
   where
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { deleteUser } from 'firebase/auth';
 
 export interface ContactPerson {
   name: string;
@@ -170,8 +171,11 @@ export const useCustomerStore = create<CustomerState>((set) => ({
         await deleteDoc(doc(db, 'users', userDoc.id));
       }
 
+      
+
       // Finally, delete the customer document
       await deleteDoc(doc(db, 'customers', id));
+      
       
       set(state => ({
         customers: state.customers.filter(customer => customer.id !== id),
