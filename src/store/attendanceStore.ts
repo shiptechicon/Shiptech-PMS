@@ -186,10 +186,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error('Admin not authenticated');
 
-      console.log("before formattedDate", date);
+      // console.log("before formattedDate", date);
       const dateObj = new Date(date);
       const formattedDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-      console.log("formattedDate", formattedDate);
+      // console.log("formattedDate", formattedDate);
       const attendanceRef = doc(db, 'attendance', formattedDate);
       const attendanceDoc = await getDoc(attendanceRef);
 
@@ -226,7 +226,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error('Admin not authenticated');
 
-      const formattedDate = date.toISOString().split('T')[0];
+      const dateObj = new Date(date);
+      const formattedDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
       const attendanceRef = doc(db, 'attendance', formattedDate);
       const attendanceDoc = await getDoc(attendanceRef);
 
