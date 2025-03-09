@@ -23,6 +23,7 @@ export interface MonthlyAttendance {
   records: {
     date: string;
     time: string;
+    type: 'full' | 'half';
   }[];
 }
 
@@ -33,6 +34,8 @@ export default function Attendance() {
     fetchAttendanceRecords,
     fetchAllUsersAttendance,
     markAttendance,
+    updateAttendance,
+    removeAttendance,
   } = useAttendanceStore();
   const { user } = useAuthStore();
   const { requestLeave, fetchUserLeaveRequests, allLeaveRequests, fetchAllLeaveRequests } =
@@ -73,6 +76,12 @@ export default function Attendance() {
 
   // Add state for the attendance marker modal
   const [showAttendanceMarker, setShowAttendanceMarker] = useState(false);
+
+  const [attendanceType, setAttendanceType] = useState<'full' | 'half'>('full');
+
+  const [showUpdateAttendanceModal, setShowUpdateAttendanceModal] = useState(false);
+  const [selectedAttendanceType, setSelectedAttendanceType] = useState<'full' | 'half'>('full');
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -133,7 +142,7 @@ export default function Attendance() {
       const userId = selectedUser || user?.uid;
       if (!userId) return;
 
-      const monthlyData: Record<string, { date: string; time: string }[]> = {};
+      const monthlyData: Record<string, { date: string; time: string; type: 'full' | 'half' }[]> = {};
 
       records
         .filter((record) => record.attendance[userId])
@@ -142,7 +151,6 @@ export default function Attendance() {
           const monthKey = `${date.getFullYear()}-${String(
             date.getMonth() + 1
           ).padStart(2, "0")}`;
-          console.log(monthKey);
           const monthName = date.toLocaleString("default", {
             month: "long",
             year: "numeric",
@@ -154,7 +162,8 @@ export default function Attendance() {
 
           monthlyData[monthName].push({
             date: record.date,
-            time: record.attendance[userId],
+            time: record.attendance[userId].time,
+            type: record.attendance[userId].type || 'full'
           });
         });
 
@@ -173,7 +182,7 @@ export default function Attendance() {
 
   const handleMarkAttendance = async () => {
     try {
-      await markAttendance();
+      await markAttendance(attendanceType);
       toast.success("Attendance marked successfully");
     } catch (error) {
       console.error("Attendance marking error:", error);
@@ -302,6 +311,26 @@ export default function Attendance() {
            allOOORequests.some(req => req.status === "pending");
   };
 
+  // Update attendance function
+  const handleUpdateAttendance = async (action: 'update' | 'remove') => {
+    try {
+      const userId = selectedUser || user?.uid;
+      if (!userId || !selectedAttendanceDate) return;
+
+      if (action === 'update') {
+        await updateAttendance(userId, selectedAttendanceDate, selectedAttendanceType);
+        toast.success('Attendance updated successfully');
+      } else {
+        await removeAttendance(userId, selectedAttendanceDate);
+        toast.success('Attendance removed successfully');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update attendance');
+    } finally {
+      setShowUpdateAttendanceModal(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -322,12 +351,22 @@ export default function Attendance() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {!isTodayAttendanceMarked() && (
-            <button
-              onClick={handleMarkAttendance}
-              className="px-4 py-2 text-white rounded-md bg-black/90 hover:bg-black/80"
-            >
-              Mark Today's Attendance
-            </button>
+            <div className="flex gap-2">
+              <select
+                value={attendanceType}
+                onChange={(e) => setAttendanceType(e.target.value as 'full' | 'half')}
+                className="px-4 py-2 border rounded-md"
+              >
+                <option value="full">Full Day</option>
+                <option value="half">Half Day</option>
+              </select>
+              <button
+                onClick={handleMarkAttendance}
+                className="px-4 py-2 text-white rounded-md bg-black/90 hover:bg-black/80"
+              >
+                Mark Today's Attendance
+              </button>
+            </div>
           )}
           {isAdmin && (
             <button
@@ -755,6 +794,7 @@ export default function Attendance() {
         <AttendanceCalendar
           monthlyAttendance={monthlyAttendance}
           selectedUser={selectedUser}
+          isAdmin={isAdmin}
         />
       </div>
 
@@ -764,6 +804,48 @@ export default function Attendance() {
           users={users} 
           setShowAttendanceMarker={setShowAttendanceMarker}
         />
+      )}
+
+      {/* Modal for updating attendance */}
+      {showUpdateAttendanceModal && (
+        <div className="fixed z-[100] inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h2 className="text-xl font-bold mb-4">Update Attendance</h2>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">
+                Attendance Type
+              </label>
+              <select
+                value={selectedAttendanceType}
+                onChange={(e) => setSelectedAttendanceType(e.target.value as 'full' | 'half')}
+                className="w-full p-2 border rounded"
+              >
+                <option value="full">Full Day</option>
+                <option value="half">Half Day</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowUpdateAttendanceModal(false)}
+                className="px-4 py-2 text-gray-800 bg-transparent rounded border border-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleUpdateAttendance('update')}
+                className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => handleUpdateAttendance('remove')}
+                className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700"
+              >
+                Delete Attendance
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
