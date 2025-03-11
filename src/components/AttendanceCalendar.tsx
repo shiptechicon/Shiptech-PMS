@@ -65,7 +65,6 @@ export default function AttendanceCalendar({
 
   // Generate calendar days for the current month
   useEffect(() => {
-    // console.log("monthlyAttendance",monthlyAttendance)
     const generateCalendar = () => {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -436,9 +435,7 @@ export default function AttendanceCalendar({
 
     const startDate = new Date();
     if (timeFrame === 'thisMonth') {
-      startDate.setDate(1); // First day of the current month
-      startDate.setMonth(currentDate.getMonth()); // Use the month from currentDate
-      startDate.setFullYear(currentDate.getFullYear()); // Use the year from currentDate
+      startDate.setFullYear(currentDate.getFullYear(), currentDate.getMonth(), 1); // Set to the first day of the current month
     } else if (timeFrame === 'threeMonths') {
       startDate.setMonth(today.getMonth() - 3);
     } else if (timeFrame === 'sixMonths') {
@@ -452,7 +449,7 @@ export default function AttendanceCalendar({
     monthlyAttendance.forEach(month => {
       month.records.forEach(record => {
         const recordDate = new Date(record.date);
-        if (recordDate >= createdAt && recordDate >= startDate) {
+        if (recordDate >= createdAt && recordDate >= startDate && recordDate.getMonth() === currentDate.getMonth() && recordDate.getFullYear() === currentDate.getFullYear()) {
           if (record.type === 'full' || record.type === 'half') {
             totalAttendanceDays++;
           }
@@ -464,7 +461,7 @@ export default function AttendanceCalendar({
     leaves.forEach(leave => {
       const leaveStart = new Date(leave.startDate);
       const leaveEnd = new Date(leave.endDate);
-      if (leaveStart >= createdAt && leaveStart >= startDate) {
+      if (leaveStart >= createdAt && leaveStart >= startDate && leaveStart.getMonth() === currentDate.getMonth() && leaveStart.getFullYear() === currentDate.getFullYear()) {
         totalLeaves++;
       }
     });
@@ -473,7 +470,7 @@ export default function AttendanceCalendar({
     workFromRequests.forEach(request => {
       const requestStart = new Date(request.startDate);
       const requestEnd = new Date(request.endDate);
-      if (requestStart >= createdAt && requestStart >= startDate) {
+      if (requestStart >= createdAt && requestStart >= startDate && requestStart.getMonth() === currentDate.getMonth() && requestStart.getFullYear() === currentDate.getFullYear()) {
         totalWFH++;
       }
     });
@@ -482,7 +479,7 @@ export default function AttendanceCalendar({
     oooRequests.forEach(request => {
       const requestStart = new Date(request.startDate);
       const requestEnd = new Date(request.endDate);
-      if (requestStart >= createdAt && requestStart >= startDate) {
+      if (requestStart >= createdAt && requestStart >= startDate && requestStart.getMonth() === currentDate.getMonth() && requestStart.getFullYear() === currentDate.getFullYear()) {
         totalOOO++;
       }
     });
