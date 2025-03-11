@@ -54,16 +54,21 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
 
     try {
       setSubmitting(true);
-      const attachments: { url: string; name: string }[] = [];
+      const attachments: { url: string; name: string; number: string }[] = [];
 
       // Upload files one by one
-      if (selectedFiles.length > 0 ) {
+      if (selectedFiles.length > 0) {
         try {
-          // Use the new upload function
-          console.log("before github upload ",selectedFiles,projectId)
           const uploadedFiles = await uploadCommentFilesToGitHub(selectedFiles, projectId, comments.length);
-          console.log("after upload : ",uploadedFiles)
-          attachments.push(...uploadedFiles);
+          
+          // Ensure each uploaded file has a number property
+          const userRole = userData?.role as string;
+          uploadedFiles.forEach((file, index) => {
+            attachments.push({
+              ...file,
+              number: userRole === 'admin' || userRole === 'member' ? `v${index + 1}` : `c${index + 1}`,
+            });
+          });
         } catch (uploadError) {
           console.error("Failed to upload files:", uploadError);
           toast.error("Failed to upload files. Please try again.");
@@ -73,16 +78,11 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
       }
 
       // Add the comment with attachment URLs and names
-      try {
-        await addComment(projectId, newComment, userData?.role as string, attachments);
-        setNewComment(""); // Clear the comment input
-        setSelectedFiles([]); // Clear the selected files
-        setUploadProgress([]); // Reset the upload progress
-        toast.success("Comment added successfully");
-      } catch (commentError) {
-        console.error("Failed to add comment:", commentError);
-        toast.error("Failed to add comment. Please try again.");
-      }
+      await addComment(projectId, newComment, userData?.role as string, attachments);
+      setNewComment(""); // Clear the comment input
+      setSelectedFiles([]); // Clear the selected files
+      setUploadProgress([]); // Reset the upload progress
+      toast.success("Comment added successfully");
     } catch (error) {
       console.error("Error in comment submission:", error);
       toast.error("An error occurred. Please try again.");
@@ -92,14 +92,8 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-
     const files = e.target.files;
     if (files) {
-      // if (files.length > 10) {
-      //   toast.error("You can upload a maximum of 5 files");
-      //   return;
-      // }
-
       const validFiles = Array.from(files).filter((file) => {
         if (file.size > 50 * 1024 * 1024) {
           toast.error(`File ${file.name} size should be less than 50MB`);

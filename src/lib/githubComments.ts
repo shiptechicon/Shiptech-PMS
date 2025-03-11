@@ -19,8 +19,8 @@ export const uploadCommentFilesToGitHub = async (
   files: File[],
   projectId: string,
   commentsLength: number
-): Promise<{ url: string; name: string }[]> => {
-  const attachments: { url: string; name: string }[] = [];
+): Promise<{ url: string; name: string; number: string }[]> => {
+  const attachments: { url: string; name: string; number: string }[] = [];
 
   for (const file of files) {
     const cleanPath = `Projects/${projectId}/v${commentsLength + 1}/${file.name}`;
@@ -43,6 +43,29 @@ export const uploadCommentFilesToGitHub = async (
       reader.readAsDataURL(file);
     });
 
+    let sha: string | undefined;
+
+    // Check if the file already exists
+    try {
+      const { data } = await octokit.repos.getContent({
+        owner: OWNER,
+        repo: REPO,
+        path: cleanPath,
+        ref: BRANCH,
+      });
+
+      if (Array.isArray(data)) {
+        throw new Error("Path is a directory, not a file.");
+      } else {
+        sha = data.sha; // Get the SHA of the existing file
+      }
+    } catch (error: any) {
+      if (error.status !== 404) {
+        throw error; // If it's not a 404 error, rethrow it
+      }
+      // If the file doesn't exist, sha remains undefined
+    }
+
     try {
       const { data } = await octokit.repos.createOrUpdateFileContents({
         owner: OWNER,
@@ -51,11 +74,12 @@ export const uploadCommentFilesToGitHub = async (
         message: `Upload file: ${file.name}`,
         content: fileContent,
         branch: BRANCH,
+        sha, // Include the sha if the file already exists
       });
 
       if (data.content) {
         const url = data.content.download_url;
-        attachments.push({ url: url as string, name: file.name });
+        attachments.push({ url: url as string, name: file.name, number: '' }); // Add number later in ProjectComments.tsx
       } else {
         throw new Error("Failed to retrieve file URL from GitHub.");
       }
