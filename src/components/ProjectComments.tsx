@@ -10,11 +10,10 @@ import {
   Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
-// import { uploadToCloudinary } from "../lib/cloudinary";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { uploadToGitHub } from "@/lib/github";
+import { uploadCommentFilesToGitHub } from "@/lib/githubComments";
 
 interface ProjectCommentsProps {
   projectId: string;
@@ -58,34 +57,13 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
       const attachments: { url: string; name: string }[] = [];
 
       // Upload files one by one
-      if (selectedFiles.length > 0 && (isAdmin || isMember)) {
+      if (selectedFiles.length > 0 ) {
         try {
-          for (let index = 0; index < selectedFiles.length; index++) {
-            const file = selectedFiles[index];
-
-            // Update upload progress for the current file
-            setUploadProgress((prev) => {
-              const newProgress = [...prev];
-              newProgress[index] = 50; // Set progress to 50% for the current file
-              return newProgress;
-            });
-
-            // Upload the file
-            const path = `Projects/${projectId}/v${comments.length + 1}/${
-              file.name
-            }`;
-            const url = await uploadToGitHub(file, path);
-
-            // Update upload progress to 100% for the current file
-            setUploadProgress((prev) => {
-              const newProgress = [...prev];
-              newProgress[index] = 100;
-              return newProgress;
-            });
-
-            // Add the uploaded file URL and name to the attachments array
-            attachments.push({ url, name: file.name });
-          }
+          // Use the new upload function
+          console.log("before github upload ",selectedFiles,projectId)
+          const uploadedFiles = await uploadCommentFilesToGitHub(selectedFiles, projectId, comments.length);
+          console.log("after upload : ",uploadedFiles)
+          attachments.push(...uploadedFiles);
         } catch (uploadError) {
           console.error("Failed to upload files:", uploadError);
           toast.error("Failed to upload files. Please try again.");
@@ -114,10 +92,6 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isAdmin && !isMember) {
-      toast.error("Only admin and members can add attachments");
-      return;
-    }
 
     const files = e.target.files;
     if (files) {
@@ -264,7 +238,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
           )}
 
           <div className="flex justify-between items-center">
-            {(isAdmin || isMember) && (
+            {(
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
