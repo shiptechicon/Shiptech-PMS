@@ -1,6 +1,15 @@
-import { create } from 'zustand';
-import { doc, getDoc, setDoc, collection, addDoc, getDocs } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { create } from "zustand";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  limit,
+} from "firebase/firestore";
+import { db, auth } from "../lib/firebase";
 
 interface Attachment {
   url: string;
@@ -14,7 +23,7 @@ interface Comment {
   user: {
     id: string;
     name: string;
-    role?: string;  // Add role to user info
+    role?: string; // Add role to user info
   };
   attachments?: Attachment[]; // Array of attachment objects (URL + name + number)
   createdAt: string;
@@ -29,110 +38,114 @@ interface CommentState {
   comments: Comment[];
   loading: boolean;
   error: string | null;
-  fetchComments: (projectId: string, userRole?: string) => Promise<void>;
-  addComment: (projectId: string, text: string, userRole: string, attachments?: Attachment[]) => Promise<void>;
+  commentsCount: number; // New state variable for tracking fetched pages
+  fetchComments: (
+    projectId: string,
+    userRole?: string,
+    page?: number
+  ) => Promise<void>;
+  addComment: (
+    projectId: string,
+    text: string,
+    userRole: string,
+    attachments?: Attachment[]
+  ) => Promise<void>;
 }
 
 export const useCommentStore = create<CommentState>((set, get) => ({
   comments: [],
   loading: false,
   error: null,
+  commentsCount: 0,
+  lastVisible: null,
 
-  fetchComments: async (projectId: string, userRole?: string) => {
+  fetchComments: async (
+    projectId: string,
+    userRole?: string,
+    page: number = 0
+  ) => {
+    console.log("page", page);
     try {
       set({ loading: true, error: null });
-      const commentsRef = collection(db, 'project_comments', projectId, 'comments');
-      const commentsSnapshot = await getDocs(commentsRef);
+      const commentsRef = collection(
+        db,
+        "project_comments",
+        projectId,
+        "comments"
+      );
+      const commentsQuery = query(commentsRef, limit(5)); // Fetch only 5 comments
+
+      const commentsSnapshot = await getDocs(commentsQuery);
+      let lastVisibleTemp = null;
+      if (!commentsSnapshot.empty) {
+        lastVisibleTemp =
+          commentsSnapshot.docs[commentsSnapshot.docs.length - 1]; // Store last document
+      }
 
       const comments: Comment[] = commentsSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as Comment[];
 
-      // Order comments by createdAt in descending order
-      comments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
       // If user is a member, filter out customer comments
-      if (userRole === 'member') {
+      if (userRole === "member") {
         set({
-          comments: comments.filter(comment => comment.user.role !== 'customer'),
+          comments: comments.filter(
+            (comment) => comment.user.role !== "customer"
+          ),
           loading: false,
+          commentsCount: page + 1, // Increment commentsCount
         });
       } else {
         set({
           comments,
           loading: false,
+          commentsCount: page + 1, // Increment commentsCount
         });
       }
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      console.error("Error fetching comments:", error);
       set({ error: (error as Error).message, loading: false });
     }
   },
 
-  addComment: async (projectId: string, text: string, userRole: string, attachments: Attachment[] = []) => {
+  addComment: async (
+    projectId: string,
+    text: string,
+    userRole: string,
+    attachments: Attachment[] = []
+  ) => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('User not authenticated');
+      if (!currentUser) throw new Error("User not authenticated");
 
-      // Determine the latest attachment number for admin/member and customer
-      const commentsRef = collection(db, 'project_comments', projectId, 'comments');
-      const commentsSnapshot = await getDocs(commentsRef);
-      const existingComments = commentsSnapshot.docs.map(doc => doc.data() as Comment);
-
-      let adminMemberAttachmentCount = 0;
-      let customerAttachmentCount = 0;
-
-      existingComments.forEach(comment => {
-        if (comment.attachments) {
-          comment.attachments.forEach(attachment => {
-            if (comment.user.role === 'admin' || comment.user.role === 'member') {
-              if (attachment.number.startsWith('v')) {
-                const number = parseInt(attachment.number.slice(1), 10);
-                if (number > adminMemberAttachmentCount) {
-                  adminMemberAttachmentCount = number;
-                }
-              }
-            } else if (comment.user.role === 'customer') {
-              if (attachment.number.startsWith('c')) {
-                const number = parseInt(attachment.number.slice(1), 10);
-                if (number > customerAttachmentCount) {
-                  customerAttachmentCount = number;
-                }
-              }
-            }
-          });
-        }
-      });
-
-      // Create new comment object
       const newComment: Comment = {
         id: crypto.randomUUID(),
         text,
         user: {
           id: currentUser.uid,
-          name: currentUser.email || 'Anonymous',
-          role: userRole,  // Include user role in comment
+          name: currentUser.email || "Anonymous",
+          role: userRole, // Include user role in comment
         },
-        attachments: attachments.map((attachment, index) => ({
-          ...attachment,
-          number: userRole === 'admin' || userRole === 'member' ? `v${adminMemberAttachmentCount + index + 1}` : `c${customerAttachmentCount + index + 1}`,
-        })),
+        attachments: attachments.length > 0 ? attachments : [], // Set to empty array if no attachments
         createdAt: new Date().toISOString(),
       };
 
       // Add the new comment as a document in the Firestore collection
-      await addDoc(collection(db, 'project_comments', projectId, 'comments'), newComment);
+      await addDoc(
+        collection(db, "project_comments", projectId, "comments"),
+        newComment
+      );
 
       // Update local state
-      set(state => ({
+      set((state) => ({
         comments: [newComment, ...state.comments],
         loading: false,
         error: null,
       }));
     } catch (error) {
-      console.error('Error adding comment:', error);
+      console.error("Error adding comment:", error);
       set({ error: (error as Error).message, loading: false });
       throw error;
     }

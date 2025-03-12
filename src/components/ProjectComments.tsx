@@ -20,8 +20,8 @@ interface ProjectCommentsProps {
 }
 
 export default function ProjectComments({ projectId }: ProjectCommentsProps) {
-  const { comments, loading, fetchComments, addComment } = useCommentStore();
-  const {  user , userData } = useAuthStore();
+  const { comments, loading, fetchComments, addComment, commentsCount } = useCommentStore();
+  const { user, userData } = useAuthStore();
   const [newComment, setNewComment] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -179,6 +179,10 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
       newProgress.splice(index, 1);
       return newProgress;
     });
+  };
+
+  const handleShowMore = async () => {
+    await fetchComments(projectId, userData?.role, commentsCount); // Fetch next 5 comments
   };
 
   return (
@@ -366,6 +370,17 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
               );
             })
           )}
+        </div>
+
+        {/* Show More Button */}
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={() => handleShowMore()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            disabled={loading}
+          >
+            Show More
+          </button>
         </div>
       </div>
     </div>
