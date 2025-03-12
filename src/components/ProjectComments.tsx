@@ -15,13 +15,14 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { uploadCommentFilesToGitHub } from "@/lib/githubComments";
 import { useNotificationStore } from "../store/notificationStore";
+import { Timestamp } from "firebase/firestore";
 
 interface ProjectCommentsProps {
   projectId: string;
 }
 
 export default function ProjectComments({ projectId }: ProjectCommentsProps) {
-  const { comments, loading, fetchComments, addComment, commentsCount } = useCommentStore();
+  const { comments, loading, fetchComments, addComment, fetchMoreComments, deleteComment } = useCommentStore();
   const { user, userData } = useAuthStore();
   const [newComment, setNewComment] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -34,7 +35,7 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
 
   useEffect(() => {
     if (projectId && userData?.role) {
-      fetchComments(projectId, userData.role);
+      fetchComments(projectId);
     }
   }, [projectId, userData?.role, fetchComments]);
 
@@ -162,8 +163,8 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (timestamp: Timestamp) => {
+    const date = timestamp.toDate();
     return date.toLocaleString();
   };
 
@@ -217,7 +218,14 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
   };
 
   const handleShowMore = async () => {
-    await fetchComments(projectId, userData?.role, commentsCount); // Fetch next 5 comments
+    await fetchMoreComments(projectId); // Fetch next 5 comments
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (window.confirm('Are you sure you want to delete this comment?')) {
+      await deleteComment(commentId);
+      toast.success('Comment deleted successfully');
+    }
   };
 
   return (
@@ -344,6 +352,14 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
                         </p>
                       </div>
                     </div>
+                    {comment.user.id === user?.uid && (
+                      <button
+                        onClick={() => handleDeleteComment(comment.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                   <div className="mt-5">
                     <p className="text-black whitespace-pre-wrap">
