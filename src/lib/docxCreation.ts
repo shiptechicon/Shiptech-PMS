@@ -28,11 +28,12 @@ function convertRichTextToDocx(htmlString: string, indent = 0) {
       paragraphs.push(
         new Paragraph({
           indent: {
-            left: indent,
+            left: indent+indent,
           },
-          children: [new TextRun({ text: element.textContent?.trim() ?? "" })],
+          children: [new TextRun({ text: element.textContent?.trim() ?? "", size: 24, })],
           spacing: {
-            after: 100,
+            after: 200,
+            before: 200,
           },
         })
       );
@@ -42,11 +43,17 @@ function convertRichTextToDocx(htmlString: string, indent = 0) {
           paragraphs.push(
             new Paragraph({
               indent: {
-                left: indent,
+                left: indent + indent,
               },
-              text: `• ${li.textContent?.trim() ?? ""}`,
+              children: [
+                new TextRun({
+                  text: `○ ${li.textContent?.trim() ?? ""}`,
+                  size: 24,
+                }),
+              ],
               spacing: {
-                after: 100,
+                after: 200,
+                before: 200,
               },
             })
           );
@@ -62,18 +69,34 @@ function breakLineBy(text: string, delimiter: string) {
   return text.split(delimiter).map((line) => line.trim());
 }
 
-function tableCell(text: string, bold: boolean = false) {
+function tableCell(
+  text: string,
+  bold: boolean = false,
+  isHeader: boolean = false,
+  fontSize: number = 22
+) {
   return new TableCell({
     children: [
       new Paragraph({
-        children: [new TextRun({ text, bold })],
+        children: [new TextRun({ text, bold, size: fontSize })],
+        spacing: {
+          before: 100,
+          after: 100,
+        },
+        alignment: "center",
       }),
     ],
+    shading: isHeader
+      ? {
+          fill: "9ACCFF", // Set your desired background color here (e.g., light green)
+        }
+      : undefined, // No shading for non-header cells
   });
 }
 
-function titleAndValue(title: string, value: string | string[], indent = 0) {
+function titleAndValue(title: string, value: string | string[], indent = 400) {
   const isValueArray = Array.isArray(value);
+  // console.log(`value of ${title}`,value)
 
   return [
     new Paragraph({
@@ -85,10 +108,12 @@ function titleAndValue(title: string, value: string | string[], indent = 0) {
           text: title,
           bold: true,
           underline: { color: "000000" },
+          size: 24,
         }),
       ],
       spacing: {
         after: 100,
+        before: 200,
       },
     }),
     ...(isValueArray
@@ -96,22 +121,26 @@ function titleAndValue(title: string, value: string | string[], indent = 0) {
           (item) =>
             new Paragraph({
               indent: {
-                left: indent,
+                left: indent + indent,
               },
-              children: [new TextRun({ text: "• " + item, bold: false })],
+              children: [
+                new TextRun({ text: "• " + item, bold: false, size: 24 }),
+              ],
               spacing: {
                 after: 100,
+                before: 200,
               },
             })
         )
       : [
           new Paragraph({
             indent: {
-              left: indent,
+              left: indent + indent,
             },
-            children: [new TextRun({ text: value, bold: false })],
+            children: [new TextRun({ text: value, bold: false, size: 24 })],
             spacing: {
               after: 100,
+              before: 200,
             },
           }),
         ]),
@@ -203,7 +232,6 @@ export const createQuotation = async (
             new Table({
               width: { size: "100%", type: WidthType.PERCENTAGE },
               layout: "autofit",
-              columnWidths: [50, 50],
               borders: borderHidden,
               rows: [
                 new TableRow({
@@ -214,34 +242,57 @@ export const createQuotation = async (
                       borders: borderHidden,
                       children: [
                         new Paragraph({
-                          text: "ShipTech-ICON,",
+                          children: [
+                            new TextRun({
+                              text: "ShipTech-ICON,",
+                              size: 24, // Increase font size
+                            }),
+                          ],
+                          alignment: "left",
+                          spacing: { after: 0 }, // Remove spacing after to avoid vertical line
+                        }),
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "CITTIC, CUSAT TBI",
+                              size: 24, // Increase font size
+                            }),
+                          ],
+                          alignment: "left",
+                          spacing: { after: 0 }, // Remove spacing after to avoid vertical line
+                        }),
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "CUSAT, Kochi-22",
+                              size: 24, // Increase font size
+                            }),
+                          ],
+                          alignment: "left",
+                          spacing: { after: 0 }, // Remove spacing after to avoid vertical line
+                        }),
+                        new Paragraph({
+                          spacing: {
+                            before: 200,
+                          },
+                          children: [
+                            new TextRun({
+                              text: `Ref: No: E513/QT/0124/01`,
+                              size: 24, // Increase font size
+                            }),
+                          ],
                           alignment: "left",
                         }),
                         new Paragraph({
-                          text: "CITTIC, CUSAT TBI",
                           alignment: "left",
-                        }),
-                        new Paragraph({
-                          text: "CUSAT, Kochi-22",
-                          alignment: "left",
-                        }),
-                      ],
-                    }),
-                    new TableCell({
-                      borders: borderHidden,
-                      children: [
-                        new Paragraph({
-                          text: `Ref: No: E513/QT/0124/01`,
-                          alignment: "right",
-                        }),
-                        new Paragraph({
-                          alignment: "right",
                           children: [
                             new TextRun({
                               text: `Date: ${formatedDate}`,
                               bold: true,
+                              size: 24, // Increase font size
                             }),
                           ],
+                          spacing: { after: 0 }, // Remove spacing after to avoid vertical line
                         }),
                       ],
                     }),
@@ -259,6 +310,7 @@ export const createQuotation = async (
                 new TextRun({
                   text: "To,",
                   bold: true,
+                  size: 24,
                 }),
               ],
             }),
@@ -274,6 +326,7 @@ export const createQuotation = async (
                     new TextRun({
                       text: line,
                       bold: true,
+                      size: 24,
                     }),
                   ],
                   spacing: {
@@ -290,6 +343,7 @@ export const createQuotation = async (
               children: [
                 new TextRun({
                   text: `Kind Attn: ${customer.name}`,
+                  size: 24,
                 }),
               ],
               spacing: {
@@ -306,6 +360,7 @@ export const createQuotation = async (
               children: [
                 new TextRun({
                   text: "Dear Sir,",
+                  size: 24,
                 }),
               ],
               spacing: {
@@ -326,10 +381,12 @@ export const createQuotation = async (
                   underline: {
                     color: "000000",
                   },
+                  size: 24,
                 }),
               ],
               spacing: {
                 before: 400,
+                after: 100,
               },
             }),
 
@@ -345,10 +402,11 @@ export const createQuotation = async (
                   underline: {
                     color: "000000",
                   },
+                  size: 24,
                 }),
               ],
               spacing: {
-                after: 200,
+                after: 500,
               },
             }),
 
@@ -362,11 +420,15 @@ export const createQuotation = async (
               rows: [
                 new TableRow({
                   children: [
-                    tableCell("No.", true),
-                    tableCell("Description of Services", true),
-                    tableCell("Rate", true),
-                    tableCell("Qty", true),
-                    tableCell(`Amount${" "}(${enquiry.currency?.name})`, true),
+                    tableCell("No.", true, true),
+                    tableCell("Description of Services", true, true),
+                    tableCell("Rate", true, true),
+                    tableCell("Qty", true, true),
+                    tableCell(
+                      `Amount${" "}(${enquiry.currency?.name})`,
+                      true,
+                      true
+                    ),
                   ],
                 }),
                 new TableRow({
@@ -411,15 +473,17 @@ export const createQuotation = async (
                   underline: {
                     color: "000000",
                   },
+                  size: 24,
                 }),
               ],
               spacing: {
-                after: 150,
-                before : 150
+                after: 500,
+                before: 500,
               },
             }),
 
             ...titleAndValue("Charges Included", enquiry.charges, 600),
+
             ...titleAndValue(
               "Tax",
               "GST will be applicable extra as per existing rules (if any). ",
@@ -431,13 +495,134 @@ export const createQuotation = async (
               600
             ),
 
+            //deliverables
             new Paragraph({
-              spacing : {
-                after : 100,
-                before : 100
-              }
+              indent: {
+                left: 600,
+              },
+              children: [
+                new TextRun({
+                  text: "Deliverables",
+                  bold: true,
+                  underline: { color: "000000" },
+                  size: 24,
+                }),
+              ],
+              spacing: {
+                after: 100,
+                before: 200,
+              },
             }),
-            
+            ...convertRichTextToDocx(enquiry.scopeOfWork, 600),
+
+            new Paragraph({
+              spacing: {
+                after: 100,
+                before: 100,
+              },
+            }),
+
+            //scope of work
+            new Paragraph({
+              indent: {
+                left: 600,
+              },
+              children: [
+                new TextRun({
+                  text: "Scope of work",
+                  bold: true,
+                  underline: { color: "000000" },
+                  size: 24,
+                }),
+              ],
+              spacing: {
+                after: 0,
+                before: 200,
+              },
+            }),
+            ...enquiry.deliverables
+              .map((d) => [
+                new Paragraph({
+                  indent: {
+                    left: 900,
+                  },
+                  children: [
+                    new TextRun({
+                      text: `• ${d.name}`,
+                      size: 24,
+                    }),
+                  ],
+                  spacing: {
+                    after: 0,
+                    before: 200,
+                  },
+                }),
+                ...convertRichTextToDocx(d.description as string, 600),
+              ])
+              .flat(),
+
+            ...titleAndValue(
+              "Modifications",
+              "Slight modifications if any can be incorporated without any additional charges.  However major modifications or design changes if any will be charged extra. ",
+              600
+            ),
+            ...titleAndValue(
+              "Force Majeure",
+              "Will apply, especially with respect to the current pandemic situation.",
+              600
+            ),
+            ...titleAndValue(
+              "Validity",
+              "This offer is valid for a period of 5 days from today.",
+              600
+            ),
+
+            // DELIVERY SCHEDULE
+            new Paragraph({
+              indent: {
+                left: 600,
+              },
+              children: [
+                new TextRun({
+                  text: "DELIVERY SCHEDULE",
+                  bold: true,
+                  underline: {
+                    color: "000000",
+                  },
+                  size: 24,
+                }),
+              ],
+              spacing: {
+                after: 500,
+                before: 500,
+              },
+            }),
+
+            // first table
+            new Table({
+              width: {
+                size: 100,
+                type: WidthType.PERCENTAGE,
+              },
+              columnWidths: [5, 50, 10, 10, 10, 15],
+              rows: [
+                new TableRow({
+                  children: [
+                    tableCell("SL.NO.", true, true),
+                    tableCell("SCOPE OF WORK", true, true),
+                    tableCell("DURATION", true, true),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    tableCell("1", false),
+                    tableCell(`${enquiry.name}`, false),
+                    tableCell("asd", false),
+                  ],
+                }),
+              ],
+            }),
+
             // bank details
             new Table({
               width: {
@@ -484,77 +669,10 @@ export const createQuotation = async (
               ],
             }),
 
-            //deliverables
-            new Paragraph({
-              indent: {
-                left: 600,
-              },
-              children: [
-                new TextRun({
-                  text: "Deliverables",
-                  bold: true,
-                  underline: { color: "000000" },
-                }),
-              ],
-              spacing: {
-                after: 100,
-                before : 100
-              },
-            }),
-            ...convertRichTextToDocx(enquiry.scopeOfWork, 600), //scoper of work is deliverables
-
-            //scope of work
-            new Paragraph({
-              indent: {
-                left: 600,
-              },
-              children: [
-                new TextRun({
-                  text: "Scope of work",
-                  bold: true,
-                  underline: { color: "000000" },
-                }),
-              ],
-              spacing: {
-                after: 100,
-              },
-            }),
-            ...enquiry.deliverables
-              .map((d) => [
-                new Paragraph({
-                  indent: {
-                    left: 600,
-                  },
-                  children: [
-                    new TextRun({
-                      text: `○ ${d.name}`,
-                    }),
-                  ],
-                }),
-                ...convertRichTextToDocx(d.description as string, 1000),
-              ])
-              .flat(),
-
-            ...titleAndValue(
-              "Modifications",
-              "Slight modifications if any can be incorporated without any additional charges.  However major modifications or design changes if any will be charged extra. ",
-              600
-            ),
-            ...titleAndValue(
-              "Force Majeure",
-              "Will apply, especially with respect to the current pandemic situation.",
-              600
-            ),
-            ...titleAndValue(
-              "Validity",
-              "This offer is valid for a period of 5 days from today.",
-              600
-            ),
-
             // tankyou
             new Paragraph({
-              spacing : {
-                before : 250
+              spacing: {
+                before: 250,
               },
               text: "Thanking you,",
             }),
