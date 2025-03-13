@@ -28,9 +28,11 @@ function convertRichTextToDocx(htmlString: string, indent = 0) {
       paragraphs.push(
         new Paragraph({
           indent: {
-            left: indent+indent,
+            left: indent + indent,
           },
-          children: [new TextRun({ text: element.textContent?.trim() ?? "", size: 24, })],
+          children: [
+            new TextRun({ text: element.textContent?.trim() ?? "", size: 24 }),
+          ],
           spacing: {
             after: 200,
             before: 200,
@@ -94,28 +96,60 @@ function tableCell(
   });
 }
 
+function addSpace(space: number) {
+  return new Paragraph({
+    spacing: {
+      before: space,
+      after: space,
+    },
+  });
+}
+
+function Text(text: string, bold = false, size = 24, indext = 600) {
+  return new Paragraph({
+    indent: {
+      left: indext,
+    },
+    children: [
+      new TextRun({
+        text,
+        bold,
+        size,
+      }),
+    ],
+    spacing: {
+      after: 100,
+      before: 200,
+    },
+  });
+}
+
+function Title(title: string, indent = 400) {
+  return new Paragraph({
+    indent: {
+      left: indent,
+    },
+    children: [
+      new TextRun({
+        text: title,
+        bold: true,
+        underline: { color: "000000" },
+        size: 24,
+      }),
+    ],
+    spacing: {
+      after: 100,
+      before: 200,
+    },
+  });
+}
+
 function titleAndValue(title: string, value: string | string[], indent = 400) {
   const isValueArray = Array.isArray(value);
   // console.log(`value of ${title}`,value)
 
   return [
-    new Paragraph({
-      indent: {
-        left: indent,
-      },
-      children: [
-        new TextRun({
-          text: title,
-          bold: true,
-          underline: { color: "000000" },
-          size: 24,
-        }),
-      ],
-      spacing: {
-        after: 100,
-        before: 200,
-      },
-    }),
+    Title(title, indent),
     ...(isValueArray
       ? value.map(
           (item) =>
@@ -413,7 +447,7 @@ export const createQuotation = async (
             // first table
             new Table({
               width: {
-                size: 100,
+                size: "100%",
                 type: WidthType.PERCENTAGE,
               },
               columnWidths: [5, 50, 10, 10, 10, 15],
@@ -431,18 +465,31 @@ export const createQuotation = async (
                     ),
                   ],
                 }),
-                new TableRow({
-                  children: [
-                    tableCell("1", false),
-                    tableCell(`${enquiry.name}`, false),
-                    tableCell("", false),
-                    tableCell("", false),
-                    tableCell(
-                      `${enquiry.currency?.symbol}${totalAmount}/-`,
-                      false
-                    ),
-                  ],
-                }),
+                ...enquiry.deliverables
+                  .map((deliverable) => [
+                    new TableRow({
+                      children: [
+                        tableCell(
+                          `${enquiry.deliverables.indexOf(deliverable) + 1}`,
+                          false
+                        ),
+                        tableCell(deliverable.name, false),
+                        tableCell(
+                          `${enquiry.currency?.symbol}${deliverable.costPerHour}/-`,
+                          false
+                        ),
+                        tableCell(`${deliverable.hours}`, false),
+                        tableCell(
+                          `${enquiry.currency?.symbol}${
+                            (deliverable.costPerHour ?? 0) *
+                            (deliverable.hours ?? 0)
+                          }/-`,
+                          false
+                        ),
+                      ],
+                    }),
+                  ])
+                  .flat(),
                 new TableRow({
                   children: [
                     tableCell("", false),
@@ -461,147 +508,57 @@ export const createQuotation = async (
               ],
             }),
 
+            addSpace(200),
+
             // terms and conditions
-            new Paragraph({
-              indent: {
-                left: 600,
-              },
-              children: [
-                new TextRun({
-                  text: "TERMS & CONDITIONS",
-                  bold: true,
-                  underline: {
-                    color: "000000",
-                  },
-                  size: 24,
-                }),
-              ],
-              spacing: {
-                after: 500,
-                before: 500,
-              },
-            }),
+            Title("Terms and Conditions"),
 
-            ...titleAndValue("Charges Included", enquiry.charges, 600),
+            //inputs required
+            ...titleAndValue("Inputs Required", enquiry.inputsRequired),
 
-            ...titleAndValue(
-              "Tax",
-              "GST will be applicable extra as per existing rules (if any). ",
-              600
-            ),
-            ...titleAndValue(
-              "Payment Mode",
-              "Direct transfer within Ten Working days from the date of invoice, in favor of SHIP TECHNOLOGY INDUSTRIAL CONSULTANCY as mentioned below",
-              600
-            ),
+            addSpace(200),
 
             //deliverables
-            new Paragraph({
-              indent: {
-                left: 600,
-              },
-              children: [
-                new TextRun({
-                  text: "Deliverables",
-                  bold: true,
-                  underline: { color: "000000" },
-                  size: 24,
-                }),
-              ],
-              spacing: {
-                after: 100,
-                before: 200,
-              },
-            }),
+            Title("Deliverables"),
             ...convertRichTextToDocx(enquiry.scopeOfWork, 600),
 
-            new Paragraph({
-              spacing: {
-                after: 100,
-                before: 100,
-              },
-            }),
+            addSpace(200),
 
             //scope of work
-            new Paragraph({
-              indent: {
-                left: 600,
-              },
-              children: [
-                new TextRun({
-                  text: "Scope of work",
-                  bold: true,
-                  underline: { color: "000000" },
-                  size: 24,
-                }),
-              ],
-              spacing: {
-                after: 0,
-                before: 200,
-              },
-            }),
-            ...enquiry.deliverables
-              .map((d) => [
-                new Paragraph({
-                  indent: {
-                    left: 900,
-                  },
-                  children: [
-                    new TextRun({
-                      text: `• ${d.name}`,
-                      size: 24,
-                    }),
-                  ],
-                  spacing: {
-                    after: 0,
-                    before: 200,
-                  },
-                }),
-                ...convertRichTextToDocx(d.description as string, 600),
-              ])
-              .flat(),
+            Title("Scope of Work"),
+            ...enquiry.deliverables.flatMap((d) => [
+              new Paragraph({
+                indent: {
+                  left: 900,
+                },
+                children: [
+                  new TextRun({
+                    text: `• ${d.name}`,
+                    size: 24,
+                  }),
+                ],
+                spacing: {
+                  after: 0,
+                  before: 200,
+                },
+              }),
+              ...convertRichTextToDocx(d.description as string, 600),
+            ]),
 
-            ...titleAndValue(
-              "Modifications",
-              "Slight modifications if any can be incorporated without any additional charges.  However major modifications or design changes if any will be charged extra. ",
-              600
-            ),
-            ...titleAndValue(
-              "Force Majeure",
-              "Will apply, especially with respect to the current pandemic situation.",
-              600
-            ),
-            ...titleAndValue(
-              "Validity",
-              "This offer is valid for a period of 5 days from today.",
-              600
-            ),
+            addSpace(200),
+
+            //exclusions
+            ...titleAndValue("Exclusions", enquiry.exclusions),
+
+            addSpace(200),
 
             // DELIVERY SCHEDULE
-            new Paragraph({
-              indent: {
-                left: 600,
-              },
-              children: [
-                new TextRun({
-                  text: "DELIVERY SCHEDULE",
-                  bold: true,
-                  underline: {
-                    color: "000000",
-                  },
-                  size: 24,
-                }),
-              ],
-              spacing: {
-                after: 500,
-                before: 500,
-              },
-            }),
-
-            // first table
+            Title("Delivery Schedule"),
+            addSpace(200),
+            // delivery schedule table
             new Table({
               width: {
-                size: 100,
+                size: "100%",
                 type: WidthType.PERCENTAGE,
               },
               columnWidths: [5, 50, 10, 10, 10, 15],
@@ -613,16 +570,44 @@ export const createQuotation = async (
                     tableCell("DURATION", true, true),
                   ],
                 }),
+
+                ...enquiry.deliverables.flatMap((deliverable, index) => [
+                  new TableRow({
+                    children: [
+                      tableCell(`${index + 1}`, false),
+                      tableCell(deliverable.name, false),
+                      tableCell(`${deliverable.hours} hours`, false),
+                    ],
+                  }),
+                ]),
+
                 new TableRow({
                   children: [
-                    tableCell("1", false),
-                    tableCell(`${enquiry.name}`, false),
-                    tableCell("asd", false),
+                    tableCell("", false),
+                    tableCell("Total Duration", true),
+                    tableCell(`${totalDuration} hours`, true),
                   ],
                 }),
               ],
             }),
 
+            addSpace(200),
+
+            ...titleAndValue("Charges Included", enquiry.charges),
+
+            addSpace(200),
+
+            ...titleAndValue(
+              "Tax",
+              "GST will be applicable extra as per existing rules (if any). "
+            ),
+
+            addSpace(200),
+
+            ...titleAndValue(
+              "Payment Mode",
+              "Direct transfer within Ten Working days from the date of invoice, in favor of SHIP TECHNOLOGY INDUSTRIAL CONSULTANCY as mentioned below"
+            ),
             // bank details
             new Table({
               width: {
@@ -669,71 +654,39 @@ export const createQuotation = async (
               ],
             }),
 
+
+            addSpace(200),
+
+            ...titleAndValue(
+              "Modifications",
+              "Slight modifications if any can be incorporated without any additional charges.  However major modifications or design changes if any will be charged extra. "
+            ),
+
+            addSpace(200),
+
+            ...titleAndValue(
+              "Force Majeure",
+              "Will apply, especially with respect to the current pandemic situation."
+            ),
+
+            addSpace(200),
+
+            ...titleAndValue(
+              "Validity",
+              "This offer is valid for a period of 5 days from today."
+            ),
+
+            addSpace(400),
+
             // tankyou
-            new Paragraph({
-              spacing: {
-                before: 250,
-              },
-              text: "Thanking you,",
-            }),
-
-            // fullname
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `${userData.fullName}`,
-                  bold: true,
-                }),
-              ],
-            }),
-
-            //use designation
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `${userData.designation ?? "User"}`,
-                  bold: true,
-                }),
-              ],
-            }),
-
-            // company info
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "ShipTech-ICON",
-                  bold: true,
-                }),
-              ],
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "CITTIC, CUSAT TBI",
-                }),
-              ],
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "CUSAT, Kochi-22",
-                }),
-              ],
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "Email: stl@shiptech-icon.com",
-                }),
-              ],
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "Web: http://www.shiptech-icon.com ",
-                }),
-              ],
-            }),
+            Text("Thanking you,"),
+            Text(userData.fullName ?? "User", true),
+            Text(userData.designation ?? "Designation", true),
+            Text("SHIP TECHNOLOGY INDUSTRIAL CONSULTANCY", true),
+            Text("CITTIC, CUSAT TBI", true),
+            Text("CUSAT, Kochi-22", true),
+            Text("Email: stl@shiptech-icon.com"),
+            Text("Web: http://www.shiptech-icon.com"),
           ],
         },
       ],
