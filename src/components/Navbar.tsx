@@ -184,7 +184,7 @@ export default function Navbar() {
                 Sign In
               </Link>
             )}
-            {userData?.role !== "admin" && <NotificationDropdown />}
+            {userData?.role === "admin" && <NotificationDropdown />}
           </div>
 
           
