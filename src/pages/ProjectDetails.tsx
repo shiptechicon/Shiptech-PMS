@@ -517,6 +517,13 @@ export default function ProjectDetails() {
                 customerEmail={customerEmail}
                 customerName={project.customer.name}
               />
+              <button
+                onClick={() => navigate(`/dashboard/projects/${id}/documents`)}
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Documents
+              </button>
             </>
           )}
           {project.status === "completed" && (
@@ -537,13 +544,7 @@ export default function ProjectDetails() {
               Edit Project
             </button>
           )}
-          <button
-            onClick={() => navigate(`/dashboard/projects/${id}/documents`)}
-            className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Documents
-          </button>
+          
         </div>
       </div>
 
