@@ -230,7 +230,7 @@ export default function Dashboard() {
               {!isCollapsed && <span>Todos</span>}
             </NavLink>
             <NavLink
-              to="/dashboard/outsource-teams/*"
+              to="/dashboard/outsource-teams/"
               className={({ isActive }) =>
                 `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${
                   isActive

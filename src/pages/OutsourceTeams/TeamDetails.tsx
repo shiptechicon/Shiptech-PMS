@@ -39,7 +39,7 @@ const PaymentModal = ({ settlement, onClose, onSubmit, onUndoPayment, viewOnly }
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
           >
-            ×
+            X
           </button>
         </div>
 
@@ -172,7 +172,6 @@ export default function TeamDetails() {
   const { fetchTeamSettlements, addPayment, updateSettlement } = useSettlementStore();
   const [team, setTeam] = useState<OutsourceTeam | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tasks' | 'settlements'>('tasks');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [selectedSettlement, setSelectedSettlement] = useState<Settlement | null>(null);
@@ -272,6 +271,15 @@ export default function TeamDetails() {
     }
   };
 
+  // Combine tasks with their corresponding settlements
+  const combinedData = tasks.map(task => {
+    const taskSettlement = settlements.find(settlement => settlement.task_id === task.id);
+    return {
+      task,
+      settlement: taskSettlement || null
+    };
+  });
+
   if (loading)
     return (
       <div>
@@ -332,143 +340,62 @@ export default function TeamDetails() {
             ))}
           </div>
         </div>
-      </div>
 
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('tasks')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'tasks'
-                  ? 'border-black text-black'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Tasks
-            </button>
-            <button
-              onClick={() => setActiveTab('settlements')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'settlements'
-                  ? 'border-black text-black'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Settlements
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      {activeTab === 'tasks' && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-              Outsourced Tasks
-            </h3>
-            <div className="space-y-4">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="border rounded-lg p-4 hover:bg-gray-50"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium">{task.name}</h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {task.description}
-                      </p>
-                    </div>
-                    <div className="flex items-center">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${
-                          task.completed
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {task.completed ? "Completed" : "In Progress"}
-                      </span>
-                    </div>
+        <div>
+          <h2 className="text-lg font-semibold mb-2">Outsourced Tasks and Settlement Status</h2>
+          <div className="space-y-4">
+            {combinedData.map(({ task, settlement }) => (
+              <div key={task.id} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-medium">{task.name}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                  </div>
+                  <div className="flex items-center">
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded ${
+                        task.completed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      Task is : {task.completed ? "Completed" : "In Progress"}
+                    </span>
                   </div>
                 </div>
-              ))}
-              {tasks.length === 0 && (
-                <p className="text-gray-500 text-center py-4">
-                  No tasks have been outsourced to this team yet.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'settlements' && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-              Settlements
-            </h3>
-            <div className="space-y-4">
-              {settlements.map((settlement) => {
-                const totalPaid = settlement.amounts_paid.reduce(
-                  (sum, payment) => sum + parseFloat(payment.amount),
-                  0
-                );
-                const balance = parseFloat(settlement.total_amount) - totalPaid;
-
-                return (
-                  <div
-                    key={settlement.id}
-                    className="border rounded-lg p-4"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium">Settlement #{settlement.id.slice(-6)}</h4>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Total Amount: ₹{settlement.total_amount}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Balance: ₹{balance.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded ${
-                            settlement.status === 'completed'
-                              ? "bg-green-100 text-green-800"
-                              : settlement.status === 'partial'
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {settlement.status.charAt(0).toUpperCase() + settlement.status.slice(1)}
-                        </span>
-                        <button
-                          onClick={() => setSelectedSettlement(settlement)}
-                          className={`px-3 py-1 text-sm rounded hover:bg-opacity-80 ${
-                            settlement.status === 'completed'
-                              ? "bg-gray-100 text-gray-700"
-                              : "bg-blue-600 text-white"
-                          }`}
-                        >
-                          {settlement.status === 'completed' ? 'View Details' : 'Settle'}
-                        </button>
-                      </div>
-                    </div>
+                {settlement && (
+                  <div className="mt-2">
+                    <h5 className="font-medium">Settlement Details</h5>
+                    <p className="text-sm text-gray-600">Total Amount: ₹{settlement.total_amount}</p>
+                    <p className="text-sm text-gray-600">Balance: ₹{(parseFloat(settlement.total_amount) - settlement.amounts_paid.reduce((sum, payment) => sum + parseFloat(payment.amount), 0)).toFixed(2)}</p>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded ${
+                        settlement.status === 'completed' ? "bg-green-100 text-green-800" :
+                        settlement.status === 'partial' ? "bg-yellow-100 text-yellow-800" :
+                        "bg-red-100 text-red-800"
+                      }`}
+                      onClick={() => setSelectedSettlement(settlement)}
+                    >
+                      {settlement.status.charAt(0).toUpperCase() + settlement.status.slice(1)}
+                    </span>
+                    <button
+                      onClick={() => setSelectedSettlement(settlement)}
+                      className={`mt-2 px-3 py-1 text-sm rounded hover:bg-opacity-80 ${
+                        settlement.status === 'completed'
+                          ? "bg-gray-100 text-gray-700"
+                          : "bg-blue-600 text-white"
+                      }`}
+                    >
+                      {settlement.status === 'completed' ? 'View Details' : 'Settle'}
+                    </button>
                   </div>
-                );
-              })}
-              {settlements.length === 0 && (
-                <p className="text-gray-500 text-center py-4">
-                  No settlements found for this team.
-                </p>
-              )}
-            </div>
+                )}
+              </div>
+            ))}
+            {combinedData.length === 0 && (
+              <p className="text-gray-500 text-center py-4">No tasks or settlements found for this team.</p>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {selectedSettlement && (
         <PaymentModal
