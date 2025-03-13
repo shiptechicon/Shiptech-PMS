@@ -94,26 +94,18 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
             return;
           }
         }
-
-        // Only add notification if files were successfully uploaded
-        if (attachments.length > 0) {
-          await addNotification(
-            `${user?.displayName || 'User'} added **${attachments.length} attachment(s)** to project`,
-            `/dashboard/projects/${projectId}`,
-            user?.uid as string
-          );
-        }
       }
 
       // Add the comment with attachment URLs and names
       await addComment(projectId, newComment, userData?.role as string, attachments);
       
-      // Add notification for comment
-      await addNotification(
-        `${userData?.fullName || 'User'} added a **comment** to project`,
-        `/dashboard/projects/${projectId}`,
-        user?.uid as string
-      );
+      if(userData?.role !== "admin"){
+        await addNotification(
+          `${userData?.fullName || 'User'} requested **leave**`,
+          `/dashboard/attendance`,
+          user?.uid as string
+        );
+      }
 
       setNewComment("");
       setSelectedFiles([]);
