@@ -10,6 +10,7 @@ import { useAuthStore } from "./store/authStore";
 import CustomerLogin from "./pages/CustomerLogin";
 import CustomerViewingDetails from "./pages/customerViewingDetails";
 import CustomerProject from "./pages/CustomerProject";
+import Test from "./pages/Test";
 
 function PrivateRoute({
   children,
@@ -122,6 +123,7 @@ function App() {
         <Route path="/customer" element={<PrivateRoute allowedRoles={["customer"]}><CustomerViewingDetails /></PrivateRoute>} />
         <Route path="/customer/projects/:projectId" element={<CustomerProjectWrapper />} />
         <Route path="/" element={<Navigate to={userData?.role === "customer" ? "/customer" : "/dashboard"} />} />
+        <Route path="/test" element={<Test/>} />
         <Route path="*" element={<Navigate to={userData?.role === "customer" ? "/customer" : "/dashboard"} />} />
       </Routes>
       <Toaster position="top-right" />

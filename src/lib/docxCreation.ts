@@ -311,7 +311,7 @@ export const createQuotation = async (
                           },
                           children: [
                             new TextRun({
-                              text: `Ref: No: E513/QT/0124/01`,
+                              text: `Ref: No: ${enquiry.__id}`,
                               size: 24, // Increase font size
                             }),
                           ],
