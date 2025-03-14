@@ -80,7 +80,7 @@ export default function EnquiryForm() {
     fetchEnquiry,
     loading: storeLoading,
   } = useEnquiryStore();
-  const { fetchCustomers, customers } = useCustomerStore();
+  const { customers, fetchCustomer } = useCustomerStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
@@ -103,8 +103,6 @@ export default function EnquiryForm() {
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchCustomers();
-
       if (id) {
         const enquiry = await fetchEnquiry(id);
         if (enquiry) {
@@ -130,9 +128,7 @@ export default function EnquiryForm() {
           });
 
           if (enquiry.customer_id) {
-            const customer = customers.find(
-              (c) => c.id === enquiry.customer_id
-            );
+            const customer = await fetchCustomer(enquiry.customer_id);
             if (customer) {
               setSelectedCustomer(customer);
             }
@@ -142,7 +138,7 @@ export default function EnquiryForm() {
     };
 
     loadData();
-  }, [id, fetchEnquiry, fetchCustomers]);
+  }, [id, fetchEnquiry, fetchCustomer]);
 
   const handleCustomerSelect = (customer: Customer) => {
     setSelectedCustomer(customer);

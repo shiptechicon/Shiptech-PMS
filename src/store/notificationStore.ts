@@ -70,7 +70,6 @@ export const useNotificationStore = create<NotificationStore>()(
       },
 
       fetchNotifications: async (userId: string) => {
-        console.log("hello",userId)
         set({ loading: true, error: null });
         
         try {

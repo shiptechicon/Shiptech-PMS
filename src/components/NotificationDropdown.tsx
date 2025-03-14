@@ -10,11 +10,8 @@ export default function NotificationDropdown() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  console.log("hello");
-
   // Fetch notifications on component mount, when user changes, and when fetchNotifications changes
   React.useEffect(() => {
-    console.log("hello");
     
     const fetchData = async () => {
       if (user?.uid) {
