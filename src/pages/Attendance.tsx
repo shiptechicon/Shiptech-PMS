@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 import AttendanceCalendar from "@/components/AttendanceCalendar";
 import { AdminAttendanceMarker } from "@/components/AdminAttendanceMarker";
 import { useNotificationStore } from "../store/notificationStore";
+import { Holiday, useHolidayStore } from "../store/holidayStore";
 
 interface User {
   id: string;
@@ -24,7 +25,7 @@ export interface MonthlyAttendance {
   records: {
     date: string;
     time: string;
-    type: 'full' | 'half';
+    type: "full" | "half";
   }[];
 }
 
@@ -39,18 +40,39 @@ export default function Attendance() {
     removeAttendance,
   } = useAttendanceStore();
   const { user, userData } = useAuthStore();
-  const { requestLeave, fetchUserLeaveRequests, allLeaveRequests, fetchAllLeaveRequests } =
-    useLeaveStore();
-  const { requestWorkFrom, fetchUserWorkFromRequests, allWorkFromRequests, fetchAllWorkFromRequests } =
-    useWorkFromStore();
-  const { requestOOO, fetchUserOOORequests, allOOORequests, fetchAllOOORequests } = useOOOStore();
+  const {
+    requestLeave,
+    fetchUserLeaveRequests,
+    allLeaveRequests,
+    fetchAllLeaveRequests,
+  } = useLeaveStore();
+  const {
+    requestWorkFrom,
+    fetchUserWorkFromRequests,
+    allWorkFromRequests,
+    fetchAllWorkFromRequests,
+  } = useWorkFromStore();
+  const {
+    requestOOO,
+    fetchUserOOORequests,
+    allOOORequests,
+    fetchAllOOORequests,
+  } = useOOOStore();
+  const { addNotification } = useNotificationStore();
   const [isAdmin, setIsAdmin] = useState(false);
+  const { holidays, fetchHolidays, addHoliday, updateHoliday, removeHoliday } =
+    useHolidayStore();
+  const [holidayName, setHolidayName] = useState("");
+  const [holidayStartDate, setHolidayStartDate] = useState("");
+  const [holidayEndDate, setHolidayEndDate] = useState("");
+  const [selectedHolidayId, setSelectedHolidayId] = useState<string | null>(
+    null
+  );
   const [users, setUsers] = useState<Record<string, User>>({});
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [monthlyAttendance, setMonthlyAttendance] = useState<
     MonthlyAttendance[]
   >([]);
-  const { addNotification } = useNotificationStore();
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
 
   // Modal states
@@ -61,29 +83,34 @@ export default function Attendance() {
     startDate: "",
     endDate: "",
     reason: "",
-    leaveType: "full" as 'full' | 'half'
+    leaveType: "full" as "full" | "half",
   });
   const [workFromForm, setWorkFromForm] = useState({
     startDate: "",
     endDate: "",
-    reason: ""
+    reason: "",
   });
   const [oooForm, setOOOForm] = useState({
     startDate: "",
     endDate: "",
-    reason: ""
+    reason: "",
   });
 
   const [showEndDateInput, setShowEndDateInput] = useState(false);
 
   // Add state for the attendance marker modal
   const [showAttendanceMarker, setShowAttendanceMarker] = useState(false);
+  const [showHolidayMarker, setShowHolidayMarker] = useState(false);
 
-  const [attendanceType, setAttendanceType] = useState<'full' | 'half'>('full');
+  const [attendanceType, setAttendanceType] = useState<"full" | "half">("full");
 
-  const [showUpdateAttendanceModal, setShowUpdateAttendanceModal] = useState(false);
-  const [selectedAttendanceType, setSelectedAttendanceType] = useState<'full' | 'half'>('full');
-  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<Date | null>(null);
+  const [showUpdateAttendanceModal, setShowUpdateAttendanceModal] =
+    useState(false);
+  const [selectedAttendanceType, setSelectedAttendanceType] = useState<
+    "full" | "half"
+  >("full");
+  const [selectedAttendanceDate, setSelectedAttendanceDate] =
+    useState<Date | null>(null);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -144,7 +171,10 @@ export default function Attendance() {
       const userId = selectedUser || user?.uid;
       if (!userId) return;
 
-      const monthlyData: Record<string, { date: string; time: string; type: 'full' | 'half' }[]> = {};
+      const monthlyData: Record<
+        string,
+        { date: string; time: string; type: "full" | "half" }[]
+      > = {};
 
       records
         .filter((record) => record.attendance[userId])
@@ -165,7 +195,7 @@ export default function Attendance() {
           monthlyData[monthName].push({
             date: record.date,
             time: record.attendance[userId].time,
-            type: record.attendance[userId].type || 'full'
+            type: record.attendance[userId].type || "full",
           });
         });
 
@@ -181,6 +211,10 @@ export default function Attendance() {
 
     processRecords();
   }, [records, selectedUser, user?.uid]);
+
+  useEffect(() => {
+    fetchHolidays();
+  }, [fetchHolidays]);
 
   const handleMarkAttendance = async () => {
     try {
@@ -202,11 +236,16 @@ export default function Attendance() {
         leaveForm.leaveType
       );
       setShowLeaveModal(false);
-      setLeaveForm({ startDate: "", endDate: "", reason: "", leaveType: "full" });
+      setLeaveForm({
+        startDate: "",
+        endDate: "",
+        reason: "",
+        leaveType: "full",
+      });
       toast.success("Leave request submitted successfully");
-      if(userData?.role !== "admin"){
+      if (userData?.role !== "admin") {
         await addNotification(
-          `${userData?.fullName || 'User'} requested **leave**`,
+          `${userData?.fullName || "User"} requested **leave**`,
           `/dashboard/attendance`,
           user?.uid as string
         );
@@ -222,15 +261,19 @@ export default function Attendance() {
 
     try {
       // If no end date is set, use start date as end date
-      const endDate = showEndDateInput ? workFromForm.endDate : workFromForm.startDate;
-      
+      const endDate = showEndDateInput
+        ? workFromForm.endDate
+        : workFromForm.startDate;
+
       // Validate dates and reason
       if (!workFromForm.startDate) {
         throw new Error("Start date is required");
       }
-      
+
       if (showEndDateInput && !endDate) {
-        throw new Error("End date is required when setting a different end date");
+        throw new Error(
+          "End date is required when setting a different end date"
+        );
       }
 
       if (!workFromForm.reason.trim()) {
@@ -249,16 +292,20 @@ export default function Attendance() {
       setWorkFromForm({ startDate: "", endDate: "", reason: "" });
       setShowEndDateInput(false);
       toast.success("Work from home request submitted successfully");
-      if(userData?.role !== "admin"){
+      if (userData?.role !== "admin") {
         await addNotification(
-          `${userData?.fullName || 'User'} requested **work from home**`,
+          `${userData?.fullName || "User"} requested **work from home**`,
           `/dashboard/attendance`,
           user?.uid as string
         );
       }
     } catch (error) {
       console.error("Work from home request error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to submit work from home request");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit work from home request"
+      );
     }
   };
 
@@ -269,9 +316,11 @@ export default function Attendance() {
       if (!oooForm.startDate) {
         throw new Error("Start date is required");
       }
-      
+
       if (showEndDateInput && !oooForm.endDate) {
-        throw new Error("End date is required when setting a different end date");
+        throw new Error(
+          "End date is required when setting a different end date"
+        );
       }
 
       if (!oooForm.reason.trim()) {
@@ -280,26 +329,26 @@ export default function Attendance() {
 
       const endDate = showEndDateInput ? oooForm.endDate : oooForm.startDate;
 
-      await requestOOO(
-        oooForm.startDate,
-        endDate,
-        oooForm.reason
-      );
+      await requestOOO(oooForm.startDate, endDate, oooForm.reason);
 
       setShowOOOModal(false);
       setOOOForm({ startDate: "", endDate: "", reason: "" });
       setShowEndDateInput(false);
       toast.success("Out-of-Office request submitted successfully");
-      if(userData?.role !== "admin"){
+      if (userData?.role !== "admin") {
         await addNotification(
-          `${userData?.fullName || 'User'} requested **out-of-office**`,
+          `${userData?.fullName || "User"} requested **out-of-office**`,
           `/dashboard/attendance`,
           user?.uid as string
         );
       }
     } catch (error) {
       console.error("OOO request error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to submit Out-of-Office request");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit Out-of-Office request"
+      );
     }
   };
 
@@ -316,42 +365,84 @@ export default function Attendance() {
 
   const hasPendingRequests = (userId: string) => {
     const pendingLeave = allLeaveRequests.some(
-      req => req.userId === userId && req.status === "pending"
+      (req) => req.userId === userId && req.status === "pending"
     );
     const pendingWorkFrom = allWorkFromRequests.some(
-      req => req.userId === userId && req.status === "pending"
+      (req) => req.userId === userId && req.status === "pending"
     );
     const pendingOOO = allOOORequests.some(
-      req => req.userId === userId && req.status === "pending"
+      (req) => req.userId === userId && req.status === "pending"
     );
-    
+
     return pendingLeave || pendingWorkFrom || pendingOOO;
   };
 
   const isAnyRequestPending = () => {
-    return allLeaveRequests.some(req => req.status === "pending") || 
-           allWorkFromRequests.some(req => req.status === "pending") ||
-           allOOORequests.some(req => req.status === "pending");
+    return (
+      allLeaveRequests.some((req) => req.status === "pending") ||
+      allWorkFromRequests.some((req) => req.status === "pending") ||
+      allOOORequests.some((req) => req.status === "pending")
+    );
   };
 
   // Update attendance function
-  const handleUpdateAttendance = async (action: 'update' | 'remove') => {
+  const handleUpdateAttendance = async (action: "update" | "remove") => {
     try {
       const userId = selectedUser || user?.uid;
       if (!userId || !selectedAttendanceDate) return;
 
-      if (action === 'update') {
-        await updateAttendance(userId, selectedAttendanceDate, selectedAttendanceType);
-        toast.success('Attendance updated successfully');
+      if (action === "update") {
+        await updateAttendance(
+          userId,
+          selectedAttendanceDate,
+          selectedAttendanceType
+        );
+        toast.success("Attendance updated successfully");
       } else {
         await removeAttendance(userId, selectedAttendanceDate);
-        toast.success('Attendance removed successfully');
+        toast.success("Attendance removed successfully");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update attendance');
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update attendance"
+      );
     } finally {
       setShowUpdateAttendanceModal(false);
     }
+  };
+
+  // Function to handle holiday submission
+  const handleHolidaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // If the end date input is not shown, set the end date to be the same as the start date
+    const effectiveEndDate = showEndDateInput ? holidayEndDate : holidayStartDate;
+
+    if (selectedHolidayId) {
+      await updateHoliday(selectedHolidayId, holidayName, holidayStartDate, effectiveEndDate);
+    } else {
+      await addHoliday(holidayName, holidayStartDate, effectiveEndDate);
+    }
+    
+    // Reset the form fields
+    setHolidayName('');
+    setHolidayStartDate('');
+    setHolidayEndDate('');
+    setSelectedHolidayId(null);
+    setShowEndDateInput(false); // Reset the checkbox state
+  };
+
+  // Function to handle holiday edit
+  const handleEditHoliday = (holiday: Holiday) => {
+    setHolidayName(holiday.name);
+    setHolidayStartDate(holiday.startDate);
+    setHolidayEndDate(holiday.endDate);
+    setSelectedHolidayId(holiday.id);
+  };
+
+  // Function to handle holiday deletion
+  const handleDeleteHoliday = async (id: string) => {
+    await removeHoliday(id);
   };
 
   if (loading) {
@@ -377,7 +468,9 @@ export default function Attendance() {
             <div className="flex gap-2">
               <select
                 value={attendanceType}
-                onChange={(e) => setAttendanceType(e.target.value as 'full' | 'half')}
+                onChange={(e) =>
+                  setAttendanceType(e.target.value as "full" | "half")
+                }
                 className="px-4 py-2 border rounded-md"
               >
                 <option value="full">Full Day</option>
@@ -397,6 +490,14 @@ export default function Attendance() {
               className="px-4 py-2 text-white rounded-md bg-blue-600 hover:bg-blue-700"
             >
               Member attendance marker
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => setShowHolidayMarker(true)}
+              className="px-4 py-2 text-white rounded-md bg-orange-500 hover:bg-orange-700"
+            >
+              Holiday Marker
             </button>
           )}
           <button
@@ -438,7 +539,9 @@ export default function Attendance() {
                     setLeaveForm({
                       ...leaveForm,
                       startDate: e.target.value,
-                      endDate: showEndDateInput ? leaveForm.endDate : e.target.value
+                      endDate: showEndDateInput
+                        ? leaveForm.endDate
+                        : e.target.value,
                     })
                   }
                   className="w-full p-2 border rounded"
@@ -454,13 +557,15 @@ export default function Attendance() {
                       if (!e.target.checked) {
                         setLeaveForm({
                           ...leaveForm,
-                          endDate: leaveForm.startDate
+                          endDate: leaveForm.startDate,
                         });
                       }
                     }}
                     className="rounded"
                   />
-                  <span className="text-sm font-medium">Set different end date</span>
+                  <span className="text-sm font-medium">
+                    Set different end date
+                  </span>
                 </div>
                 {showEndDateInput && (
                   <>
@@ -473,7 +578,7 @@ export default function Attendance() {
                       onChange={(e) =>
                         setLeaveForm({
                           ...leaveForm,
-                          endDate: e.target.value
+                          endDate: e.target.value,
                         })
                       }
                       className="w-full p-2 border rounded"
@@ -492,11 +597,11 @@ export default function Attendance() {
                       type="radio"
                       name="leaveType"
                       value="full"
-                      checked={leaveForm.leaveType === 'full'}
+                      checked={leaveForm.leaveType === "full"}
                       onChange={(e) =>
                         setLeaveForm({
                           ...leaveForm,
-                          leaveType: e.target.value as 'full' | 'half'
+                          leaveType: e.target.value as "full" | "half",
                         })
                       }
                       className="mr-2"
@@ -508,11 +613,11 @@ export default function Attendance() {
                       type="radio"
                       name="leaveType"
                       value="half"
-                      checked={leaveForm.leaveType === 'half'}
+                      checked={leaveForm.leaveType === "half"}
                       onChange={(e) =>
                         setLeaveForm({
                           ...leaveForm,
-                          leaveType: e.target.value as 'full' | 'half'
+                          leaveType: e.target.value as "full" | "half",
                         })
                       }
                       className="mr-2"
@@ -522,16 +627,14 @@ export default function Attendance() {
                 </div>
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">
-                  Reason
-                </label>
+                <label className="block text-sm font-medium mb-1">Reason</label>
                 <textarea
                   required
                   value={leaveForm.reason}
                   onChange={(e) =>
                     setLeaveForm({
                       ...leaveForm,
-                      reason: e.target.value
+                      reason: e.target.value,
                     })
                   }
                   placeholder="Please provide a reason for leave"
@@ -576,7 +679,9 @@ export default function Attendance() {
                     setWorkFromForm({
                       ...workFromForm,
                       startDate: e.target.value,
-                      endDate: showEndDateInput ? workFromForm.endDate : e.target.value
+                      endDate: showEndDateInput
+                        ? workFromForm.endDate
+                        : e.target.value,
                     })
                   }
                   className="w-full p-2 border rounded"
@@ -592,13 +697,15 @@ export default function Attendance() {
                       if (!e.target.checked) {
                         setWorkFromForm({
                           ...workFromForm,
-                          endDate: workFromForm.startDate
+                          endDate: workFromForm.startDate,
                         });
                       }
                     }}
                     className="rounded"
                   />
-                  <span className="text-sm font-medium">Set different end date</span>
+                  <span className="text-sm font-medium">
+                    Set different end date
+                  </span>
                 </div>
                 {showEndDateInput && (
                   <>
@@ -611,7 +718,7 @@ export default function Attendance() {
                       onChange={(e) =>
                         setWorkFromForm({
                           ...workFromForm,
-                          endDate: e.target.value
+                          endDate: e.target.value,
                         })
                       }
                       className="w-full p-2 border rounded"
@@ -621,16 +728,14 @@ export default function Attendance() {
                 )}
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">
-                  Reason
-                </label>
+                <label className="block text-sm font-medium mb-1">Reason</label>
                 <textarea
                   required
                   value={workFromForm.reason}
                   onChange={(e) =>
                     setWorkFromForm({
                       ...workFromForm,
-                      reason: e.target.value
+                      reason: e.target.value,
                     })
                   }
                   placeholder="Please provide a reason for working from home"
@@ -675,7 +780,9 @@ export default function Attendance() {
                     setOOOForm({
                       ...oooForm,
                       startDate: e.target.value,
-                      endDate: showEndDateInput ? oooForm.endDate : e.target.value
+                      endDate: showEndDateInput
+                        ? oooForm.endDate
+                        : e.target.value,
                     })
                   }
                   className="w-full p-2 border rounded"
@@ -691,13 +798,15 @@ export default function Attendance() {
                       if (!e.target.checked) {
                         setOOOForm({
                           ...oooForm,
-                          endDate: oooForm.startDate
+                          endDate: oooForm.startDate,
                         });
                       }
                     }}
                     className="rounded"
                   />
-                  <span className="text-sm font-medium">Set different end date</span>
+                  <span className="text-sm font-medium">
+                    Set different end date
+                  </span>
                 </div>
                 {showEndDateInput && (
                   <>
@@ -710,7 +819,7 @@ export default function Attendance() {
                       onChange={(e) =>
                         setOOOForm({
                           ...oooForm,
-                          endDate: e.target.value
+                          endDate: e.target.value,
                         })
                       }
                       className="w-full p-2 border rounded"
@@ -720,16 +829,14 @@ export default function Attendance() {
                 )}
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">
-                  Reason
-                </label>
+                <label className="block text-sm font-medium mb-1">Reason</label>
                 <textarea
                   required
                   value={oooForm.reason}
                   onChange={(e) =>
                     setOOOForm({
                       ...oooForm,
-                      reason: e.target.value
+                      reason: e.target.value,
                     })
                   }
                   placeholder="Please provide a reason for Out-of-Office"
@@ -768,18 +875,28 @@ export default function Attendance() {
                 className="mt-1 relative capitalize py-3 px-4 w-full text-left rounded-lg cursor-pointer bg-white border-[1px] border-gray-200 focus:outline-none focus:border-black hover:bg-gray-50 transition-colors flex justify-between items-center"
               >
                 <div className="flex items-center gap-2">
-                  <span>{selectedUser ? users[selectedUser]?.fullName : "Select employee..."}</span>
+                  <span>
+                    {selectedUser
+                      ? users[selectedUser]?.fullName
+                      : "Select employee..."}
+                  </span>
                   {selectedUser && hasPendingRequests(selectedUser) && (
                     <span className="h-2 w-2 bg-red-600 rounded-full animate-pulse"></span>
                   )}
                 </div>
-                <ChevronDown className={`h-5 w-5 transition-transform ${showEmployeeDropdown ? 'rotate-180' : ''}`} />
-                {isAnyRequestPending() ? <span className="h-3 w-3 bg-red-600 rounded-full animate-pulse absolute top-0 right-0 translate-x-1 -translate-y-1"></span> : null}
+                <ChevronDown
+                  className={`h-5 w-5 transition-transform ${
+                    showEmployeeDropdown ? "rotate-180" : ""
+                  }`}
+                />
+                {isAnyRequestPending() ? (
+                  <span className="h-3 w-3 bg-red-600 rounded-full animate-pulse absolute top-0 right-0 translate-x-1 -translate-y-1"></span>
+                ) : null}
               </button>
-              
+
               {showEmployeeDropdown && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-                  <div 
+                  <div
                     className="p-2 hover:bg-gray-50 cursor-pointer"
                     onClick={() => {
                       setSelectedUser(null);
@@ -810,7 +927,6 @@ export default function Attendance() {
                   ))}
                 </div>
               )}
-              
             </div>
           </div>
         )}
@@ -824,10 +940,118 @@ export default function Attendance() {
 
       {/* Add the modal component */}
       {isAdmin && showAttendanceMarker && (
-        <AdminAttendanceMarker 
-          users={users} 
+        <AdminAttendanceMarker
+          users={users}
           setShowAttendanceMarker={setShowAttendanceMarker}
         />
+      )}
+
+      {/* Holiday Marker Modal */}
+      {showHolidayMarker && (
+        <div className="fixed z-[100] inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h2 className="text-xl font-bold mb-4">Manage Holidays</h2>
+            <form onSubmit={handleHolidaySubmit}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">
+                  Holiday Name
+                </label>
+                <input
+                  type="text"
+                  value={holidayName}
+                  onChange={(e) => setHolidayName(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={holidayStartDate}
+                  onChange={(e) => setHolidayStartDate(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showEndDateInput}
+                    onChange={(e) => setShowEndDateInput(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium">
+                    Set different end date
+                  </span>
+                </div>
+                {showEndDateInput && (
+                  <>
+                    <label className="block text-sm font-medium mb-1 mt-2">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={holidayEndDate}
+                      onChange={(e) => setHolidayEndDate(e.target.value)}
+                      className="w-full p-2 border rounded"
+                      required
+                    />
+                  </>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowHolidayMarker(false)}
+                  className="px-4 py-2 text-gray-600 border rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-white bg-blue-600 rounded"
+                >
+                  {selectedHolidayId ? "Update Holiday" : "Add Holiday"}
+                </button>
+              </div>
+            </form>
+
+            <h3 className="text-lg font-bold mt-4">Existing Holidays</h3>
+            <ul>
+              {holidays.map((holiday) => (
+                <li
+                  key={holiday.id}
+                  className="flex justify-between items-center"
+                >
+                  <div className="flex flex-col">
+                    <span className="fold-bold">{holiday.name.length > 20 ? `${holiday.name.slice(0, 20)}...` : holiday.name}</span>
+                    <span className="text-xs">
+                      {holiday.startDate} to {holiday.endDate}
+                    </span>
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => handleEditHoliday(holiday)}
+                      className="text-blue-500"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteHoliday(holiday.id)}
+                      className="text-red-500 ml-2"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
 
       {/* Modal for updating attendance */}
@@ -841,7 +1065,9 @@ export default function Attendance() {
               </label>
               <select
                 value={selectedAttendanceType}
-                onChange={(e) => setSelectedAttendanceType(e.target.value as 'full' | 'half')}
+                onChange={(e) =>
+                  setSelectedAttendanceType(e.target.value as "full" | "half")
+                }
                 className="w-full p-2 border rounded"
               >
                 <option value="full">Full Day</option>
@@ -856,13 +1082,13 @@ export default function Attendance() {
                 Cancel
               </button>
               <button
-                onClick={() => handleUpdateAttendance('update')}
+                onClick={() => handleUpdateAttendance("update")}
                 className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700"
               >
                 Update
               </button>
               <button
-                onClick={() => handleUpdateAttendance('remove')}
+                onClick={() => handleUpdateAttendance("remove")}
                 className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700"
               >
                 Delete Attendance
