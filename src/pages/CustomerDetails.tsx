@@ -12,12 +12,14 @@ import {
   Briefcase,
   FileQuestion,
   ArrowRight,
+  Check,
 } from "lucide-react";
 import { useCustomerStore, Customer } from "@/store/customerStore";
 import toast from "react-hot-toast";
 import { Image } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useEnquiryStore } from "@/store/enquiryStore";
+import CustomerSettlementModal from "@/components/CustomerSettlementModal";
 
 export default function CustomerDetails() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +29,7 @@ export default function CustomerDetails() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const { projects, fetchProjects } = useProjectStore();
   const { enquiries, fetchEnquiries } = useEnquiryStore();
+  const [isSettlementModalOpen, setSettlementModalOpen] = useState(false);
 
   useEffect(() => {
     const loadCustomerData = async () => {
@@ -101,7 +104,10 @@ export default function CustomerDetails() {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 min-h-screen">
+
+      <CustomerSettlementModal isOpen={isSettlementModalOpen} setOpen={setSettlementModalOpen} projects={projects} customer={customer} enquiries={customerEnquiries} />
+
       {/* Header with back button and actions */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
@@ -114,6 +120,13 @@ export default function CustomerDetails() {
           <h1 className="text-2xl font-bold text-gray-800">Customer Details</h1>
         </div>
         <div className="flex space-x-3">
+        <button
+            onClick={() => setSettlementModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+          >
+            <Check size={18} className="mr-2" />
+            Settle
+          </button>
           <button
             onClick={() => navigate(`/dashboard/customers/${id}/edit`)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -321,7 +334,7 @@ export default function CustomerDetails() {
         </div>
 
         {/* Projects Section */}
-        <div className="mt-8">
+        <div className="mt-8 px-[3%]">
           <div className="bg-white rounded-xl border-[1px] overflow-hidden">
             <div className="border-b border-gray-200 px-6 py-3">
               <h3 className="text-lg font-medium text-gray-900">Projects</h3>
@@ -379,7 +392,7 @@ export default function CustomerDetails() {
         </div>
 
         {/* Enquiries Section */}
-        <div className="mt-8 mb-6">
+        <div className="mt-8 mb-6 px-[3%]">
           <div className="bg-white rounded-xl border-[1px] overflow-hidden">
             <div className="border-b border-gray-200 px-6 py-3">
               <h3 className="text-lg font-medium text-gray-900">Enquiries</h3>

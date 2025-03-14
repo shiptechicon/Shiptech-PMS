@@ -92,7 +92,7 @@ textarea{
   content: '';
   position: absolute;
   inset: 0;
-  background-image: url('/public/images/watermark-logo.png'); /* Replace with your image path */
+  background-image: url('/public/images/watermark-logo.webp'); /* Replace with your image path */
   background-position: center;
   background-repeat: repeat;
   background-size: 20%;
