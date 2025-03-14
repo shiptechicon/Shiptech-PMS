@@ -29,7 +29,7 @@ interface NotificationStore {
   addNotification: (content: string, url: string, userId: string) => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   clearAllNotifications: (userId: string) => Promise<void>;
-  fetchNotifications: (userId: string) => Promise<void>;
+  fetchNotifications: () => Promise<void>;
 }
 
 export const useNotificationStore = create<NotificationStore>()(
@@ -62,20 +62,19 @@ export const useNotificationStore = create<NotificationStore>()(
             notifications: [newNotification, ...state.notifications]
           }));
 
-          await get().fetchNotifications(userId);
+          await get().fetchNotifications();
         } catch (error) {
           console.error('Error adding notification:', error);
           set({ error: 'Failed to add notification' });
         }
       },
 
-      fetchNotifications: async (userId: string) => {
+      fetchNotifications: async () => {
         set({ loading: true, error: null });
         
         try {
           const q = query(
             collection(db, 'notifications'),
-            where('userId', '!=', userId),
             orderBy('createdAt', 'desc')
           );
 
@@ -92,7 +91,7 @@ export const useNotificationStore = create<NotificationStore>()(
               };
             });
 
-            console.log(notifications)
+            console.log('Fetched notifications:', notifications);
 
             set({ notifications, loading: false });
           }, (error) => {

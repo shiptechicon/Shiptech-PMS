@@ -10,6 +10,7 @@ import { useOOOStore } from "@/store/oooStore";
 import { useAttendanceStore } from "../store/attendanceStore";
 import { toast } from "react-hot-toast";
 import { auth } from "../lib/firebase"; // Import auth from firebase
+import { useHolidayStore } from "@/store/holidayStore"; // Import holiday store
 
 interface CalendarDay {
   date: Date;
@@ -27,6 +28,7 @@ export default function AttendanceCalendar({
 }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendar, setCalendar] = useState<CalendarDay[]>([]);
+  const { holidays, fetchHolidays } = useHolidayStore(); // Fetch holidays from the store
   const {
     leaveRequests: leaves,
     fetchUserLeaveRequests,
@@ -116,7 +118,6 @@ export default function AttendanceCalendar({
     };
 
     generateCalendar();
-    // console.log(selectedUser);
 
     if (selectedUser) {
       fetchUserLeaveRequests(selectedUser);
@@ -125,7 +126,9 @@ export default function AttendanceCalendar({
       fetchUserLeaveRequests();
       fetchUserWorkFromRequests();
     }
-  }, [currentDate, selectedUser]);
+
+    fetchHolidays(); // Fetch holidays when the component mounts
+  }, [currentDate, selectedUser, fetchHolidays]);
 
   const goToPreviousMonth = () => {
     setCurrentDate(
@@ -235,6 +238,23 @@ export default function AttendanceCalendar({
         status: ooo.status,
         id: ooo.id,
         reason: ooo.reason,
+      });
+    }
+
+    // Check holidays
+    const holiday = holidays.find((h) => {
+      const start = new Date(h.startDate);
+      const end = new Date(h.endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+      return date >= start && date <= end;
+    });
+    if (holiday) {
+      statuses.push({
+        type: "holiday",
+        name: holiday.name,
+        id: holiday.id,
       });
     }
 
@@ -355,6 +375,11 @@ export default function AttendanceCalendar({
           bg: "bg-violet-100",
           text: "WFH Rejected",
         };
+      }
+    }
+    if (status.type === "holiday") {
+      return{
+        bg: "bg-blue-400",
       }
     }
     if (status.type === "ooo") {
@@ -569,7 +594,7 @@ export default function AttendanceCalendar({
                         onClick={(e) => handleClick(e, status)}
                         className={`${style.bg} text-xs p-1 rounded`}
                       >
-                        {style.text}
+                        {status.type === "holiday" ? `holiday : ${status.name}` : style.text}
                       </div>
                     );
                   })}
