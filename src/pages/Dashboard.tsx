@@ -100,7 +100,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen watermark bg-gray-50 flex flex-col">
-      {isAdmin && pendingRequests.length > 0 && (
+      {/* {isAdmin && pendingRequests.length > 0 && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -122,7 +122,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       <div className="flex flex-1">
         <div

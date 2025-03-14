@@ -39,8 +39,8 @@ export default function CustomerLogin() {
   };
 
   return (
-    <div className="min-h-screen watermark bg-white flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg w-96">
+    <div className="min-h-screen watermark bg-transparent flex items-center justify-center">
+      <div className="bg-transparent p-8 rounded-lg w-96">
         <div className="flex flex-col items-center gap-2">
           <img src="/logo-192x192.png" alt="ShipTech PMS" className="h-20" />
           <h2 className="text-2xl font-semibold text-center mb-6">

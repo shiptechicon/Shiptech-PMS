@@ -112,7 +112,7 @@ function App() {
   }
 
   return (
-    <div>
+    <div className="watermark">
       <Navbar />
       <Routes>
         <Route path="/login" element={<><AuthenticatedRedirect /><Login /></>} />
