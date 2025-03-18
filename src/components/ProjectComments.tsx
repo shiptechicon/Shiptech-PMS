@@ -16,12 +16,14 @@ import { db } from "../lib/firebase";
 import { uploadCommentFilesToGitHub } from "@/lib/githubComments";
 import { useNotificationStore } from "../store/notificationStore";
 import { Timestamp } from "firebase/firestore";
+import { Project } from "@/store/projectStore";
 
 interface ProjectCommentsProps {
   projectId: string;
+  projectData: Project;
 }
 
-export default function ProjectComments({ projectId }: ProjectCommentsProps) {
+export default function ProjectComments({ projectId,projectData }: ProjectCommentsProps) {
   const { comments, loading, fetchComments, addComment, fetchMoreComments, deleteComment } = useCommentStore();
   const { user, userData } = useAuthStore();
   const [newComment, setNewComment] = useState("");
@@ -99,10 +101,11 @@ export default function ProjectComments({ projectId }: ProjectCommentsProps) {
       // Add the comment with attachment URLs and names
       await addComment(projectId, newComment, userData?.role as string, attachments);
       
-      if(userData?.role !== "admin"){
+      if(userData?.role !== "admin" && projectData){
+        console.log("adding notification")
         await addNotification(
-          `${userData?.fullName || 'User'} requested **leave**`,
-          `/dashboard/attendance`,
+          `${userData?.fullName || 'User'} Commented on the project **${projectData.name}**`,
+          `/dashboard/projects/${projectId}`,
           user?.uid as string
         );
       }

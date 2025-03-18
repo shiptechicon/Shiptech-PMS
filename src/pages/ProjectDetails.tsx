@@ -854,7 +854,7 @@ export default function ProjectDetails() {
         />
 
         {/* Comments Section */}
-        <div className="mt-6">{id && <ProjectComments projectId={id} />}</div>
+        <div className="mt-6">{id && <ProjectComments projectData={project} projectId={id} />}</div>
       </div>
 
       <TaskModal
