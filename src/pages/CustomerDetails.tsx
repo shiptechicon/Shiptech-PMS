@@ -48,7 +48,7 @@ export default function CustomerDetails() {
 
   // Filter projects and enquiries for this customer
   const customerProjects = projects.filter(
-    project => project.customer?.id === id
+    project => project.customer_id === id
   );
 
   const customerEnquiries = enquiries.filter(
@@ -423,7 +423,7 @@ export default function CustomerDetails() {
                           className="hover:bg-gray-50 cursor-pointer"
                         >
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            e-{enquiry.enquiryNumber}
+                            E-{enquiry.enquiryNumber}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{enquiry.name}</td>
                           <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{enquiry.description}</td>
