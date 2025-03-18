@@ -91,7 +91,7 @@ export const useNotificationStore = create<NotificationStore>()(
               };
             });
 
-            console.log('Fetched notifications:', notifications);
+            // console.log('Fetched notifications:', notifications);
 
             set({ notifications, loading: false });
           }, (error) => {

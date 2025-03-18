@@ -27,11 +27,11 @@ export interface Project {
   name: string;
   description: string;
   customer: {
-    id : string;
     name: string;
     phone: string;
     address: string;
   };
+  customer_id:string;
   createdAt: string;
   status: "completed" | "ongoing" | "not-started";
   type: "project";
@@ -196,11 +196,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         projectNumber: projectData.projectNumber || currentProject.projectNumber,
         status: projectData.status || currentProject.status,
         customer: {
-          id: projectData.customer?.id || currentProject.customer?.id || "",
           name: projectData.customer?.name || currentProject.customer?.name || "",
           phone: projectData.customer?.phone || currentProject.customer?.phone || "",
           address: projectData.customer?.address || currentProject.customer?.address || "",
         },
+        customer_id: projectData.customer_id,
         type: "project" as const,
         project_due_date: projectData.project_due_date || currentProject.project_due_date || null,
         project_start_date: projectData.project_start_date || currentProject.project_start_date || null,

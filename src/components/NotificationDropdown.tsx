@@ -16,8 +16,8 @@ export default function NotificationDropdown() {
     const fetchData = async () => {
       if (user?.uid) {
         try {
-          const data = await fetchNotifications();
-          console.log('Notificationsddd:', data);
+          await fetchNotifications();
+          // console.log('Notificationsddd:', data);
         } catch (error) {
           console.error('Error fetching notifications:', error);
         }
@@ -31,7 +31,7 @@ export default function NotificationDropdown() {
     // return () => clearInterval(interval);
   }, [user?.uid, fetchNotifications]);
 
-  console.log('Notifications:', notifications);
+  // console.log('Notifications:', notifications);
 
   const toggleNotifications = () => {
     setIsOpen(!isOpen);

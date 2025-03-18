@@ -1,4 +1,3 @@
-import React from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -68,6 +67,27 @@ export default function CustomerCredentialsModal({
               />
               <button
                 onClick={() => copyToClipboard(generatedPassword)}
+                className="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+
+          {/* url for customer login */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={`${import.meta.env.VITE_MAIN_URL}/customer_login`}
+                readOnly
+                className="flex-1 p-2 border border-gray-300 rounded-md bg-gray-50"
+              />
+              <button
+                onClick={() => copyToClipboard(`${import.meta.env.VITE_MAIN_URL}/customer_login`)}
                 className="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200"
               >
                 Copy

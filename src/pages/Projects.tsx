@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect} from "react";
 import { useProjectStore } from "../store/projectStore";
 import { Loader2, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -6,48 +6,9 @@ import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import toast from "react-hot-toast";
 
 export default function Projects() {
-  const { projects, loading, createProject, deleteProject , fetchProjects } = useProjectStore();
+  const { projects, loading, deleteProject , fetchProjects } = useProjectStore();
   const navigate = useNavigate();
 
-  const [projectNumber, setProjectNumber] = useState("");
-  const [projectName, setProjectName] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [customerAddress, setCustomerAddress] = useState("");
-  const [customerID, setCustomerID] = useState("");
-  const [showForm, setShowForm] = useState(false);
-
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await createProject({
-        projectNumber,
-        name: projectName,
-        description: projectDescription,
-        customer: {
-          id : customerID,
-          name: customerName,
-          phone: customerPhone,
-          address: customerAddress,
-        },
-        status: "not-started",
-        type: "project",
-      });
-      setProjectNumber("");
-      setProjectName("");
-      setProjectDescription("");
-      setCustomerName("");
-      setCustomerPhone("");
-      setCustomerID("");
-      setCustomerAddress("");
-      setShowForm(false);
-      toast.success("Project created successfully");
-    } catch (error) {
-      console.error("Error creating project:", error);
-      toast.error("Failed to create project");
-    }
-  };
 
   const handleDeleteProject = async (projectId: string) => {
     if (!window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {

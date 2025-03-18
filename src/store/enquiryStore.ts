@@ -99,7 +99,7 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
       set({ loading: true, error: null });
       const newEnquiry = {
         ...enquiryData,
-        __id: `e-${enquiryData.enquiryNumber}`,
+        __id: `E-${enquiryData.enquiryNumber}`,
         createdAt: new Date().toISOString(),
         type: 'enquiry' as const,
         status: 'on hold' as const
@@ -186,7 +186,7 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         description: enquiry.description,
         customer_id: enquiry.customer_id,
         customer, // Include customer details for backward compatibility
-        __id: 'p-' + enquiry.__id.split('-')[1],
+        __id: 'P-' + enquiry.__id.split('-')[1],
         type: 'project' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

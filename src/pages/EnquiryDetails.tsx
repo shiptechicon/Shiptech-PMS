@@ -86,6 +86,7 @@ export default function EnquiryDetails() {
 
       toast.success("Status updated successfully");
     } catch (error) {
+      console.log(error)
       // Revert the state if Firebase update fails
       setEnquiry({
         ...enquiry,

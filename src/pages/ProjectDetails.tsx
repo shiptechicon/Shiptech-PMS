@@ -151,10 +151,9 @@ export default function ProjectDetails() {
 
   useEffect(() => {
     if (project) {
-      fetchCustomer(project.customer.id).then(
+      fetchCustomer(project.customer_id).then(
         (customer) => {
-          // console.log(customer, "customer");
-          
+          // console.log("customer detail : ",customer)
           setCustomerDetails(customer);
         }
       );

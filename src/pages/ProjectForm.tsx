@@ -179,11 +179,11 @@ export default function ProjectForm() {
       const currentFormData = {
         ...formData,
         customer: {
-          id : selectedCustomer.id || "",
           name: selectedCustomer.name,
           phone: selectedCustomer.contactPersons[0]?.phone || "",
           address: selectedCustomer.address,
-        }
+        },
+        customer_id:selectedCustomer.id || "",
       };
 
       if (id) {

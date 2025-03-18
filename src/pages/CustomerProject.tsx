@@ -285,7 +285,7 @@ export default function CustomerProject({ projectId }: CustomerProjectProps) {
 
         {/* Comments Section */}
         <div className="mt-6">
-          <ProjectComments projectId={project.id as string} />
+          <ProjectComments projectData={project} projectId={project.id as string} />
         </div>
       </div>
     </div>
