@@ -602,7 +602,7 @@ export default function ProjectDetails() {
               <tbody>
                 <tr>
                   <td className="py-2 font-medium text-gray-500">ID</td>
-                  <td className="py-2">{project.__id}</td>
+                  <td className="py-2">P-{project.projectNumber}</td>
                 </tr>
                 <tr>
                   <td className="py-2 font-medium text-gray-500">Created At</td>

@@ -192,7 +192,7 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         status: 'not-started' as const,
-        projectNumber: projectId,
+        projectNumber: enquiry.enquiryNumber,
         project_due_date: null,
         project_start_date: null,
       };

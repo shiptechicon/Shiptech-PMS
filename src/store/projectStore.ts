@@ -142,6 +142,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         project_due_date: null,
         project_start_date: null,
         status: "not-started" as const,
+        projectNumber:`${projectData.projectNumber}`
       };
       const docRef = await addDoc(collection(db, "projects"), newProject);
       const projectWithId = { ...newProject, id: docRef.id };

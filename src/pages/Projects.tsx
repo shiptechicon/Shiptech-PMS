@@ -83,7 +83,7 @@ export default function Projects() {
                 {projects.map((project) => (
                   <tr onClick={() => navigate(`/dashboard/projects/${project.id}`)} key={project.id} className="hover:bg-gray-50 hover:cursor-pointer">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {project.__id}
+                      P-{project.projectNumber}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {project.name.length > 40
