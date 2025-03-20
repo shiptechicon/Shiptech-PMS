@@ -1,16 +1,38 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, Routes, Route } from "react-router-dom";
-import { useOutsourceTeamStore } from "@/store/outsourceTeamStore";
+import {
+  OutsourceTeam,
+  useOutsourceTeamStore,
+} from "@/store/outsourceTeamStore";
+import { Settlement, useSettlementStore } from "@/store/settlementStore";
 import NewTeam from "./NewTeam";
 import TeamDetails from "./TeamDetails";
 import EditTeam from "./EditTeam";
 
 function TeamsList() {
   const { teams, loading, fetchTeams } = useOutsourceTeamStore();
+  const { fetchTeamSettlements } = useSettlementStore();
+  const [paymentStatuses, setPaymentStatuses] = useState<{
+    [teamId: string]: string;
+  }>({});
 
   useEffect(() => {
-    fetchTeams();
-  }, [fetchTeams]);
+    fetchTeams().then(() => {
+      teams.forEach(async (team: OutsourceTeam) => {
+        if (team.id) {
+          const settlements = await fetchTeamSettlements(team.id);
+          const status = determinePaymentStatus(settlements);
+          setPaymentStatuses((prev) => ({ ...prev, [team.id as string]: status }));
+        }
+      });
+    });
+  }, [fetchTeams, fetchTeamSettlements]);
+
+  const determinePaymentStatus = (settlements: Settlement[]): string => {
+    if (settlements.some((s) => s.status === "pending")) return "Pending payment";
+    if (settlements.some((s) => s.status === "partial")) return "Partially paid";
+    return "Completed payment";
+  };
 
   if (loading)
     return (
@@ -40,6 +62,7 @@ function TeamsList() {
               <th className="px-6 py-3 text-left">Name</th>
               <th className="px-6 py-3 text-left">GST</th>
               <th className="px-6 py-3 text-left">Contact Persons</th>
+              <th className="px-6 py-3 text-left">Payment Status</th>
               <th className="px-6 py-3 text-left">Actions</th>
             </tr>
           </thead>
@@ -54,6 +77,11 @@ function TeamsList() {
                       {person.name} - {person.phone}
                     </div>
                   ))}
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`px-3 rounded-lg py-1 ${paymentStatuses[team.id as string] === "Pending payment" ? "bg-yellow-500" : paymentStatuses[team.id as string] === "Partially paid" ? "bg-orange-500" : paymentStatuses[team.id as string] === "Completed payment" ? "bg-green-500" : "bg-gray-300"} text-white`}>
+                    {paymentStatuses[team.id as string] || 'Loading...'}
+                  </span>
                 </td>
                 <td className="px-6 py-4">
                   <Link

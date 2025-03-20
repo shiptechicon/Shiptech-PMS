@@ -106,7 +106,7 @@ const EnquiriesList = () => {
                   className="hover:bg-gray-50 hover:cursor-pointer"
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {enquiry.__id}
+                    E-{enquiry.enquiryNumber}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {enquiry.name}
