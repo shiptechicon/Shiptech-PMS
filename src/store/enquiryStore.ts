@@ -3,6 +3,7 @@ import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from '
 import { db } from '../lib/firebase';
 import toast from 'react-hot-toast';
 import { Task, useTaskStore } from './taskStore';
+import { useProjectStore } from './projectStore';
 
 export interface Deliverable {
   id: string;
@@ -140,10 +141,10 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
   convertToProject: async (enquiryId: string) => {
     try {
       set({ loading: true, error: null });
-
+  
       const enquiry = await get().fetchEnquiry(enquiryId);
       if (!enquiry) throw new Error('Enquiry not found');
-
+  
       // Get customer details from customer_id
       const customerDoc = await getDoc(doc(db, 'customers', enquiry.customer_id));
       const customerData = customerDoc.exists() ? customerDoc.data() : null;
@@ -158,9 +159,9 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         phone: '',
         address: ''
       };
-
-      const projectId = 'p-' + enquiry.__id.split('-')[1];
-
+  
+      const projectId = 'P-' + enquiry.__id.split('-')[1];
+  
       // Create tasks in the tasks collection
       const taskPromises = enquiry.deliverables.map(deliverable => 
         addDoc(collection(db, 'tasks'), {
@@ -176,10 +177,10 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
           updatedAt: new Date().toISOString()
         })
       );
-
+  
       // Wait for all tasks to be created
       await Promise.all(taskPromises);
-
+  
       // Create project data (without tasks array)
       const projectData = {
         name: enquiry.name,
@@ -189,17 +190,28 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         __id: 'P-' + enquiry.__id.split('-')[1],
         type: 'project' as const,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        status: 'not-started' as const,
+        projectNumber: projectId,
+        project_due_date: null,
+        project_start_date: null,
       };
-
+  
       // Create project in Firestore
-      await addDoc(collection(db, 'projects'), projectData);
-
+      const docRef = await addDoc(collection(db, 'projects'), projectData);
+      const projectWithId = { ...projectData, id: docRef.id };
+  
+      // Update project store state directly
+      const { projects } = useProjectStore.getState();
+      useProjectStore.setState({
+        projects: [...projects, projectWithId], // Add the new project to the projects array
+      });
+  
       // Update enquiry status
       await updateDoc(doc(db, 'enquiries', enquiryId), {
         status: 'moved to projects'
       });
-
+  
       // Update local state - just update the status instead of filtering out
       const updatedEnquiries = get().enquiries.map(e => 
         e.id === enquiryId 
@@ -207,7 +219,7 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
           : e
       );
       set({ enquiries: updatedEnquiries, loading: false });
-
+  
       toast.success('Successfully converted to project');
     } catch (error) {
       console.error('Error converting to project:', error);
