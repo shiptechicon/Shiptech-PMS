@@ -77,7 +77,7 @@ export default function CustomerCredentialsModal({
           {/* url for customer login */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              Login URL
             </label>
             <div className="flex items-center space-x-2">
               <input

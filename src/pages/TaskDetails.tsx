@@ -56,7 +56,9 @@ export default function TaskDetails() {
   const [outsourceAmount, setOutsourceAmount] = useState<string>("");
   const { teams, fetchTeams, fetchTeamById } = useOutsourceTeamStore();
   const { createSettlement } = useSettlementStore();
-  const [outsourcedTeam, setOutsourcedTeam] = useState<{ name: string } | null>(null);
+  const [outsourcedTeam, setOutsourcedTeam] = useState<{ name: string } | null>(
+    null
+  );
 
   const formatTimeDisplay = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -142,7 +144,7 @@ export default function TaskDetails() {
       setIsAdmin(false);
       setCurrentPath([]);
     };
-  }, [projectId, taskPath, user, taskId , task]);
+  }, [projectId, taskPath, user, taskId, task]);
 
   // Timer effect
   useEffect(() => {
@@ -423,7 +425,7 @@ export default function TaskDetails() {
 
       // Update task with outsource team id
       await updateTask(task.id, {
-        outsource_team_id: selectedTeam
+        outsource_team_id: selectedTeam,
       });
 
       // Create settlement
@@ -431,7 +433,7 @@ export default function TaskDetails() {
         task_id: task.id,
         team_id: selectedTeam,
         total_amount: outsourceAmount,
-        amounts_paid: []
+        amounts_paid: [],
       });
 
       setShowOutsourceModal(false);
@@ -534,17 +536,16 @@ export default function TaskDetails() {
               <Plus className="mr-2 h-4 w-4" />
               Add Time
             </button>
-
-            {!task?.outsource_team_id && (
-              <button
-                onClick={() => setShowOutsourceModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Outsource Task
-              </button>
-            )}
           </div>
+        )}
+        {isAdmin && !task?.outsource_team_id && (
+          <button
+            onClick={() => setShowOutsourceModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Outsource Task
+          </button>
         )}
       </div>
 

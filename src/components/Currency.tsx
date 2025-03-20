@@ -16,10 +16,21 @@ export default function Currency({ addCurrency, initialCurrency }: CurrencyProps
   }, [fetchCurrencies]);
 
   useEffect(() => {
-    if (initialCurrency) {
+    if (currencies.length > 0 && !initialCurrency) {
+      // Set the default currency to the first element in the currencies array
+      const defaultCurrency = currencies[0];
+      setSelectedCurrency(defaultCurrency.id || "");
+      addCurrency({
+        id: defaultCurrency.id!,
+        name: defaultCurrency.name,
+        symbol: defaultCurrency.symbol,
+        mandatory: defaultCurrency.mandatory,
+      });
+    } else if (initialCurrency) {
+      // If an initial currency is provided, set it as the selected currency
       setSelectedCurrency(initialCurrency.id);
     }
-  }, [initialCurrency]);
+  }, [currencies, initialCurrency, addCurrency]);
 
   const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -36,7 +47,7 @@ export default function Currency({ addCurrency, initialCurrency }: CurrencyProps
         id: selectedCurrency.id!,
         name: selectedCurrency.name,
         symbol: selectedCurrency.symbol,
-        mandatory: selectedCurrency.mandatory
+        mandatory: selectedCurrency.mandatory,
       });
     }
   };

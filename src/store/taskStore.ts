@@ -244,6 +244,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         outsource_team_id: task.outsource_team_id || "",
       });
 
+      console.log("docRef",docRef)
+
       set({
         taskNodes: [
           ...get().taskNodes,
