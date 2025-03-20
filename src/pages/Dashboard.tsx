@@ -147,7 +147,7 @@ export default function Dashboard() {
               }
             >
               <ListTodo size={20} />
-              {!isCollapsed && <span>Todos</span>}
+              {!isCollapsed && <span>To Do</span>}
             </NavLink>
             <NavLink
               to="/dashboard/outsource-teams/"
