@@ -555,6 +555,7 @@ export default function TaskDetails() {
           setEditingTask(task);
           setIsModalOpen(true);
         }}
+        exceptionCase={exceptionCase}
         onToggleComplete={handleToggleComplete}
         isAdmin={isAdmin}
         canComplete={isAdmin || exceptionCase}

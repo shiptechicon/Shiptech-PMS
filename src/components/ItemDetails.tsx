@@ -10,6 +10,7 @@ interface ItemDetailsProps {
   onToggleComplete?: () => void;
   isAdmin?: boolean;
   canComplete?: boolean;
+  exceptionCase?: boolean;
 }
 
 export default function ItemDetails({ 
@@ -18,7 +19,8 @@ export default function ItemDetails({
   onEditClick, 
   onToggleComplete,
   isAdmin,
-  canComplete = true
+  canComplete = true,
+  exceptionCase = false
 }: ItemDetailsProps) {
   const { userData } = useAuthStore();
   const allChildrenComplete = tasks?.length 
@@ -68,7 +70,7 @@ export default function ItemDetails({
               <p className="text-gray-700">{item.description || 'No description provided'}</p>
             </div>
             <div className="flex items-center space-x-4">
-              {isAdmin && onEditClick && (
+              {(isAdmin || exceptionCase) && onEditClick && (
                 <button
                   onClick={onEditClick}
                   className="px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700"
