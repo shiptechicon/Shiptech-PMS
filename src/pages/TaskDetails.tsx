@@ -33,7 +33,6 @@ export default function TaskDetails() {
     addTask,
     fetchAllTasksWithChildren,
     task,
-    checkActiveTime,
     updateTask,
     deleteTask,
     getTaskTimeEntries,
@@ -599,7 +598,7 @@ export default function TaskDetails() {
         onTaskClick={handleTaskClick}
         isAdmin={isAdmin}
         currentUserId={user?.uid}
-        exceptionCase={exceptionCase}
+        parentAccess={exceptionCase}
       />
 
       <TaskModal
