@@ -222,11 +222,6 @@ export default function CustomerDetails() {
               )}
               <div>
                 <h2 className="text-3xl font-bold">{customer.name}</h2>
-                <p className="mt-1 text-blue-100">
-                  {customer.endClient
-                    ? `End Client: ${customer.endClient}`
-                    : "No end client specified"}
-                </p>
               </div>
             </div>
             <div className="mt-4 md:mt-0 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg">
@@ -277,18 +272,6 @@ export default function CustomerDetails() {
                   <div>
                     <p className="font-medium text-gray-700">Email</p>
                     <p className="text-gray-600">{customer.email}</p>
-                  </div>
-                </div>
-
-                {/* Remove the separate phone field since it's now part of contact persons */}
-
-                <div className="flex items-start">
-                  <Briefcase className="h-5 w-5 text-gray-500 mt-0.5 mr-3" />
-                  <div>
-                    <p className="font-medium text-gray-700">End Client</p>
-                    <p className="text-gray-600">
-                      {customer.endClient || "Not specified"}
-                    </p>
                   </div>
                 </div>
               </div>
