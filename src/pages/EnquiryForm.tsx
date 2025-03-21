@@ -704,7 +704,7 @@ export default function EnquiryForm() {
 
         <div className="bg-white border-[1px] rounded-xl px-6 py-10">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Charges</h3>
+            <h3 className="text-lg font-medium text-gray-900">Charges Included</h3>
             <button
               type="button"
               onClick={addCharge}

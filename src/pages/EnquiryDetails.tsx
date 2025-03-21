@@ -381,7 +381,7 @@ export default function EnquiryDetails() {
         {/* Charges Section */}
         <div className="bg-white rounded-xl border-[1px] overflow-hidden">
           <div className="border-b border-gray-200 px-6 py-3">
-            <h3 className="text-lg font-medium text-gray-900">Charges</h3>
+            <h3 className="text-lg font-medium text-gray-900">Charges Included</h3>
           </div>
           <div className="px-6 py-4">
             <ul className="list-disc pl-5">
