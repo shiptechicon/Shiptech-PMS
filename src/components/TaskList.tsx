@@ -1,6 +1,6 @@
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Task } from '../store/taskStore';
-import {  useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface TaskListProps {
   tasks: Task[];
@@ -10,7 +10,7 @@ interface TaskListProps {
   onTaskClick: (task: Task) => void;
   isAdmin: boolean;
   currentUserId?: string;
-  exceptionCase: boolean;
+  parentAccess? : boolean;
 }
 
 export default function TaskList({
@@ -20,9 +20,19 @@ export default function TaskList({
   onDeleteClick,
   onTaskClick,
   isAdmin,
-  exceptionCase,
+  parentAccess
 }: TaskListProps) {
 
+
+  const [sortedTasks , setSortedTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    setSortedTasks(tasks.sort((a, b) => {
+      if (a.createdAt && !b.createdAt) return 1;
+      if (!a.createdAt && b.createdAt) return -1;
+      return 0;
+    }));
+  }, [tasks]);
 
   const calculateCompletedPercentage = (task: Task): number => {
     if (!task.children || task.children.length === 0) {
@@ -53,7 +63,7 @@ export default function TaskList({
     <div className="mt-6">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-medium">Tasks</h3>
-        {(isAdmin || exceptionCase) && (
+        {(isAdmin || parentAccess) && (
           <button
             onClick={onAddClick}
             className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-black/90"
@@ -65,11 +75,11 @@ export default function TaskList({
       </div>
 
       <div className="bg-white shadow rounded-lg">
-        {tasks.length === 0 ? (
+        {sortedTasks.length === 0 ? (
           <p className="p-4 text-gray-500">No tasks yet</p>
         ) : (
           <div className="divide-y divide-gray-200">
-            {tasks.map((task) => {
+            {sortedTasks.map((task) => {
               const completedPercentage = calculateCompletedPercentage(task);
               const assignedPercentage = task.percentage || 0;
 
@@ -106,7 +116,7 @@ export default function TaskList({
                         )}
                       </div>
                     </div>
-                    {isAdmin && (
+                    {(isAdmin || parentAccess) && (
                       <div className="flex items-center space-x-2 ml-4">
                         <button
                           onClick={() => onEditClick(task)}

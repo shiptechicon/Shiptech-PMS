@@ -96,22 +96,21 @@ export default function CustomerProject({ projectId }: CustomerProjectProps) {
 
   const calculateCompletedPercentage = (task: Task): number => {
     if (!task.children || task.children.length === 0) {
-      return task.completed ? 100 : 0;
+      // If the task has no children, return the percentage based on its own completion status
+      return task.completed ? (task.percentage || 100) : 0;
     }
-
-    const totalAssignedToChildren = task.children.reduce(
-      (sum, child) => sum + (child.percentage || 0),
-      0
-    );
-
+  
+    const totalAssignedToChildren = task.children.reduce((sum, child) => 
+      sum + (child.percentage || 0), 0);
+  
     if (totalAssignedToChildren === 0) return 0;
-
+  
     const completedSum = task.children.reduce((sum, subtask) => {
-      return sum + (subtask.completed ? subtask.percentage || 0 : 0);
+      return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
     }, 0);
-
+  
     const comp = Math.round((completedSum / totalAssignedToChildren) * 100);
-    return Number(((comp * task.percentage) / 100).toFixed(1));
+    return Number(((comp * (task.percentage || 100)) / 100).toFixed(1));
   };
 
   const calculateProjectCompletion = (): number => {
