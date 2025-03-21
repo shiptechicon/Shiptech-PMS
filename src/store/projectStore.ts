@@ -37,6 +37,7 @@ export interface Project {
   type: "project";
   project_due_date?: string | null;
   project_start_date?: string | null;
+  endClient: string;
 }
 
 interface PathItem {
@@ -142,7 +143,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         project_due_date: null,
         project_start_date: null,
         status: "not-started" as const,
-        projectNumber:`${projectData.projectNumber}`
+        projectNumber:`${projectData.projectNumber}`,
+        endClient: projectData.endClient
+
       };
       const docRef = await addDoc(collection(db, "projects"), newProject);
       const projectWithId = { ...newProject, id: docRef.id };
@@ -205,6 +208,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         type: "project" as const,
         project_due_date: projectData.project_due_date || currentProject.project_due_date || null,
         project_start_date: projectData.project_start_date || currentProject.project_start_date || null,
+        endClient: projectData.endClient || currentProject.endClient
       };
 
       // console.log('Cleaned project data:', cleanProjectData);

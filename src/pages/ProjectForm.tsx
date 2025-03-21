@@ -21,6 +21,7 @@ interface FormData {
   type: "project";
   project_due_date?: string | null;
   project_start_date?: string | null;
+  endClient: string;
 }
 
 export default function ProjectForm() {
@@ -50,7 +51,8 @@ export default function ProjectForm() {
       tasks: [],
       projectNumber: "",
       status: "not-started",
-      type: "project"
+      type: "project",
+      endClient: "",
     };
   });
 
@@ -80,6 +82,7 @@ export default function ProjectForm() {
               project_due_date: project.project_due_date || null,
               project_start_date: project.project_start_date || null,
               type: "project" as const,
+              endClient: project.endClient || "",
             });
             
             // Find and set the selected customer
@@ -364,6 +367,22 @@ export default function ProjectForm() {
             </div>
           )}
         </div>
+        <div>
+          <label className="block font-medium text-gray-700">
+            End Client
+          </label>
+          <input
+            type="text"
+            value={formData.endClient}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                endClient: e.target.value,
+              }))
+            }
+            className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
+          </div>
       </div>
     </form>
   );

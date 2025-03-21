@@ -681,7 +681,7 @@ export default function ProjectDetails() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">End Client</p>
-                  <p className="mt-1">{customerDetails.endClient}</p>
+                  <p className="mt-1">{project.endClient}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-sm font-medium text-gray-500">Address</p>

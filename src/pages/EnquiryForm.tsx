@@ -28,6 +28,7 @@ interface EnquiryFormData {
   inputsRequired: string[];
   status: string;
   currency?: CurrencyDetails;
+  endClient: string;
 }
 
 const toolbarConfig: ToolbarConfig = {
@@ -99,6 +100,7 @@ export default function EnquiryForm() {
     inputsRequired: [] as string[],
     status: "draft",
     currency: undefined,
+    endClient: "",
   });
 
   useEffect(() => {
@@ -125,6 +127,7 @@ export default function EnquiryForm() {
             charges: enquiry.charges ?? [],
             status: enquiry.status ?? "draft",
             currency: enquiry.currency,
+            endClient: enquiry.endClient ?? "",
           });
 
           if (enquiry.customer_id) {
@@ -509,6 +512,22 @@ export default function EnquiryForm() {
               </div>
             </div>
           )}
+        </div>
+        <div>
+          <label className="block font-medium text-gray-700">
+            End Client
+          </label>
+          <input
+            type="text"
+            value={formData.endClient}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                endClient: e.target.value,
+              }))
+            }
+            className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
         </div>
 
         <div className="bg-white border-[1px] rounded-xl px-6 py-10">

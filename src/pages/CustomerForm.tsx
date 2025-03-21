@@ -26,7 +26,6 @@ export default function CustomerForm() {
     billingAddress: "",
     gstNumber: "",
     contactPersons: [{ name: "", phone: "" }],
-    endClient: "",
     email: "",
     logoUrl: "",
   });
@@ -67,7 +66,6 @@ export default function CustomerForm() {
             billingAddress: customer.billingAddress,
             gstNumber: customer.gstNumber,
             contactPersons,
-            endClient: customer.endClient,
             email: customer.email || "",
             logoUrl: customer.logoUrl || "",
           });
@@ -496,24 +494,7 @@ export default function CustomerForm() {
               <p className="mt-1 text-sm text-gray-500">
                 Leave empty if same as address
               </p>
-            </div>
-
-            <div>
-              <label className="block font-medium text-gray-700">
-                End Client
-              </label>
-              <input
-                type="text"
-                value={formData.endClient}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    endClient: e.target.value,
-                  }))
-                }
-                className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
+            </div>            
           </div>
         </div>
       </div>

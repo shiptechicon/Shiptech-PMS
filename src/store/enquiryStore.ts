@@ -37,6 +37,7 @@ export interface Enquiry {
   charges: string[];
   status: string;
   currency?: CurrencyDetails;
+  endClient: string;
 }
 
 interface TaskWithEnquiryId extends Task {
@@ -195,6 +196,7 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         projectNumber: enquiry.enquiryNumber,
         project_due_date: null,
         project_start_date: null,
+        endClient: enquiry.endClient
       };
   
       // Create project in Firestore

@@ -29,7 +29,6 @@ export interface Customer {
   phone ? : string;
   gstNumber: string;
   contactPersons: ContactPerson[];
-  endClient: string;
   email: string;
   logoUrl?: string;
   createdAt?: Timestamp;
