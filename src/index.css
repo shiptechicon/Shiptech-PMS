@@ -93,7 +93,7 @@ textarea{
   position: absolute;
   inset: 0;
   /* background-image: url('https://imgs.search.brave.com/gzgSYbSM8NzfRRHAjGRSiuv5dXtVGQ4Dx4T2skomAZ8/rs:fit:500:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5pc3RvY2twaG90/by5jb20vaWQvMTM5/NjA2OTA0OS92ZWN0/b3IvYWJzdHJhY3Qt/Z2VvbWV0cmljLWJh/Y2tncm91bmQtd2l0/aC10cmlhbmdsZS1z/aGFwZS1wYXR0ZXJu/LmpwZz9zPTYxMng2/MTImdz0wJms9MjAm/Yz04RC1GM3RYRmlC/dW1EX2wyMzZtd1Rl/WkhycVd5MEhCTk9y/UW40OUxUV2JZPQ'); */
-  background-image: url('/public/images/background_prism.webp'); 
+  background-image: url('/images/background_prism.webp'); 
   background-position: center;
   /* background-repeat: repeat; */
   background-size: cover;

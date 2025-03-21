@@ -311,7 +311,7 @@ export const createQuotation = async (
                           },
                           children: [
                             new TextRun({
-                              text: `Ref: No: ${enquiry.__id}`,
+                              text: `Ref: No: E-${enquiry.enquiryNumber}`,
                               size: 24, // Increase font size
                             }),
                           ],
@@ -350,6 +350,23 @@ export const createQuotation = async (
             }),
 
             // address lines
+
+            new Paragraph({
+              indent: {
+                left: 600,
+              },
+              spacing: {
+                before: 200,
+              },
+              children: [
+                new TextRun({
+                  text: `${customer.name},`,
+                  bold: true,
+                  size: 24,
+                }),
+              ],
+            }),
+
             ...address.map(
               (line) =>
                 new Paragraph({
@@ -376,7 +393,7 @@ export const createQuotation = async (
               },
               children: [
                 new TextRun({
-                  text: `Kind Attn: ${customer.name}`,
+                  text: `Kind Attn: ${customer.contactPersons[0].name}`,
                   size: 24,
                 }),
               ],
@@ -681,11 +698,10 @@ export const createQuotation = async (
             // tankyou
             Text("Thanking you,"),
             Text(userData.fullName ?? "User", true),
-            Text(userData.designation ?? "Designation", true),
             Text("SHIP TECHNOLOGY INDUSTRIAL CONSULTANCY", true),
             Text("CITTIC, CUSAT TBI", true),
             Text("CUSAT, Kochi-22", true),
-            Text("Email: stl@shiptech-icon.com"),
+            Text(`Email: ${userData.email} `),
             Text("Web: http://www.shiptech-icon.com"),
           ],
         },

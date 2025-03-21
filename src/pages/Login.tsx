@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
