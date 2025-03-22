@@ -28,6 +28,8 @@ interface SettlementState {
   deleteSettlement: (id: string) => Promise<void>;
   fetchSettlements: () => Promise<void>;
   addPayment: (settlementId: string, payment: AmountPaid) => Promise<void>;
+  editPayment: (settlementId: string, paymentIndex: number, payment: AmountPaid) => Promise<void>;
+  deletePayment: (settlementId: string, paymentIndex: number) => Promise<void>;
   fetchTeamSettlements: (teamId: string) => Promise<Settlement[]>;
   fetchTeamSettlementsWithTaskID: (teamId: string, taskId: string) => Promise<Settlement[]>;
 }
@@ -147,6 +149,58 @@ export const useSettlementStore = create<SettlementState>((set, get) => ({
     }
   },
 
+  editPayment: async (settlementId, paymentIndex, payment) => {
+    try {
+      set({ loading: true, error: null });
+      const settlement = get().settlements.find(s => s.id === settlementId);
+      if (!settlement) throw new Error('Settlement not found');
+
+      const newPayments = [...settlement.amounts_paid];
+      newPayments[paymentIndex] = payment;
+
+      const totalPaid = newPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      const totalAmount = parseFloat(settlement.total_amount);
+      
+      const status = totalPaid >= totalAmount ? 'completed' : 
+                     totalPaid > 0 ? 'partial' : 'pending';
+
+      await get().updateSettlement(settlementId, {
+        amounts_paid: newPayments,
+        status
+      });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  deletePayment: async (settlementId, paymentIndex) => {
+    try {
+      set({ loading: true, error: null });
+      const settlement = get().settlements.find(s => s.id === settlementId);
+      if (!settlement) throw new Error('Settlement not found');
+
+      const newPayments = settlement.amounts_paid.filter((_, index) => index !== paymentIndex);
+      const totalPaid = newPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      const totalAmount = parseFloat(settlement.total_amount);
+      
+      const status = totalPaid >= totalAmount ? 'completed' : 
+                     totalPaid > 0 ? 'partial' : 'pending';
+
+      await get().updateSettlement(settlementId, {
+        amounts_paid: newPayments,
+        status
+      });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
   fetchTeamSettlements: async (teamId: string) => {
     try {
       set({ loading: true, error: null });
@@ -214,4 +268,4 @@ export const useSettlementStore = create<SettlementState>((set, get) => ({
       set({ loading: false });
     }
   }
-})); 
+}));

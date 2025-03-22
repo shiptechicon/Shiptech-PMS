@@ -55,12 +55,14 @@ export default function TaskDetails() {
   const [selectedTeam, setSelectedTeam] = useState<string>("");
   const [outsourceAmount, setOutsourceAmount] = useState<string>("");
   const { teams, fetchTeams, fetchTeamById } = useOutsourceTeamStore();
-  const { createSettlement,fetchTeamSettlementsWithTaskID } = useSettlementStore();
+  const { createSettlement, fetchTeamSettlementsWithTaskID } =
+    useSettlementStore();
   const [outsourcedTeam, setOutsourcedTeam] = useState<{ name: string } | null>(
     null
   );
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
-  const [settlementToDelete, setSettlementToDelete] = useState<Settlement | null>(null);
+  const [settlementToDelete, setSettlementToDelete] =
+    useState<Settlement | null>(null);
 
   const formatTimeDisplay = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -472,15 +474,17 @@ export default function TaskDetails() {
       if (!task) return;
 
       // Fetch the settlement for this task
-      const settlements = await useSettlementStore.getState().fetchTeamSettlementsWithTaskID(task.outsource_team_id!,task.id);
-      const taskSettlement = settlements.find(s => s.task_id === task.id);
+      const settlements = await useSettlementStore
+        .getState()
+        .fetchTeamSettlementsWithTaskID(task.outsource_team_id!, task.id);
+      const taskSettlement = settlements.find((s) => s.task_id === task.id);
 
       if (!taskSettlement) {
         toast.error("Settlement not found");
         return;
       }
 
-      console.log("taskSettlement",taskSettlement.id)
+      console.log("taskSettlement", taskSettlement.id);
 
       // If there are paid amounts, show confirmation modal
       if (taskSettlement.amounts_paid.length > 0) {
@@ -497,23 +501,22 @@ export default function TaskDetails() {
     }
   };
 
-  const handleConfirmRemoveOutsource = async ( taskSettlement : Settlement ) => {
+  const handleConfirmRemoveOutsource = async (taskSettlement: Settlement) => {
     try {
       if (!task) return;
-      console.log("task.id",task.id)
-      
+      console.log("task.id", task.id);
+
       // Update task to remove outsource team
       await updateTask(task.id, {
         outsource_team_id: "",
       });
 
-      console.log("taskSettlement",taskSettlement)
-      
-      // Delete the settlement
-      if (settlementToDelete) {
-        console.log("settlementToDelete.id",taskSettlement.id)
-        await useSettlementStore.getState().deleteSettlement(settlementToDelete.id);
-      }
+      console.log("taskSettlement", taskSettlement);
+
+      console.log("settlementToDelete.id", taskSettlement.id);
+      await useSettlementStore
+        .getState()
+        .deleteSettlement(taskSettlement.id);
 
       setShowDeleteConfirmModal(false);
       setSettlementToDelete(null);
@@ -858,8 +861,9 @@ export default function TaskDetails() {
           <div className="bg-white rounded-lg p-6 w-96">
             <h3 className="text-lg font-medium text-red-600 mb-4">Warning</h3>
             <p className="mb-4">
-              This task has partial payments recorded. Removing the outsource team will delete all payment records.
-              Are you sure you want to continue?
+              This task has partial payments recorded. Removing the outsource
+              team will delete all payment records. Are you sure you want to
+              continue?
             </p>
             <div className="flex justify-end space-x-3">
               <button
@@ -872,10 +876,10 @@ export default function TaskDetails() {
                 Cancel
               </button>
               <button
-                onClick={handleConfirmRemoveOutsource}
+                onClick={() => handleConfirmRemoveOutsource(settlementToDelete)}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
               >
-                Delete All
+                Delete
               </button>
             </div>
           </div>
