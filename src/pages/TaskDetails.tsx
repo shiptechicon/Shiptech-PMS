@@ -21,6 +21,7 @@ import ItemDetails from "../components/ItemDetails";
 import { Task, useTaskStore, TimeEntry } from "../store/taskStore";
 import { useOutsourceTeamStore } from "../store/outsourceTeamStore";
 import { useSettlementStore } from "../store/settlementStore";
+import { Settlement } from "../store/settlementStore";
 
 export default function TaskDetails() {
   const { id: projectId, "*": taskPath } = useParams();
@@ -54,10 +55,12 @@ export default function TaskDetails() {
   const [selectedTeam, setSelectedTeam] = useState<string>("");
   const [outsourceAmount, setOutsourceAmount] = useState<string>("");
   const { teams, fetchTeams, fetchTeamById } = useOutsourceTeamStore();
-  const { createSettlement } = useSettlementStore();
+  const { createSettlement,fetchTeamSettlementsWithTaskID } = useSettlementStore();
   const [outsourcedTeam, setOutsourcedTeam] = useState<{ name: string } | null>(
     null
   );
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [settlementToDelete, setSettlementToDelete] = useState<Settlement | null>(null);
 
   const formatTimeDisplay = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -464,6 +467,64 @@ export default function TaskDetails() {
     fetchOutsourcedTeam();
   }, [task?.outsource_team_id, fetchTeamById]);
 
+  const handleRemoveOutsourceTeam = async () => {
+    try {
+      if (!task) return;
+
+      // Fetch the settlement for this task
+      const settlements = await useSettlementStore.getState().fetchTeamSettlementsWithTaskID(task.outsource_team_id!,task.id);
+      const taskSettlement = settlements.find(s => s.task_id === task.id);
+
+      if (!taskSettlement) {
+        toast.error("Settlement not found");
+        return;
+      }
+
+      console.log("taskSettlement",taskSettlement.id)
+
+      // If there are paid amounts, show confirmation modal
+      if (taskSettlement.amounts_paid.length > 0) {
+        setSettlementToDelete(taskSettlement);
+        setShowDeleteConfirmModal(true);
+        return;
+      }
+
+      // If no paid amounts, proceed with deletion
+      await handleConfirmRemoveOutsource(taskSettlement);
+    } catch (error) {
+      console.error("Error removing outsource team:", error);
+      toast.error("Failed to remove outsource team");
+    }
+  };
+
+  const handleConfirmRemoveOutsource = async ( taskSettlement : Settlement ) => {
+    try {
+      if (!task) return;
+      console.log("task.id",task.id)
+      
+      // Update task to remove outsource team
+      await updateTask(task.id, {
+        outsource_team_id: "",
+      });
+
+      console.log("taskSettlement",taskSettlement)
+      
+      // Delete the settlement
+      if (settlementToDelete) {
+        console.log("settlementToDelete.id",taskSettlement.id)
+        await useSettlementStore.getState().deleteSettlement(settlementToDelete.id);
+      }
+
+      setShowDeleteConfirmModal(false);
+      setSettlementToDelete(null);
+      setOutsourcedTeam(null);
+      toast.success("Outsource team removed successfully");
+    } catch (error) {
+      console.error("Error confirming outsource team removal:", error);
+      toast.error("Failed to remove outsource team");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -499,53 +560,64 @@ export default function TaskDetails() {
             )}
           </div>
         </div>
-        {exceptionCase && (
-          <div className="flex items-center space-x-4">
-            {(isTimerActive || currentDuration > 0) && (
-              <div className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-md">
-                <Clock className="h-4 w-4" />
-                <span className="font-mono">{elapsedTime}</span>
-              </div>
-            )}
-            <button
-              onClick={isTimerActive ? handleStopTimer : handleStartTimer}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
-                isTimerActive
-                  ? "bg-red-600 hover:bg-red-700"
-                  : "bg-green-600 hover:bg-green-700"
-              }`}
-            >
-              {isTimerActive ? (
-                <>
-                  <Square className="mr-2 h-4 w-4" />
-                  Stop Timer
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  Start Timer
-                </>
+        <div className="flex space-x-4">
+          {exceptionCase && (
+            <div className="flex items-center space-x-4">
+              {(isTimerActive || currentDuration > 0) && (
+                <div className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-md">
+                  <Clock className="h-4 w-4" />
+                  <span className="font-mono">{elapsedTime}</span>
+                </div>
               )}
-            </button>
+              <button
+                onClick={isTimerActive ? handleStopTimer : handleStartTimer}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
+                  isTimerActive
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {isTimerActive ? (
+                  <>
+                    <Square className="mr-2 h-4 w-4" />
+                    Stop Timer
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-2 h-4 w-4" />
+                    Start Timer
+                  </>
+                )}
+              </button>
 
+              <button
+                onClick={handleOpenManualEntry}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Time
+              </button>
+            </div>
+          )}
+          {isAdmin && !task?.outsource_team_id && (
             <button
-              onClick={handleOpenManualEntry}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              onClick={() => setShowOutsourceModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add Time
+              Outsource Task
             </button>
-          </div>
-        )}
-        {isAdmin && !task?.outsource_team_id && (
-          <button
-            onClick={() => setShowOutsourceModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Outsource Task
-          </button>
-        )}
+          )}
+          {isAdmin && task?.outsource_team_id && (
+            <button
+              onClick={handleRemoveOutsourceTeam}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+            >
+              <Minus className="mr-2 h-4 w-4" />
+              Remove Outsource Team
+            </button>
+          )}
+        </div>
       </div>
 
       <ItemDetails
@@ -775,6 +847,35 @@ export default function TaskDetails() {
                 className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
               >
                 Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirmModal && settlementToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-medium text-red-600 mb-4">Warning</h3>
+            <p className="mb-4">
+              This task has partial payments recorded. Removing the outsource team will delete all payment records.
+              Are you sure you want to continue?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirmModal(false);
+                  setSettlementToDelete(null);
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRemoveOutsource}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Delete All
               </button>
             </div>
           </div>

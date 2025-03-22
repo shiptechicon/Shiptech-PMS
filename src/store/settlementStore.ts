@@ -29,6 +29,7 @@ interface SettlementState {
   fetchSettlements: () => Promise<void>;
   addPayment: (settlementId: string, payment: AmountPaid) => Promise<void>;
   fetchTeamSettlements: (teamId: string) => Promise<Settlement[]>;
+  fetchTeamSettlementsWithTaskID: (teamId: string, taskId: string) => Promise<Settlement[]>;
 }
 
 export const useSettlementStore = create<SettlementState>((set, get) => ({
@@ -155,6 +156,41 @@ export const useSettlementStore = create<SettlementState>((set, get) => ({
         where('team_id', '==', teamId),
       );
       const querySnapshot = await getDocs(q);
+      const settlements = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        amounts_paid: doc.data().amounts_paid || [],
+        status: doc.data().status || 'pending',
+        created_at: doc.data().created_at || new Date().toISOString(),
+        updated_at: doc.data().updated_at || new Date().toISOString()
+      })) as Settlement[];
+
+      // Update the local state with the fetched settlements
+      set(state => ({
+        settlements: settlements
+      }));
+
+      return settlements;
+    } catch (error) {
+      console.error("Error fetching team settlements:", error);
+      set({ error: (error as Error).message });
+      return [];
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchTeamSettlementsWithTaskID: async (teamId: string, taskId:string) => {
+    try {
+      set({ loading: true, error: null });
+      
+      const q = query(
+        collection(db, 'settlements'),
+        where('team_id', '==', teamId),
+        where('task_id', '==', taskId),
+      );
+      const querySnapshot = await getDocs(q);
+
       const settlements = querySnapshot.docs.map(doc => ({
         ...doc.data(),
         id: doc.id,
