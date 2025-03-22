@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useProjectStore, User } from "../store/projectStore";
 import { Task, useTaskStore } from "../store/taskStore";
+import toast from "react-hot-toast";
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -107,6 +108,11 @@ export default function TaskModal({
       createdAt: initialData?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    if(!formData.name || !formData.description || !formData.hours || !formData.costPerHour || !formData.assignedTo || !formData.deadline || !formData.percentage) {
+      toast.error("Please fill all the fields");
+      return;
+    }
     
     onSubmit(taskData as Task);
     onClose();

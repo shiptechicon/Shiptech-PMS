@@ -34,6 +34,7 @@ export default function AttendanceCalendar({
     fetchUserLeaveRequests,
     cancelLeaveRequest,
     updateLeaveStatus,
+    updateDate
   } = useLeaveStore();
   const {
     workFromRequests,
@@ -61,9 +62,12 @@ export default function AttendanceCalendar({
     "full" | "half"
   >("full");
   const { updateAttendance, removeAttendance } = useAttendanceStore();
-
+  const [approveFromDate, setApproveFromDate] = useState("");
+  const [approveToDate, setApproveToDate] = useState("");
   // State for active analytics tab
-  const [activeTab, setActiveTab] = useState<'thisMonth' | 'threeMonths' | 'sixMonths' | 'yearly' | 'overall'>('thisMonth');
+  const [activeTab, setActiveTab] = useState<
+    "thisMonth" | "threeMonths" | "sixMonths" | "yearly" | "overall"
+  >("thisMonth");
 
   // Generate calendar days for the current month
   useEffect(() => {
@@ -182,6 +186,7 @@ export default function AttendanceCalendar({
         userId: userId,
         date: date.toISOString(),
         attendanceType: record?.type || "full",
+        session: record?.session || null,
       });
     }
 
@@ -195,6 +200,7 @@ export default function AttendanceCalendar({
       compareDate.setHours(0, 0, 0, 0);
       return compareDate >= start && compareDate <= end && l.userId === userId;
     });
+
     if (leave) {
       statuses.push({
         type: "leave",
@@ -202,6 +208,9 @@ export default function AttendanceCalendar({
         id: leave.id,
         reason: leave.reason,
         leaveType: leave.leaveType,
+        session: leave.session || null,
+        startDate: leave.startDate,
+        endDate: leave.endDate
       });
     }
 
@@ -263,13 +272,15 @@ export default function AttendanceCalendar({
 
   const handleClick = async (e: React.MouseEvent, status: any) => {
     e.preventDefault();
+
     if (status?.type === "attendance" && isAdmin) {
       setSelectedAttendanceDate(new Date(status.date));
       setSelectedAttendanceType(status.attendanceType);
       setShowUpdateAttendanceModal(true);
     } else if (status?.status === "pending") {
       setSelectedStatus(status);
-
+      setApproveFromDate(status.startDate);
+      setApproveToDate(status.endDate);
       // Get user's full name
       const userId = selectedUser || user?.uid;
       if (userId) {
@@ -282,6 +293,17 @@ export default function AttendanceCalendar({
       } else if (!selectedUser) {
         setShowDialog(true);
       }
+    } else if (
+      status?.type === "leave" ||
+      status?.type === "workfrom" ||
+      (status?.type === "ooo" && isAdmin)
+    ) {
+      const usr = await getUserFullName((selectedUser as string) ?? user?.uid);
+      setSelectedStatus(status);
+      setApproveFromDate(status.startDate);
+      setApproveToDate(status.endDate);
+      setRequestUserName(usr as string);
+      setShowDialog(true);
     }
   };
 
@@ -306,8 +328,10 @@ export default function AttendanceCalendar({
       if (selectedStatus.type === "leave") {
         if (action === "approve") {
           await updateLeaveStatus(selectedStatus.id, "approved");
+          await updateDate(selectedStatus.id, approveFromDate, approveToDate);
         } else {
           await updateLeaveStatus(selectedStatus.id, "rejected");
+          await updateDate(selectedStatus.id, approveFromDate, approveToDate);
         }
         await fetchUserLeaveRequests(selectedUser as string);
       } else if (selectedStatus.type === "workfrom") {
@@ -341,7 +365,10 @@ export default function AttendanceCalendar({
       };
     }
     if (status.type === "leave") {
-      const leaveTypeText = status.leaveType === "half" ? " (Half)" : "";
+      const leaveTypeText =
+        status.leaveType === "half"
+          ? ` (Half${status.session ? " - " + status.session : ""})`
+          : "";
       if (status.status === "pending") {
         return {
           bg: "bg-red-200 animate-pulse",
@@ -378,9 +405,9 @@ export default function AttendanceCalendar({
       }
     }
     if (status.type === "holiday") {
-      return{
+      return {
         bg: "bg-blue-400",
-      }
+      };
     }
     if (status.type === "ooo") {
       if (status.status === "pending") {
@@ -446,12 +473,16 @@ export default function AttendanceCalendar({
   };
 
   // Function to calculate attendance metrics based on the selected time frame
-  const calculateMetrics = (timeFrame: 'thisMonth' | 'threeMonths' | 'sixMonths' | 'yearly' | 'overall') => {
+  const calculateMetrics = (
+    timeFrame: "thisMonth" | "threeMonths" | "sixMonths" | "yearly" | "overall"
+  ) => {
     if (!userData) return;
 
     const createdAt = new Date(userData.createdAt);
     const today = new Date();
-    const totalDays = Math.floor((today.getTime() - createdAt.getTime()) / (1000 * 3600 * 24));
+    const totalDays = Math.floor(
+      (today.getTime() - createdAt.getTime()) / (1000 * 3600 * 24)
+    );
 
     let totalAttendanceDays = 0;
     let totalLeaves = 0;
@@ -459,23 +490,32 @@ export default function AttendanceCalendar({
     let totalOOO = 0;
 
     const startDate = new Date();
-    if (timeFrame === 'thisMonth') {
-      startDate.setFullYear(currentDate.getFullYear(), currentDate.getMonth(), 1); // Set to the first day of the current month
-    } else if (timeFrame === 'threeMonths') {
+    if (timeFrame === "thisMonth") {
+      startDate.setFullYear(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      ); // Set to the first day of the current month
+    } else if (timeFrame === "threeMonths") {
       startDate.setMonth(today.getMonth() - 3);
-    } else if (timeFrame === 'sixMonths') {
+    } else if (timeFrame === "sixMonths") {
       startDate.setMonth(today.getMonth() - 6);
-    } else if (timeFrame === 'yearly') {
+    } else if (timeFrame === "yearly") {
       startDate.setFullYear(today.getFullYear() - 1);
-    } else if (timeFrame === 'overall') {
+    } else if (timeFrame === "overall") {
       startDate.setTime(0); // Start from epoch time
     }
 
-    monthlyAttendance.forEach(month => {
-      month.records.forEach(record => {
+    monthlyAttendance.forEach((month) => {
+      month.records.forEach((record) => {
         const recordDate = new Date(record.date);
-        if (recordDate >= createdAt && recordDate >= startDate && recordDate.getMonth() === currentDate.getMonth() && recordDate.getFullYear() === currentDate.getFullYear()) {
-          if (record.type === 'full' || record.type === 'half') {
+        if (
+          recordDate >= createdAt &&
+          recordDate >= startDate &&
+          recordDate.getMonth() === currentDate.getMonth() &&
+          recordDate.getFullYear() === currentDate.getFullYear()
+        ) {
+          if (record.type === "full" || record.type === "half") {
             totalAttendanceDays++;
           }
         }
@@ -483,28 +523,43 @@ export default function AttendanceCalendar({
     });
 
     // Calculate total leaves
-    leaves.forEach(leave => {
+    leaves.forEach((leave) => {
       const leaveStart = new Date(leave.startDate);
       const leaveEnd = new Date(leave.endDate);
-      if (leaveStart >= createdAt && leaveStart >= startDate && leaveStart.getMonth() === currentDate.getMonth() && leaveStart.getFullYear() === currentDate.getFullYear()) {
+      if (
+        leaveStart >= createdAt &&
+        leaveStart >= startDate &&
+        leaveStart.getMonth() === currentDate.getMonth() &&
+        leaveStart.getFullYear() === currentDate.getFullYear()
+      ) {
         totalLeaves++;
       }
     });
 
     // Calculate total work from home days
-    workFromRequests.forEach(request => {
+    workFromRequests.forEach((request) => {
       const requestStart = new Date(request.startDate);
       const requestEnd = new Date(request.endDate);
-      if (requestStart >= createdAt && requestStart >= startDate && requestStart.getMonth() === currentDate.getMonth() && requestStart.getFullYear() === currentDate.getFullYear()) {
+      if (
+        requestStart >= createdAt &&
+        requestStart >= startDate &&
+        requestStart.getMonth() === currentDate.getMonth() &&
+        requestStart.getFullYear() === currentDate.getFullYear()
+      ) {
         totalWFH++;
       }
     });
 
     // Calculate total out-of-office days
-    oooRequests.forEach(request => {
+    oooRequests.forEach((request) => {
       const requestStart = new Date(request.startDate);
       const requestEnd = new Date(request.endDate);
-      if (requestStart >= createdAt && requestStart >= startDate && requestStart.getMonth() === currentDate.getMonth() && requestStart.getFullYear() === currentDate.getFullYear()) {
+      if (
+        requestStart >= createdAt &&
+        requestStart >= startDate &&
+        requestStart.getMonth() === currentDate.getMonth() &&
+        requestStart.getFullYear() === currentDate.getFullYear()
+      ) {
         totalOOO++;
       }
     });
@@ -594,7 +649,9 @@ export default function AttendanceCalendar({
                         onClick={(e) => handleClick(e, status)}
                         className={`${style.bg} text-xs p-1 rounded`}
                       >
-                        {status.type === "holiday" ? `holiday : ${status.name}` : style.text}
+                        {status.type === "holiday"
+                          ? `holiday : ${status.name}`
+                          : style.text}
                       </div>
                     );
                   })}
@@ -615,10 +672,10 @@ export default function AttendanceCalendar({
                 </p>
                 {selectedStatus?.type === "leave" && (
                   <>
-                    <p className="text-sm text-gray-600 mb-2">
+                    <p className="text-sm text-gray-600 mb-2 capitalize">
                       <span className="font-medium">Leave Type:</span>{" "}
                       {selectedStatus.leaveType === "half"
-                        ? "Half Day"
+                        ? `Half Day ${selectedStatus.session}`
                         : "Full Day"}
                     </p>
                     <p className="text-sm text-gray-600 mb-2">
@@ -640,6 +697,32 @@ export default function AttendanceCalendar({
                   </p>
                 )}
               </div>
+
+              {/* Date Range Inputs for Admin */}
+              {userData?.role === "admin" &&
+                selectedStatus?.type === "leave" && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Approve Leave From:
+                    </label>
+                    <input
+                      type="date"
+                      value={approveFromDate}
+                      onChange={(e) => setApproveFromDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
+                      To:
+                    </label>
+                    <input
+                      type="date"
+                      value={approveToDate}
+                      onChange={(e) => setApproveToDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
               <p className="mb-6">
                 Are you sure you want to cancel this request?
               </p>
@@ -656,19 +739,20 @@ export default function AttendanceCalendar({
                 >
                   OK
                 </button>
-                {userData?.role === "admin" && (
-                  <button
-                    onClick={() => handleAdminAction("approve")}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    disabled={isApproving}
-                  >
-                    {isApproving ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    ) : (
-                      "Approve as Admin"
-                    )}
-                  </button>
-                )}
+                {userData?.role === "admin" &&
+                  selectedStatus.status === "pending" && (
+                    <button
+                      onClick={() => handleAdminAction("approve")}
+                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                      disabled={isApproving}
+                    >
+                      {isApproving ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      ) : (
+                        "Approve as Admin"
+                      )}
+                    </button>
+                  )}
               </div>
             </div>
           </div>
@@ -688,7 +772,7 @@ export default function AttendanceCalendar({
                     <p className="text-sm text-gray-600 mb-2">
                       <span className="font-medium">Leave Type:</span>{" "}
                       {selectedStatus.leaveType === "half"
-                        ? "Half Day"
+                        ? `Half Day ${selectedStatus.session}`
                         : "Full Day"}
                     </p>
                     <p className="text-sm text-gray-600 mb-2">
@@ -789,35 +873,57 @@ export default function AttendanceCalendar({
 
         {/* Analytics Dashboard */}
         <div className="p-4 border-t border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Attendance Analytics</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Attendance Analytics
+          </h3>
           <div className="flex space-x-4 mt-4">
             <button
-              onClick={() => setActiveTab('thisMonth')}
-              className={`px-4 py-2 rounded ${activeTab === 'thisMonth' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              onClick={() => setActiveTab("thisMonth")}
+              className={`px-4 py-2 rounded ${
+                activeTab === "thisMonth"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200"
+              }`}
             >
               This Month
             </button>
             <button
-              onClick={() => setActiveTab('threeMonths')}
-              className={`px-4 py-2 rounded ${activeTab === 'threeMonths' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              onClick={() => setActiveTab("threeMonths")}
+              className={`px-4 py-2 rounded ${
+                activeTab === "threeMonths"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200"
+              }`}
             >
               Last 3 Months
             </button>
             <button
-              onClick={() => setActiveTab('sixMonths')}
-              className={`px-4 py-2 rounded ${activeTab === 'sixMonths' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              onClick={() => setActiveTab("sixMonths")}
+              className={`px-4 py-2 rounded ${
+                activeTab === "sixMonths"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200"
+              }`}
             >
               Last 6 Months
             </button>
             <button
-              onClick={() => setActiveTab('yearly')}
-              className={`px-4 py-2 rounded ${activeTab === 'yearly' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              onClick={() => setActiveTab("yearly")}
+              className={`px-4 py-2 rounded ${
+                activeTab === "yearly"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200"
+              }`}
             >
               Last Year
             </button>
             <button
-              onClick={() => setActiveTab('overall')}
-              className={`px-4 py-2 rounded ${activeTab === 'overall' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              onClick={() => setActiveTab("overall")}
+              className={`px-4 py-2 rounded ${
+                activeTab === "overall"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200"
+              }`}
             >
               Overall
             </button>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { doc, getDocs, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { UserData } from '@/store/authStore';
 
 interface User {
   id: string;
@@ -67,7 +68,7 @@ export default function TaskDetailsModal({
     const fetchUsers = async () => {
       const querySnapshot = await getDocs(collection(db, 'users'));
       const verifiedUsers = querySnapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .map((doc) => ({ id: doc.id, ...doc.data() } as UserData))
         .filter((user) => user.verified) as User[];
       setUsers(verifiedUsers);
     };

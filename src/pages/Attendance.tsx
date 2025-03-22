@@ -26,6 +26,7 @@ export interface MonthlyAttendance {
     date: string;
     time: string;
     type: "full" | "half";
+    session?: 'forenoon' | 'afternoon' | null;
   }[];
 }
 
@@ -84,6 +85,7 @@ export default function Attendance() {
     endDate: "",
     reason: "",
     leaveType: "full" as "full" | "half",
+    session : "forenoon" as "forenoon" | "afternoon"
   });
   const [workFromForm, setWorkFromForm] = useState({
     startDate: "",
@@ -233,7 +235,8 @@ export default function Attendance() {
         leaveForm.startDate,
         leaveForm.endDate,
         leaveForm.reason,
-        leaveForm.leaveType
+        leaveForm.leaveType,
+        leaveForm.leaveType === "half" ? leaveForm.session as "forenoon" | "afternoon" : undefined
       );
       setShowLeaveModal(false);
       setLeaveForm({
@@ -241,6 +244,7 @@ export default function Attendance() {
         endDate: "",
         reason: "",
         leaveType: "full",
+        session: "forenoon"
       });
       toast.success("Leave request submitted successfully");
       if (userData?.role !== "admin") {
@@ -414,20 +418,27 @@ export default function Attendance() {
   // Function to handle holiday submission
   const handleHolidaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // If the end date input is not shown, set the end date to be the same as the start date
-    const effectiveEndDate = showEndDateInput ? holidayEndDate : holidayStartDate;
+    const effectiveEndDate = showEndDateInput
+      ? holidayEndDate
+      : holidayStartDate;
 
     if (selectedHolidayId) {
-      await updateHoliday(selectedHolidayId, holidayName, holidayStartDate, effectiveEndDate);
+      await updateHoliday(
+        selectedHolidayId,
+        holidayName,
+        holidayStartDate,
+        effectiveEndDate
+      );
     } else {
       await addHoliday(holidayName, holidayStartDate, effectiveEndDate);
     }
-    
+
     // Reset the form fields
-    setHolidayName('');
-    setHolidayStartDate('');
-    setHolidayEndDate('');
+    setHolidayName("");
+    setHolidayStartDate("");
+    setHolidayEndDate("");
     setSelectedHolidayId(null);
     setShowEndDateInput(false); // Reset the checkbox state
   };
@@ -626,6 +637,47 @@ export default function Attendance() {
                   </label>
                 </div>
               </div>
+              {leaveForm.leaveType === "half" && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    Leave Session
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="session"
+                        value="forenoon"
+                        checked={leaveForm.session === "forenoon"}
+                        onChange={(e) =>
+                          setLeaveForm({
+                            ...leaveForm,
+                            session: e.target.value as "forenoon" | "afternoon",
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Forenoon</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="session"
+                        value="afternoon"
+                        checked={leaveForm.session === "afternoon"}
+                        onChange={(e) =>
+                          setLeaveForm({
+                            ...leaveForm,
+                            session: e.target.value as "forenoon" | "afternoon",
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Afternoon</span>
+                    </label>
+                  </div>
+                </div>
+              )}
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">Reason</label>
                 <textarea
@@ -1028,7 +1080,11 @@ export default function Attendance() {
                   className="flex justify-between items-center"
                 >
                   <div className="flex flex-col">
-                    <span className="fold-bold">{holiday.name.length > 20 ? `${holiday.name.slice(0, 20)}...` : holiday.name}</span>
+                    <span className="fold-bold">
+                      {holiday.name.length > 20
+                        ? `${holiday.name.slice(0, 20)}...`
+                        : holiday.name}
+                    </span>
                     <span className="text-xs">
                       {holiday.startDate} to {holiday.endDate}
                     </span>
