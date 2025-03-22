@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useSettlementStore } from "@/store/settlementStore";
+import toast from "react-hot-toast";
 
 interface ContactPerson {
   name: string;
@@ -97,12 +99,25 @@ export const useOutsourceTeamStore = create<OutsourceTeamStore>((set, get) => ({
   deleteTeam: async (id) => {
     try {
       set({ loading: true, error: null });
+      
+      // Check for existing settlements
+      const settlements = await useSettlementStore.getState().fetchTeamSettlements(id);
+      
+      if (settlements.length > 0) {
+        toast.error(
+          'Cannot delete team - there are tasks outsourced to this team. Please remove all outsourced tasks first.'
+        );
+        return;
+      }
+
+
       await deleteDoc(doc(db, 'outsource_teams', id));
       set(state => ({
         teams: state.teams.filter(team => team.id !== id)
       }));
     } catch (error) {
       set({ error: (error as Error).message });
+      throw error;
     } finally {
       set({ loading: false });
     }

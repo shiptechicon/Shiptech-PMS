@@ -8,9 +8,11 @@ import { Settlement, useSettlementStore } from "@/store/settlementStore";
 import NewTeam from "./NewTeam";
 import TeamDetails from "./TeamDetails";
 import EditTeam from "./EditTeam";
+import { Edit, ExternalLink, Trash } from "lucide-react";
+import toast from "react-hot-toast";
 
 function TeamsList() {
-  const { teams, loading, fetchTeams } = useOutsourceTeamStore();
+  const { teams, loading, fetchTeams, deleteTeam, error } = useOutsourceTeamStore();
   const { fetchTeamSettlements } = useSettlementStore();
   const [paymentStatuses, setPaymentStatuses] = useState<{
     [teamId: string]: string;
@@ -22,15 +24,20 @@ function TeamsList() {
         if (team.id) {
           const settlements = await fetchTeamSettlements(team.id);
           const status = determinePaymentStatus(settlements);
-          setPaymentStatuses((prev) => ({ ...prev, [team.id as string]: status }));
+          setPaymentStatuses((prev) => ({
+            ...prev,
+            [team.id as string]: status,
+          }));
         }
       });
     });
   }, [fetchTeams, fetchTeamSettlements]);
 
   const determinePaymentStatus = (settlements: Settlement[]): string => {
-    if (settlements.some((s) => s.status === "pending")) return "Pending payment";
-    if (settlements.some((s) => s.status === "partial")) return "Partially paid";
+    if (settlements.some((s) => s.status === "pending"))
+      return "Pending payment";
+    if (settlements.some((s) => s.status === "partial"))
+      return "Partially paid";
     return "Completed payment";
   };
 
@@ -79,17 +86,42 @@ function TeamsList() {
                   ))}
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`px-3 rounded-lg py-1 ${paymentStatuses[team.id as string] === "Pending payment" ? "bg-yellow-500" : paymentStatuses[team.id as string] === "Partially paid" ? "bg-orange-500" : paymentStatuses[team.id as string] === "Completed payment" ? "bg-green-500" : "bg-gray-300"} text-white`}>
-                    {paymentStatuses[team.id as string] || 'Loading...'}
+                  <span
+                    className={`px-3 rounded-lg py-1 ${
+                      paymentStatuses[team.id as string] === "Pending payment"
+                        ? "bg-yellow-500"
+                        : paymentStatuses[team.id as string] ===
+                          "Partially paid"
+                        ? "bg-orange-500"
+                        : paymentStatuses[team.id as string] ===
+                          "Completed payment"
+                        ? "bg-green-500"
+                        : "bg-gray-300"
+                    } text-white`}
+                  >
+                    {paymentStatuses[team.id as string] || "Loading..."}
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <Link
-                    to={`${team.id}`}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    View Details
-                  </Link>
+                  <div className="flex gap-3">
+                    <Link
+                      to={`${team.id}`}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <ExternalLink size={18} />
+                    </Link>
+                    <Link
+                      to={`${team.id}/edit`}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Edit size={18} />
+                    </Link>
+                    <button onClick={()=> deleteTeam(team.id as string)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Trash size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -13,20 +13,67 @@ interface PaymentModalProps {
   settlement: Settlement;
   onClose: () => void;
   onSubmit: (payment: { amount: string; date: string; notes: string }) => void;
-  onUndoPayment?: (paymentIndex: number) => void;
+  onEditPayment: (
+    paymentIndex: number,
+    payment: { amount: string; date: string; notes: string }
+  ) => void;
+  onDeletePayment: (paymentIndex: number) => void;
   viewOnly?: boolean;
 }
 
-const PaymentModal = ({ settlement, onClose, onSubmit, onUndoPayment, viewOnly }: PaymentModalProps) => {
+const PaymentModal = ({
+  settlement,
+  onClose,
+  onSubmit,
+  onEditPayment,
+  onDeletePayment,
+  viewOnly,
+}: PaymentModalProps) => {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(
+    null
+  );
 
   const totalPaid = settlement.amounts_paid.reduce(
     (sum, payment) => sum + parseFloat(payment.amount),
     0
   );
   const balance = parseFloat(settlement.total_amount) - totalPaid;
+
+  const handleEditPayment = (index: number) => {
+    const payment = settlement.amounts_paid[index];
+    setAmount(payment.amount);
+    setDate(payment.date);
+    setNotes(payment.notes || "");
+    setEditingPaymentIndex(index);
+  };
+
+  const handleDeletePayment = (index: number) => {
+    onDeletePayment(index);
+    setEditingPaymentIndex(null);
+  };
+
+  const handleSubmit = () => {
+    if (!amount || !date) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    if (parseFloat(amount) > balance) {
+      toast.error("Amount cannot exceed balance");
+      return;
+    }
+    if (editingPaymentIndex !== null) {
+      onEditPayment(editingPaymentIndex, { amount, date, notes });
+    } else {
+      onSubmit({ amount, date, notes });
+    }
+    setAmount("");
+    setDate("");
+    setNotes("");
+    setEditingPaymentIndex(null);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -60,7 +107,10 @@ const PaymentModal = ({ settlement, onClose, onSubmit, onUndoPayment, viewOnly }
           <h4 className="font-medium mb-2">Payment History</h4>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {settlement.amounts_paid.map((payment, index) => (
-              <div key={index} className="p-2 bg-gray-50 rounded flex justify-between items-center">
+              <div
+                key={index}
+                className="p-2 bg-gray-50 rounded flex justify-between items-center"
+              >
                 <div>
                   <p className="text-sm font-medium">₹{payment.amount}</p>
                   <p className="text-xs text-gray-600">{payment.notes}</p>
@@ -69,13 +119,21 @@ const PaymentModal = ({ settlement, onClose, onSubmit, onUndoPayment, viewOnly }
                   <p className="text-sm text-gray-600">
                     {new Date(payment.date).toLocaleDateString()}
                   </p>
-                  {onUndoPayment && index === settlement.amounts_paid.length - 1 && !viewOnly && (
-                    <button
-                      onClick={() => onUndoPayment(index)}
-                      className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded"
-                    >
-                      Undo
-                    </button>
+                  {!viewOnly && (
+                    <>
+                      <button
+                        onClick={() => handleEditPayment(index)}
+                        className="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeletePayment(index)}
+                        className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        Delete
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -142,20 +200,12 @@ const PaymentModal = ({ settlement, onClose, onSubmit, onUndoPayment, viewOnly }
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (!amount || !date) {
-                    toast.error("Please fill in all required fields");
-                    return;
-                  }
-                  if (parseFloat(amount) > balance) {
-                    toast.error("Amount cannot exceed balance");
-                    return;
-                  }
-                  onSubmit({ amount, date, notes });
-                }}
+                onClick={handleSubmit}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
-                Add Payment
+                {editingPaymentIndex !== null
+                  ? "Update Payment"
+                  : "Add Payment"}
               </button>
             </div>
           </>
@@ -169,12 +219,14 @@ export default function TeamDetails() {
   const { id } = useParams<{ id: string }>();
   const { fetchTeamById } = useOutsourceTeamStore();
   const { fetchTasksByOutsourceTeam } = useTaskStore();
-  const { fetchTeamSettlements, addPayment, updateSettlement } = useSettlementStore();
+  const { fetchTeamSettlements, addPayment, deletePayment,editPayment } =
+    useSettlementStore();
   const [team, setTeam] = useState<OutsourceTeam | null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
-  const [selectedSettlement, setSelectedSettlement] = useState<Settlement | null>(null);
+  const [selectedSettlement, setSelectedSettlement] =
+    useState<Settlement | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -184,19 +236,19 @@ export default function TeamDetails() {
           const [teamData, tasksData, settlementsData] = await Promise.all([
             fetchTeamById(id),
             fetchTasksByOutsourceTeam(id),
-            fetchTeamSettlements(id)
+            fetchTeamSettlements(id),
           ]);
 
           if (!teamData) {
-            throw new Error('Team not found');
+            throw new Error("Team not found");
           }
 
           setTeam(teamData);
           setTasks(tasksData || []);
           setSettlements(settlementsData || []);
         } catch (error) {
-          console.error('Error loading team data:', error);
-          toast.error('Failed to load team data');
+          console.error("Error loading team data:", error);
+          toast.error("Failed to load team data");
         } finally {
           setLoading(false);
         }
@@ -205,14 +257,18 @@ export default function TeamDetails() {
     loadData();
   }, [id, fetchTeamById, fetchTasksByOutsourceTeam, fetchTeamSettlements]);
 
-  const handlePaymentSubmit = async (payment: { amount: string; date: string; notes: string }) => {
+  const handlePaymentSubmit = async (payment: {
+    amount: string;
+    date: string;
+    notes: string;
+  }) => {
     if (!selectedSettlement) return;
 
     try {
       await addPayment(selectedSettlement.id, {
         amount: payment.amount,
         date: payment.date,
-        notes: payment.notes || ''
+        notes: payment.notes || "",
       });
 
       // Fetch updated settlements after adding payment
@@ -220,7 +276,7 @@ export default function TeamDetails() {
         const updatedSettlements = await fetchTeamSettlements(id);
         setSettlements(updatedSettlements);
       }
-      
+
       setSelectedSettlement(null);
       toast.success("Payment added successfully");
     } catch (error) {
@@ -229,54 +285,57 @@ export default function TeamDetails() {
     }
   };
 
-  const handleUndoPayment = async (paymentIndex: number) => {
+  const handleEditPayment = async (
+    paymentIndex: number,
+    payment: { amount: string; date: string; notes: string }
+  ) => {
     if (!selectedSettlement) return;
 
     try {
-      const updatedPayments = [...selectedSettlement.amounts_paid];
-      updatedPayments.pop(); // Remove the last payment
+      await editPayment(selectedSettlement.id, paymentIndex, payment);
 
-      const totalPaid = updatedPayments.reduce(
-        (sum, payment) => sum + parseFloat(payment.amount),
-        0
-      );
-      const status = totalPaid > 0 ? 'partial' : 'pending';
-
-      // Update the settlement in the database
-      await updateSettlement(selectedSettlement.id, {
-        amounts_paid: updatedPayments,
-        status
-      });
-
-      // Fetch fresh data from the server
+      // Fetch updated settlements after editing payment
       if (id) {
         const updatedSettlements = await fetchTeamSettlements(id);
         setSettlements(updatedSettlements);
-
-        // Update the selected settlement with the latest data
-        const updatedSelectedSettlement = updatedSettlements.find(
-          s => s.id === selectedSettlement.id
-        );
-        if (updatedSelectedSettlement) {
-          setSelectedSettlement(updatedSelectedSettlement);
-        } else {
-          setSelectedSettlement(null);
-        }
       }
 
-      toast.success("Payment undone successfully");
+      setSelectedSettlement(null);
+      toast.success("Payment updated successfully");
     } catch (error) {
-      console.error("Error undoing payment:", error);
-      toast.error("Failed to undo payment");
+      console.error("Error updating payment:", error);
+      toast.error("Failed to update payment");
+    }
+  };
+
+  const handleDeletePayment = async (paymentIndex: number) => {
+    if (!selectedSettlement) return;
+
+    try {
+      await deletePayment(selectedSettlement.id, paymentIndex);
+
+      // Fetch updated settlements after deleting payment
+      if (id) {
+        const updatedSettlements = await fetchTeamSettlements(id);
+        setSettlements(updatedSettlements);
+      }
+
+      setSelectedSettlement(null);
+      toast.success("Payment deleted successfully");
+    } catch (error) {
+      console.error("Error deleting payment:", error);
+      toast.error("Failed to delete payment");
     }
   };
 
   // Combine tasks with their corresponding settlements
-  const combinedData = tasks.map(task => {
-    const taskSettlement = settlements.find(settlement => settlement.task_id === task.id);
+  const combinedData = tasks.map((task) => {
+    const taskSettlement = settlements.find(
+      (settlement) => settlement.task_id === task.id
+    );
     return {
       task,
-      settlement: taskSettlement || null
+      settlement: taskSettlement || null,
     };
   });
 
@@ -342,19 +401,25 @@ export default function TeamDetails() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold mb-2">Outsourced Tasks and Settlement Status</h2>
+          <h2 className="text-lg font-semibold mb-2">
+            Outsourced Tasks and Settlement Status
+          </h2>
           <div className="space-y-4">
             {combinedData.map(({ task, settlement }) => (
               <div key={task.id} className="border rounded-lg p-4">
                 <div className="flex justify-between items-start">
                   <div>
                     <h4 className="font-medium">{task.name}</h4>
-                    <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {task.description}
+                    </p>
                   </div>
                   <div className="flex items-center">
                     <span
                       className={`px-2 py-1 text-xs font-medium rounded ${
-                        task.completed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                        task.completed
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
                       Task is : {task.completed ? "Completed" : "In Progress"}
@@ -364,34 +429,52 @@ export default function TeamDetails() {
                 {settlement && (
                   <div className="mt-2">
                     <h5 className="font-medium">Settlement Details</h5>
-                    <p className="text-sm text-gray-600">Total Amount: ₹{settlement.total_amount}</p>
-                    <p className="text-sm text-gray-600">Balance: ₹{(parseFloat(settlement.total_amount) - settlement.amounts_paid.reduce((sum, payment) => sum + parseFloat(payment.amount), 0)).toFixed(2)}</p>
+                    <p className="text-sm text-gray-600">
+                      Total Amount: ₹{settlement.total_amount}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Balance: ₹
+                      {(
+                        parseFloat(settlement.total_amount) -
+                        settlement.amounts_paid.reduce(
+                          (sum, payment) => sum + parseFloat(payment.amount),
+                          0
+                        )
+                      ).toFixed(2)}
+                    </p>
                     <span
                       className={`px-2 py-1 text-xs font-medium rounded ${
-                        settlement.status === 'completed' ? "bg-green-100 text-green-800" :
-                        settlement.status === 'partial' ? "bg-yellow-100 text-yellow-800" :
-                        "bg-red-100 text-red-800"
+                        settlement.status === "completed"
+                          ? "bg-green-100 text-green-800"
+                          : settlement.status === "partial"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                       onClick={() => setSelectedSettlement(settlement)}
                     >
-                      {settlement.status.charAt(0).toUpperCase() + settlement.status.slice(1)}
+                      {settlement.status.charAt(0).toUpperCase() +
+                        settlement.status.slice(1)}
                     </span>
                     <button
                       onClick={() => setSelectedSettlement(settlement)}
                       className={`mt-2 px-3 py-1 text-sm rounded hover:bg-opacity-80 ${
-                        settlement.status === 'completed'
+                        settlement.status === "completed"
                           ? "bg-gray-100 text-gray-700"
                           : "bg-blue-600 text-white"
                       }`}
                     >
-                      {settlement.status === 'completed' ? 'View Details' : 'Settle'}
+                      {settlement.status === "completed"
+                        ? "View Details"
+                        : "Settle"}
                     </button>
                   </div>
                 )}
               </div>
             ))}
             {combinedData.length === 0 && (
-              <p className="text-gray-500 text-center py-4">No tasks or settlements found for this team.</p>
+              <p className="text-gray-500 text-center py-4">
+                No tasks or settlements found for this team.
+              </p>
             )}
           </div>
         </div>
@@ -402,8 +485,9 @@ export default function TeamDetails() {
           settlement={selectedSettlement}
           onClose={() => setSelectedSettlement(null)}
           onSubmit={handlePaymentSubmit}
-          onUndoPayment={handleUndoPayment}
-          viewOnly={selectedSettlement.status === 'completed'}
+          onEditPayment={handleEditPayment}
+          onDeletePayment={handleDeletePayment}
+          viewOnly={selectedSettlement.status === "completed"}
         />
       )}
     </div>
