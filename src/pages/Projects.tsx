@@ -1,14 +1,17 @@
-import { useEffect} from "react";
+import { useEffect, useState } from "react";
 import { useProjectStore } from "../store/projectStore";
+import { useCustomerSettlementStore } from "@/store/customerSettlementStore";
 import { Loader2, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import toast from "react-hot-toast";
+import { Project } from "../store/projectStore"; // Import the Project type
 
 export default function Projects() {
-  const { projects, loading, deleteProject , fetchProjects } = useProjectStore();
+  const { projects, loading, deleteProject, fetchProjects } = useProjectStore();
+  const { fetchSettlement } = useCustomerSettlementStore();
   const navigate = useNavigate();
-
+  const [updatedProjects, setUpdatedProjects] = useState<Project[]>([]); // Now Project type is recognized
 
   const handleDeleteProject = async (projectId: string) => {
     if (!window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
@@ -25,8 +28,33 @@ export default function Projects() {
   };
 
   useEffect(() => {
-    if(projects.length === 0) {
+    if (projects.length === 0) {
       fetchProjects();
+    }
+  }, [projects]);
+
+  useEffect(() => {
+    const fetchSettlements = async () => {
+      const updatedProjects = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            await fetchSettlement(project.customer_id);
+            const settlement = useCustomerSettlementStore.getState().settlement;
+            return {
+              ...project,
+              settlement: settlement.status,
+            };
+          } catch (error) {
+            console.error('Error fetching settlement:', error);
+            return project;
+          }
+        })
+      );
+      setUpdatedProjects(updatedProjects);
+    };
+
+    if (projects.length > 0) {
+      fetchSettlements();
     }
   }, [projects]);
 
@@ -47,7 +75,7 @@ export default function Projects() {
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
         </div>
-      ) : projects.length === 0 ? (
+      ) : updatedProjects.length === 0 ? (
         <div className="bg-white rounded-lg shadow">
           <div className="p-6">
             <p className="text-gray-500">No active projects</p>
@@ -69,6 +97,9 @@ export default function Projects() {
                     Customer
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created At
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -80,7 +111,7 @@ export default function Projects() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {projects.map((project) => (
+                {updatedProjects.map((project) => (
                   <tr onClick={() => navigate(`/dashboard/projects/${project.id}`)} key={project.id} className="hover:bg-gray-50 hover:cursor-pointer">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       P-{project.projectNumber}
@@ -92,6 +123,9 @@ export default function Projects() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {project.customer.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {project.settlement}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(project.createdAt).toLocaleDateString()}
