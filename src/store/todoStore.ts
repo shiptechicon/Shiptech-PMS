@@ -16,6 +16,9 @@ interface TodoState {
   todos: Todo[];
   loading: boolean;
   error: string | null;
+  cache: {
+    [userId: string]: Todo[]; // Cache for user-specific todos
+  };
   addTodo: (title: string, description: string, endDate: string) => Promise<void>;
   updateTodo: (id: string, updates: Partial<Todo>) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
@@ -27,7 +30,9 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   todos: [],
   loading: false,
   error: null,
+  cache: {}, // Initialize cache
 
+  // Add a new todo
   addTodo: async (title: string, description: string, endDate: string) => {
     try {
       set({ loading: true, error: null });
@@ -41,11 +46,20 @@ export const useTodoStore = create<TodoState>((set, get) => ({
         description,
         endDate,
         createdAt: new Date().toISOString(),
-        completed: false
+        completed: false,
       };
 
-      await addDoc(todoRef, newTodo);
-      await get().fetchUserTodos();
+      const docRef = await addDoc(todoRef, newTodo);
+      const todoWithId = { ...newTodo, id: docRef.id };
+
+      // Update cache and state
+      set((state) => ({
+        todos: [...state.todos, todoWithId],
+        cache: {
+          ...state.cache,
+          [currentUser.uid]: [...(state.cache[currentUser.uid] || []), todoWithId],
+        },
+      }));
     } catch (error) {
       console.error('Error adding todo:', error);
       set({ error: (error as Error).message });
@@ -54,12 +68,25 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     }
   },
 
+  // Update an existing todo
   updateTodo: async (id: string, updates: Partial<Todo>) => {
     try {
       set({ loading: true, error: null });
       const todoRef = doc(db, 'todos', id);
       await updateDoc(todoRef, updates);
-      await get().fetchUserTodos();
+
+      // Update cache and state
+      set((state) => ({
+        todos: state.todos.map((todo) =>
+          todo.id === id ? { ...todo, ...updates } : todo
+        ),
+        cache: {
+          ...state.cache,
+          [auth.currentUser?.uid || '']: state.cache[auth.currentUser?.uid || '']?.map((todo) =>
+            todo.id === id ? { ...todo, ...updates } : todo
+          ),
+        },
+      }));
     } catch (error) {
       console.error('Error updating todo:', error);
       set({ error: (error as Error).message });
@@ -68,13 +95,22 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     }
   },
 
+  // Delete a todo
   deleteTodo: async (id: string) => {
     try {
       set({ loading: true, error: null });
       const todoRef = doc(db, 'todos', id);
       await deleteDoc(todoRef);
-      set(state => ({
-        todos: state.todos.filter(todo => todo.id !== id)
+
+      // Update cache and state
+      set((state) => ({
+        todos: state.todos.filter((todo) => todo.id !== id),
+        cache: {
+          ...state.cache,
+          [auth.currentUser?.uid || '']: state.cache[auth.currentUser?.uid || '']?.filter(
+            (todo) => todo.id !== id
+          ),
+        },
       }));
     } catch (error) {
       console.error('Error deleting todo:', error);
@@ -84,22 +120,38 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     }
   },
 
+  // Fetch todos for the current user
   fetchUserTodos: async () => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      // Check if todos are already cached for this user
+      const cachedTodos = get().cache[currentUser.uid];
+      if (cachedTodos) {
+        set({ todos: cachedTodos, loading: false });
+        return;
+      }
+
+      // Log Firestore fetch
+      console.log("Fetching todos from Firestore for user:", currentUser.uid);
+
       const todosRef = collection(db, 'todos');
       const q = query(todosRef, where('userId', '==', currentUser.uid));
       const querySnapshot = await getDocs(q);
-      
-      const todos = querySnapshot.docs.map(doc => ({
+
+      const todos = querySnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       })) as Todo[];
 
-      set({ todos });
+      // Update cache and state
+      set({
+        todos,
+        cache: { ...get().cache, [currentUser.uid]: todos },
+        loading: false,
+      });
     } catch (error) {
       console.error('Error fetching todos:', error);
       set({ error: (error as Error).message });
@@ -108,10 +160,11 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     }
   },
 
+  // Toggle todo completion status
   toggleTodoComplete: async (id: string) => {
-    const todo = get().todos.find(t => t.id === id);
+    const todo = get().todos.find((t) => t.id === id);
     if (todo) {
       await get().updateTodo(id, { completed: !todo.completed });
     }
-  }
-})); 
+  },
+}));
