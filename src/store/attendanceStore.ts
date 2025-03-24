@@ -18,6 +18,9 @@ interface AttendanceState {
   loading: boolean;
   error: string | null;
   records: AttendanceRecord[];
+  cache: {
+    [key: string]: AttendanceRecord; // Cache keyed by date or user ID
+  };
   checkAttendance: () => Promise<boolean>;
   markAttendance: (type?: 'full' | 'half') => Promise<void>;
   fetchAttendanceRecords: () => Promise<void>;
@@ -31,6 +34,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   loading: false,
   error: null,
   records: [],
+  cache: {},
 
   checkAttendance: async () => {
     try {
@@ -85,6 +89,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         });
       }
 
+      // Invalidate the cache
+      set({ cache: {} });
+
       // Refresh records after marking attendance
       await get().fetchAttendanceRecords();
     } catch (error) {
@@ -102,6 +109,15 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      // Check if records are already in the cache
+      const cachedRecords = get().records;
+      if (cachedRecords.length > 0) {
+        set({ loading: false });
+        return;
+      }
+
+      console.log('Fetching attendance records...');
+
       const attendanceRef = collection(db, 'attendance');
       const q = query(attendanceRef, orderBy('date', 'desc'));
       const querySnapshot = await getDocs(q);
@@ -110,6 +126,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         .map(doc => ({ ...doc.data() } as AttendanceRecord))
         .filter(record => record.attendance[currentUser.uid]); // Only get records where user is present
 
+      // Update the cache
       set({ records, loading: false });
     } catch (error) {
       console.error('Error fetching attendance records:', error);
@@ -121,6 +138,15 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       
+      // Check if all users' attendance is already in the cache
+      const cachedRecords = get().records;
+      if (cachedRecords.length > 0) {
+        set({ loading: false });
+        return;
+      }
+
+      console.log('Fetching all users attendance...');
+
       const attendanceRef = collection(db, 'attendance');
       const q = query(attendanceRef, orderBy('date', 'desc'));
       const querySnapshot = await getDocs(q);
@@ -129,6 +155,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         ...doc.data()
       })) as AttendanceRecord[];
 
+      // Update the cache
       set({ records, loading: false });
     } catch (error) {
       console.error('Error fetching all users attendance:', error);
@@ -168,6 +195,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         });
       }
 
+      // Invalidate the cache
+      set({ cache: {} });
+
       // Refresh records after marking attendance
       await get().fetchAllUsersAttendance();
       return 'Attendance marked successfully';
@@ -186,10 +216,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error('Admin not authenticated');
 
-      // console.log("before formattedDate", date);
       const dateObj = new Date(date);
       const formattedDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-      // console.log("formattedDate", formattedDate);
       const attendanceRef = doc(db, 'attendance', formattedDate);
       const attendanceDoc = await getDoc(attendanceRef);
 
@@ -202,11 +230,12 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         throw new Error('No attendance record found for this user');
       }
 
-      // console.log("attendanceData",attendanceData)
-
       await updateDoc(attendanceRef, {
         [`attendance.${userId}.type`]: type
       });
+
+      // Invalidate the cache
+      set({ cache: {} });
 
       // Refresh records after updating attendance
       await get().fetchAllUsersAttendance();
@@ -243,6 +272,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       await updateDoc(attendanceRef, {
         [`attendance.${userId}`]: deleteField()
       });
+
+      // Invalidate the cache
+      set({ cache: {} });
 
       // Refresh records after removing attendance
       await get().fetchAllUsersAttendance();

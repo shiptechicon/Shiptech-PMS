@@ -34,7 +34,7 @@ export default function AttendanceCalendar({
     fetchUserLeaveRequests,
     cancelLeaveRequest,
     updateLeaveStatus,
-    updateDate
+    updateDate,
   } = useLeaveStore();
   const {
     workFromRequests,
@@ -64,6 +64,7 @@ export default function AttendanceCalendar({
   const { updateAttendance, removeAttendance } = useAttendanceStore();
   const [approveFromDate, setApproveFromDate] = useState("");
   const [approveToDate, setApproveToDate] = useState("");
+  const [dontShowReject, setDontShowReject] = useState(false);
   // State for active analytics tab
   const [activeTab, setActiveTab] = useState<
     "thisMonth" | "threeMonths" | "sixMonths" | "yearly" | "overall"
@@ -210,7 +211,7 @@ export default function AttendanceCalendar({
         leaveType: leave.leaveType,
         session: leave.session || null,
         startDate: leave.startDate,
-        endDate: leave.endDate
+        endDate: leave.endDate,
       });
     }
 
@@ -270,6 +271,19 @@ export default function AttendanceCalendar({
     return statuses;
   };
 
+  useEffect(() => {
+    if (selectedStatus) {
+      if (
+        approveFromDate != selectedStatus.startDate ||
+        approveToDate != selectedStatus.endDate
+      ) {
+        setDontShowReject(true);
+      } else {
+        setDontShowReject(false);
+      }
+    }
+  }, [approveFromDate, approveToDate, selectedStatus]);
+
   const handleClick = async (e: React.MouseEvent, status: any) => {
     e.preventDefault();
 
@@ -299,6 +313,7 @@ export default function AttendanceCalendar({
       (status?.type === "ooo" && isAdmin)
     ) {
       const usr = await getUserFullName((selectedUser as string) ?? user?.uid);
+
       setSelectedStatus(status);
       setApproveFromDate(status.startDate);
       setApproveToDate(status.endDate);
@@ -699,29 +714,28 @@ export default function AttendanceCalendar({
               </div>
 
               {/* Date Range Inputs for Admin */}
-              {userData?.role === "admin" &&
-                selectedStatus?.type === "leave" && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Approve Leave From:
-                    </label>
-                    <input
-                      type="date"
-                      value={approveFromDate}
-                      onChange={(e) => setApproveFromDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
-                      To:
-                    </label>
-                    <input
-                      type="date"
-                      value={approveToDate}
-                      onChange={(e) => setApproveToDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                )}
+              {userData?.role == "admin" && selectedStatus?.type === "leave" && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Approve Leave From:
+                  </label>
+                  <input
+                    type="date"
+                    value={approveFromDate}
+                    onChange={(e) => setApproveFromDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
+                    To:
+                  </label>
+                  <input
+                    type="date"
+                    value={approveToDate}
+                    onChange={(e) => setApproveToDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
 
               <p className="mb-6">
                 Are you sure you want to cancel this request?
@@ -733,12 +747,14 @@ export default function AttendanceCalendar({
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                >
-                  OK
-                </button>
+                {!dontShowReject && (
+                  <button
+                    onClick={handleCancel}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  >
+                    Ok
+                  </button>
+                )}
                 {userData?.role === "admin" &&
                   selectedStatus.status === "pending" && (
                     <button
@@ -781,6 +797,31 @@ export default function AttendanceCalendar({
                     </p>
                   </>
                 )}
+
+                {userData?.role === "admin" &&
+                  selectedStatus?.type === "leave" && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Approve Leave From:
+                      </label>
+                      <input
+                        type="date"
+                        value={approveFromDate}
+                        onChange={(e) => setApproveFromDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
+                        To:
+                      </label>
+                      <input
+                        type="date"
+                        value={approveToDate}
+                        onChange={(e) => setApproveToDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+
                 {selectedStatus?.type === "workfrom" && (
                   <p className="text-sm text-gray-600 mb-2">
                     <span className="font-medium">Reason for WFH:</span>{" "}
@@ -804,13 +845,15 @@ export default function AttendanceCalendar({
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={() => handleAdminAction("reject")}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                  disabled={isApproving}
-                >
-                  Reject
-                </button>
+                {!dontShowReject && (
+                  <button
+                    onClick={() => handleAdminAction("reject")}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                    disabled={isApproving}
+                  >
+                    Reject
+                  </button>
+                )}
                 <button
                   onClick={() => handleAdminAction("approve")}
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
