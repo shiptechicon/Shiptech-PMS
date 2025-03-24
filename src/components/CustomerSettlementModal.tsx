@@ -44,19 +44,9 @@ const CustomerSettlementModal = ({
 
   // Calculate the total amount from enquiries
   const calculateSum = () => {
-    return (
-      enquiries?.reduce((sum, enquiry) => {
-        return (
-          sum +
-          (enquiry.deliverables?.reduce((enquirySum, deliverable) => {
-            return (
-              enquirySum +
-              (deliverable.costPerHour ?? 0) * (deliverable.hours ?? 0)
-            );
-          }, 0) ?? 0)
-        );
-      }, 0) ?? 0
-    );
+    return projects.reduce((sum, project) => {
+      return sum + (project.total_amount ?? 0);
+    }, 0);
   };
 
   // Handle creating a new settlement or adding a payment
@@ -72,12 +62,14 @@ const CustomerSettlementModal = ({
         return;
       }
 
+      const totalAmount = calculateSum();
+
       if (paymentInfo.amount > balanceAmount) {
-        toast.error("Amount must be less than balance to pay");
+        toast.error(
+          "Total amount after payment must be less than or equal to balance"
+        );
         return;
       }
-
-      const totalAmount = calculateSum();
 
       if (settlement?.id) {
         await addPayment(
@@ -117,36 +109,31 @@ const CustomerSettlementModal = ({
 
   const handleEditPayment = async () => {
     try {
-      // Check if we have a valid settlement and index
       if (editIndex === null || !settlement?.id) {
         toast.error("Cannot edit payment: Settlement not found");
         return;
       }
 
-      // Validate payment information
-      if (!paymentInfo.date) {
-        toast.error("Payment date is required");
-        return;
-      }
+      console.log("paymentInfo", paymentInfo);
 
-      if (!paymentInfo.paymentRef) {
-        toast.error("Payment reference is required");
-        return;
-      }
+      console.log("this is value : ", settlement.amounts_paid[editIndex]);
 
-      if (paymentInfo.amount <= 0) {
-        toast.error("Amount must be greater than 0");
-        return;
-      }
-
-      if(paymentInfo.amount > balanceAmount){
-        toast.error("Amount must be less than balance to pay");
+      if (
+        !paymentInfo.date ||
+        !paymentInfo.paymentRef ||
+        paymentInfo.amount <= 0
+      ) {
+        toast.error("Invalid payment information");
         return;
       }
 
       const totalAmount = calculateSum();
 
-      // Call edit payment function from store
+      if (paymentInfo.amount > balanceAmount + settlement.amounts_paid[editIndex].amount) {
+        toast.error("Amount is greater than balance amount");
+        return;
+      }
+
       await editPayment(
         settlement.id,
         editIndex,
@@ -157,9 +144,6 @@ const CustomerSettlementModal = ({
         },
         totalAmount
       );
-
-      // Refresh the settlement data after editing
-      await fetchSettlement(customer.id as string);
 
       toast.success("Payment updated successfully");
       setShowEditModal(false);
@@ -177,13 +161,10 @@ const CustomerSettlementModal = ({
         toast.error("Settlement not found");
         return;
       }
-  
+
       const totalAmount = calculateSum();
       await deletePayment(settlement.id, index, totalAmount);
-      
-      // Wait for a moment and then fetch settlement again to ensure UI is updated
-      await fetchSettlement(customer.id as string);
-      
+
       toast.success("Payment deleted successfully");
       setShowDeleteConfirm(null);
     } catch (error) {
@@ -205,22 +186,11 @@ const CustomerSettlementModal = ({
   const openEditModal = (index: number) => {
     if (settlement?.amounts_paid && index < settlement.amounts_paid.length) {
       const payment = settlement.amounts_paid[index];
-
-      // Ensure date is properly formatted
-      let paymentDate = payment.date;
-      try {
-        // Try to format the date as YYYY-MM-DD for the input field
-        paymentDate = new Date(payment.date).toISOString().split("T")[0];
-      } catch (error) {
-        console.error("Error formatting date:", error);
-      }
-
       setPaymentInfo({
         amount: payment.amount,
         paymentRef: payment.paymentRef,
-        date: paymentDate,
+        date: new Date(payment.date).toISOString().split("T")[0],
       });
-
       setEditIndex(index);
       setShowEditModal(true);
     }

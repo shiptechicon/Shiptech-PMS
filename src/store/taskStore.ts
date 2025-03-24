@@ -9,6 +9,7 @@ import {
   where,
   query,
   getDoc,
+  increment,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
@@ -244,7 +245,15 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         outsource_team_id: task.outsource_team_id || "",
       });
 
-      console.log("docRef",docRef)
+      console.log("docRef", docRef);
+
+      if (task.parentId === null && task.costPerHour && task.hours) {
+        const totalAmount = task.costPerHour * task.hours;
+        const projectRef = doc(db, "projects", task.projectId);
+        await updateDoc(projectRef, {
+          total_amount: increment(totalAmount),
+        });
+      }
 
       set({
         taskNodes: [
@@ -285,7 +294,20 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       set({ loading: true, error: null });
       const taskRef = doc(db, "tasks", id);
       const { id: _, ...updatesWithoutId } = updates;
+
+      const currentTask = get().tasks.find((task) => task.id === id);
+      if (updatesWithoutId && updatesWithoutId.costPerHour && updatesWithoutId.hours && updatesWithoutId.projectId && currentTask && currentTask.costPerHour && currentTask.hours) {
+        const oldTotalAmount = currentTask.costPerHour * currentTask.hours;
+        const newTotalAmount = updatesWithoutId.costPerHour * updatesWithoutId.hours;
+        const projectRef = doc(db, "projects", updatesWithoutId.projectId);
+        
+        await updateDoc(projectRef, {
+          total_amount: increment(newTotalAmount-oldTotalAmount),
+        });
+      }
+
       await updateDoc(taskRef, updatesWithoutId);
+
       set({
         taskNodes: get().taskNodes.map((task) =>
           task.id === id ? { ...task, ...updates } : task
@@ -312,6 +334,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       const taskRef = doc(db, "tasks", id);
+      const taskSnapshot = await getDoc(taskRef);
+      if (taskSnapshot.exists()) {
+        const taskData = taskSnapshot.data() as Task;
+        if (taskData.parentId === null) {
+          const projectId = taskData.projectId;
+          const costPerHour = taskData.costPerHour || 0;
+          const hours = taskData.hours || 0;
+          const totalReduction = costPerHour * hours;
+
+          const projectRef = doc(db, "projects", projectId);
+          await updateDoc(projectRef, {
+            total_amount: increment(-totalReduction),
+          });
+        }
+      }
       await deleteDoc(taskRef);
       set({ taskNodes: get().taskNodes.filter((task) => task.id !== id) });
       set({ tasks: get().convertNodesToTree(get().taskNodes) });
