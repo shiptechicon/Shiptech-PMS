@@ -139,7 +139,7 @@ const CustomerSettlementModal = ({
         return;
       }
 
-      if(paymentInfo.amount > balanceAmount){
+      if (paymentInfo.amount > balanceAmount) {
         toast.error("Amount must be less than balance to pay");
         return;
       }
@@ -177,13 +177,13 @@ const CustomerSettlementModal = ({
         toast.error("Settlement not found");
         return;
       }
-  
+
       const totalAmount = calculateSum();
       await deletePayment(settlement.id, index, totalAmount);
-      
+
       // Wait for a moment and then fetch settlement again to ensure UI is updated
       await fetchSettlement(customer.id as string);
-      
+
       toast.success("Payment deleted successfully");
       setShowDeleteConfirm(null);
     } catch (error) {
