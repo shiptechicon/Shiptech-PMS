@@ -187,6 +187,8 @@ export default function ProjectForm() {
           address: selectedCustomer.address,
         },
         customer_id:selectedCustomer.id || "",
+        settlement: "not-defined",
+        total_amount: 0,
       };
 
       if (id) {

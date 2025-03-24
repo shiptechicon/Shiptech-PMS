@@ -238,6 +238,12 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
 
       const projectId = 'P-' + enquiry.__id.split('-')[1];
 
+      // Calculate total cost for all tasks
+      const total_amount = enquiry.deliverables.reduce((total, deliverable) => {
+        const cost = (deliverable.hours || 0) * (deliverable.costPerHour || 0);
+        return total + cost;
+      }, 0);
+
       // Create tasks in the tasks collection
       const taskPromises = enquiry.deliverables.map((deliverable) =>
         addDoc(collection(db, 'tasks'), {
@@ -272,6 +278,8 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
         project_due_date: null,
         project_start_date: null,
         endClient: enquiry.endClient,
+        settlement: "not-defined",
+        total_amount, // Assign the calculated total amount
       };
 
       // Create project in Firestore
