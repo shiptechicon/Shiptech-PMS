@@ -1,10 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { Bell, Trash2, X } from "lucide-react";
 import { useNotificationStore } from "../store/notificationStore";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -13,11 +11,9 @@ export default function NotificationDropdown() {
     clearAllNotifications,
     fetchNotifications,
     deleteNotification,
-    addNotification,
   } = useNotificationStore();
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const hasFetched = useRef(false);
 
   // Fetch notifications on component mount, when user changes, and when fetchNotifications changes
   React.useEffect(() => {
@@ -97,99 +93,99 @@ export default function NotificationDropdown() {
     });
   };
 
-  const fetchDeadLines = async () => {
-    try {
-      const today = new Date();
-      const todayString = today.toISOString().split("T")[0];
+  // const fetchDeadLines = async () => {
+  //   try {
+  //     const today = new Date();
+  //     const todayString = today.toISOString().split("T")[0];
   
-      console.log("Today:", today);
+  //     console.log("Today:", today);
   
-      // Fetch all tasks and projects from Firestore
-      const projectQuery = query(collection(db, "projects"));
-      const allProjects = (await getDocs(projectQuery)).docs.map((doc) =>
-        doc.data()
-      );
+  //     // Fetch all tasks and projects from Firestore
+  //     const projectQuery = query(collection(db, "projects"));
+  //     const allProjects = (await getDocs(projectQuery)).docs.map((doc) =>
+  //       doc.data()
+  //     );
   
-      const taskQuery = query(collection(db, "tasks"));
-      const allTasks = (await getDocs(taskQuery)).docs.map((doc) => doc.data());
+  //     const taskQuery = query(collection(db, "tasks"));
+  //     const allTasks = (await getDocs(taskQuery)).docs.map((doc) => doc.data());
   
-      // Filter tasks and projects due today
-      const todayDeadLines = allTasks.filter((task) => {
-        const deadlineString = task?.deadline?.split("T")[0];
-        return deadlineString === todayString;
-      });
+  //     // Filter tasks and projects due today
+  //     const todayDeadLines = allTasks.filter((task) => {
+  //       const deadlineString = task?.deadline?.split("T")[0];
+  //       return deadlineString === todayString;
+  //     });
   
-      const todayProjects = allProjects.filter((project) => {
-        const dueDateString = project?.project_due_date?.split("T")[0];
-        return dueDateString === todayString;
-      });
+  //     // const todayProjects = allProjects.filter((project) => {
+  //     //   const dueDateString = project?.project_due_date?.split("T")[0];
+  //     //   return dueDateString === todayString;
+  //     // });
   
-      // Create notifications for tasks due today
-      const newTaskNotifications = todayDeadLines.map((task) => {
-        const newNoti = {
-          content: `Today is the deadline for ${task.name}`,
-          url: `/projects/${task.projectId}/tasks/${task.id}`,
-          userId: user?.uid || "",
-        };
+  //     // // Create notifications for tasks due today
+  //     // const newTaskNotifications = todayDeadLines.map((task) => {
+  //     //   const newNoti = {
+  //     //     content: `Today is the deadline for ${task.name}`,
+  //     //     url: `/projects/${task.projectId}/tasks/${task.id}`,
+  //     //     userId: user?.uid || "",
+  //     //   };
   
-        const isExisting = notifications.some(
-          (noti) =>
-            noti.content === newNoti.content &&
-            noti.url === newNoti.url &&
-            noti.userId === newNoti.userId &&
-            new Date(noti.createdAt).getDate() === today.getDate()
-        );
+  //     //   const isExisting = notifications.some(
+  //     //     (noti) =>
+  //     //       noti.content === newNoti.content &&
+  //     //       noti.url === newNoti.url &&
+  //     //       noti.userId === newNoti.userId &&
+  //     //       new Date(noti.createdAt).getDate() === today.getDate()
+  //     //   );
   
-        if (isExisting) return null;
+  //     //   if (isExisting) return null;
   
-        return newNoti;
-      });
+  //     //   return newNoti;
+  //     // });
   
-      // Create notifications for projects due today
-      const newProjectNotifications = todayProjects.map((project) => {
-        const newNoti = {
-          content: `Today is the deadline for project ${project.name}`,
-          url: `/projects/${project.id}`,
-          userId: user?.uid || "",
-        };
+  //     // Create notifications for projects due today
+  //     // const newProjectNotifications = todayProjects.map((project) => {
+  //     //   const newNoti = {
+  //     //     content: `Today is the deadline for project ${project.name}`,
+  //     //     url: `/projects/${project.id}`,
+  //     //     userId: user?.uid || "",
+  //     //   };
   
-        const isExisting = notifications.some(
-          (noti) =>
-            noti.content === newNoti.content &&
-            noti.url === newNoti.url &&
-            noti.userId === newNoti.userId &&
-            new Date(noti.createdAt).getDate() === today.getDate()
-        );
+  //     //   const isExisting = notifications.some(
+  //     //     (noti) =>
+  //     //       noti.content === newNoti.content &&
+  //     //       noti.url === newNoti.url &&
+  //     //       noti.userId === newNoti.userId &&
+  //     //       new Date(noti.createdAt).getDate() === today.getDate()
+  //     //   );
   
-        if (isExisting) return null;
+  //     //   if (isExisting) return null;
   
-        return newNoti;
-      });
+  //     //   return newNoti;
+  //     // });
   
-      // Combine task and project notifications
-      const allNotifications = [...newTaskNotifications, ...newProjectNotifications].filter(noti => noti !== null);
+  //     // Combine task and project notifications
+  //     // const allNotifications = [...newTaskNotifications, ...newProjectNotifications].filter(noti => noti !== null);
   
-      // Add notifications to the database
-      for (const notification of allNotifications) {
-        if (notification) {
-          await addNotification(
-            notification.content,
-            notification.url,
-            notification.userId
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching today notifications:", error);
-    }
-  };
+  //     // Add notifications to the database
+  //     // for (const notification of allNotifications) {
+  //     //   if (notification) {
+  //     //     await addNotification(
+  //     //       notification.content,
+  //     //       notification.url,
+  //     //       notification.userId
+  //     //     );
+  //     //   }
+  //     // }
+  //   } catch (error) {
+  //     console.error("Error fetching today notifications:", error);
+  //   }
+  // };
 
-  useEffect(() => {
-    if (user && notifications && !hasFetched.current) {
-      hasFetched.current = true;
-      fetchDeadLines();
-    }
-  }, [user, notifications]);
+  // useEffect(() => {
+  //   if (user && notifications && !hasFetched.current) {
+  //     hasFetched.current = true;
+  //     fetchDeadLines();
+  //   }
+  // }, [user, notifications]);
 
   return (
     <div className="relative">

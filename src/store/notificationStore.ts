@@ -78,6 +78,9 @@ export const useNotificationStore = create<NotificationStore>()(
             orderBy('createdAt', 'desc')
           );
 
+          console.log('Fetching notification ...');
+          
+
           // Set up real-time listener
           onSnapshot(q, (snapshot) => {
             const notifications = snapshot.docs.map(doc => {

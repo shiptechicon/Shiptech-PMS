@@ -37,17 +37,18 @@ interface Comment {
   project_id: string; // Add project_id to the comment
 }
 
-interface ProjectComments {
-  projectId: string;
-  comments: Comment[];
-}
-
 interface CommentState {
   comments: Comment[];
   loading: boolean;
   error: string | null;
   commentsCount: number; // New state variable for tracking fetched pages
   lastVisible: QueryDocumentSnapshot<DocumentData> | null; // Allow lastVisible to be null
+  cache: {
+    [projectId: string]: {
+      comments: Comment[]; // Cached comments for each project
+      lastVisible: QueryDocumentSnapshot<DocumentData> | null; // Last visible document for pagination
+    };
+  };
   fetchComments: (projectId: string) => Promise<void>; // Updated to only take projectId
   fetchMoreComments: (projectId: string) => Promise<void>; // Updated to only take projectId
   addComment: (projectId: string, text: string, userRole: string, attachments?: Attachment[]) => Promise<void>;
@@ -60,10 +61,26 @@ export const useCommentStore = create<CommentState>((set, get) => ({
   error: null,
   commentsCount: 0,
   lastVisible: null,
+  cache: {},
 
+  // Fetch comments for a project
   fetchComments: async (projectId: string) => {
     try {
       set({ loading: true, error: null });
+
+      // Check if comments are already cached
+      const cachedComments = get().cache[projectId]?.comments;
+      if (cachedComments && cachedComments.length > 0) {
+        set({
+          comments: cachedComments,
+          loading: false,
+          lastVisible: get().cache[projectId]?.lastVisible || null,
+        });
+        return;
+      }
+
+      console.log("Fetching comments from Firestore for project:", projectId);
+
       const commentsRef = collection(db, "project_comments");
       const commentsQuery = query(
         commentsRef,
@@ -85,24 +102,33 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         ...doc.data(),
       })) as Comment[]; // Ensure the data is cast to Comment type
 
-      // Set lastVisible to the last comment if it exists
-      set({ lastVisible: lastVisibleTemp });
-
-      set({
+      // Update cache
+      set((state) => ({
         comments,
         loading: false,
-        commentsCount: comments.length, // Set commentsCount to the number of fetched comments
-      });
+        commentsCount: comments.length,
+        lastVisible: lastVisibleTemp,
+        cache: {
+          ...state.cache,
+          [projectId]: {
+            comments,
+            lastVisible: lastVisibleTemp,
+          },
+        },
+      }));
     } catch (error) {
       console.error("Error fetching comments:", error);
       set({ error: (error as Error).message, loading: false });
     }
   },
 
+  // Fetch more comments for a project
   fetchMoreComments: async (projectId: string) => {
     try {
-      const { lastVisible, comments } = get();
+      const { lastVisible, comments, cache } = get();
       if (!lastVisible) return; // If there's no lastVisible, do nothing
+
+      console.log("Fetching more comments from Firestore for project:", projectId);
 
       const commentsRef = collection(db, "project_comments");
       const commentsQuery = query(
@@ -131,10 +157,17 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         (newComment) => !comments.some((existingComment) => existingComment.id === newComment.id)
       );
 
-      // Update state with unique new comments and lastVisible
+      // Update cache and state
       set((state) => ({
         comments: [...state.comments, ...uniqueNewComments],
         lastVisible: newLastVisible,
+        cache: {
+          ...state.cache,
+          [projectId]: {
+            comments: [...(state.cache[projectId]?.comments || []), ...uniqueNewComments],
+            lastVisible: newLastVisible,
+          },
+        },
       }));
     } catch (error) {
       console.error("Error fetching more comments:", error);
@@ -142,13 +175,14 @@ export const useCommentStore = create<CommentState>((set, get) => ({
     }
   },
 
+  // Add a new comment
   addComment: async (projectId: string, text: string, userRole: string, attachments: Attachment[] = []) => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error("User not authenticated");
 
-      const newComment: Omit<Comment, 'id'> = { // Use Omit to exclude 'id' from the type
+      const newComment: Omit<Comment, 'id'> = {
         text,
         user: {
           id: currentUser.uid,
@@ -163,11 +197,18 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       // Add the new comment as a document in the Firestore collection
       const docRef = await addDoc(collection(db, "project_comments"), newComment);
 
-      // Update local state with the new comment including the generated id
+      // Update cache and state with the new comment including the generated id
       set((state) => ({
         comments: [{ id: docRef.id, ...newComment }, ...state.comments], // Include the generated id
         loading: false,
         error: null,
+        cache: {
+          ...state.cache,
+          [projectId]: {
+            comments: [{ id: docRef.id, ...newComment }, ...(state.cache[projectId]?.comments || [])],
+            lastVisible: state.cache[projectId]?.lastVisible || null,
+          },
+        },
       }));
     } catch (error) {
       console.error("Error adding comment:", error);
@@ -176,10 +217,11 @@ export const useCommentStore = create<CommentState>((set, get) => ({
     }
   },
 
+  // Delete a comment
   deleteComment: async (commentId: string) => {
     try {
-      const { comments } = get();
-      const commentToDelete = comments.find(comment => comment.id === commentId);
+      const { comments, cache } = get();
+      const commentToDelete = comments.find((comment) => comment.id === commentId);
 
       if (commentToDelete) {
         let attachmentsDeleted = true;
@@ -210,8 +252,19 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         const commentRef = doc(db, "project_comments", commentId);
         if (attachmentsDeleted) {
           await deleteDoc(commentRef);
+
+          // Update cache and state
           set((state) => ({
-            comments: state.comments.filter(comment => comment.id !== commentId),
+            comments: state.comments.filter((comment) => comment.id !== commentId),
+            cache: {
+              ...state.cache,
+              [commentToDelete.project_id]: {
+                comments: state.cache[commentToDelete.project_id]?.comments.filter(
+                  (comment) => comment.id !== commentId
+                ),
+                lastVisible: state.cache[commentToDelete.project_id]?.lastVisible || null,
+              },
+            },
           }));
         } else {
           console.warn("Comment not deleted because attachments could not be deleted.");

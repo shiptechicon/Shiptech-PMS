@@ -1,6 +1,15 @@
-import { create } from 'zustand';
-import { collection, doc, setDoc, updateDoc, getDocs, query, orderBy, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { create } from "zustand";
+import {
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  getDocs,
+  query,
+  orderBy,
+  deleteDoc,
+} from "firebase/firestore";
+import { db, auth } from "../lib/firebase";
 
 interface LeaveRequest {
   id: string;
@@ -8,9 +17,9 @@ interface LeaveRequest {
   startDate: string;
   endDate: string;
   reason: string;
-  leaveType: 'full' | 'half';
-  session?: 'forenoon' | 'afternoon' | null;
-  status: 'pending' | 'approved' | 'rejected';
+  leaveType: "full" | "half";
+  session?: "forenoon" | "afternoon" | null;
+  status: "pending" | "approved" | "rejected";
   createdAt: string;
 }
 
@@ -19,12 +28,29 @@ interface LeaveState {
   error: string | null;
   leaveRequests: LeaveRequest[];
   allLeaveRequests: LeaveRequest[];
-  requestLeave: (startDate: string, endDate: string, reason: string, leaveType: 'full' | 'half', session?: 'forenoon' | 'afternoon') => Promise<void>;
+  cache: {
+    userLeaveRequests: { [userId: string]: LeaveRequest[] }; // Cache for user-specific leave requests
+    allLeaveRequests: LeaveRequest[] | null; // Cache for all leave requests
+  };
+  requestLeave: (
+    startDate: string,
+    endDate: string,
+    reason: string,
+    leaveType: "full" | "half",
+    session?: "forenoon" | "afternoon"
+  ) => Promise<void>;
   fetchUserLeaveRequests: (userId?: string) => Promise<void>;
   fetchAllLeaveRequests: () => Promise<void>;
-  updateLeaveStatus: (leaveId: string, status: 'approved' | 'rejected') => Promise<void>;
+  updateLeaveStatus: (
+    leaveId: string,
+    status: "approved" | "rejected"
+  ) => Promise<void>;
   cancelLeaveRequest: (leaveId: string) => Promise<void>;
-  updateDate: (leaveId: string, startDate: string, endDate: string) => Promise<void>; // New function
+  updateDate: (
+    leaveId: string,
+    startDate: string,
+    endDate: string
+  ) => Promise<void>;
 }
 
 export const useLeaveStore = create<LeaveState>((set, get) => ({
@@ -32,14 +58,19 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
   error: null,
   leaveRequests: [],
   allLeaveRequests: [],
+  cache: {
+    userLeaveRequests: {}, // Initialize cache for user-specific leave requests
+    allLeaveRequests: null, // Initialize cache for all leave requests
+  },
 
+  // Request leave
   requestLeave: async (startDate, endDate, reason, leaveType, session) => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('User not authenticated');
+      if (!currentUser) throw new Error("User not authenticated");
 
-      const leaveRef = collection(db, 'leaves');
+      const leaveRef = collection(db, "leaves");
       const newLeaveDoc = doc(leaveRef);
 
       const leaveRequest: LeaveRequest = {
@@ -49,15 +80,30 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
         endDate,
         reason,
         leaveType,
-        status: 'pending',
+        status: "pending",
         createdAt: new Date().toISOString(),
         session: session || null,
       };
 
       await setDoc(newLeaveDoc, leaveRequest);
+
+      // Invalidate cache for the user's leave requests
+      const state = get();
+      set({
+        cache: {
+          ...state.cache,
+          userLeaveRequests: {
+            ...state.cache.userLeaveRequests,
+            [currentUser.uid]: undefined, // Invalidate cache for this user
+          } as {
+            [userId: string]: LeaveRequest[];
+          },
+        },
+      });
+
       await get().fetchUserLeaveRequests();
     } catch (error) {
-      console.error('Error requesting leave:', error);
+      console.error("Error requesting leave:", error);
       set({ error: (error as Error).message });
       throw error;
     } finally {
@@ -65,56 +111,109 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
     }
   },
 
+  // Fetch leave requests for a specific user
   fetchUserLeaveRequests: async (userId) => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
       if (!currentUser && !userId) return;
 
-      const leavesRef = collection(db, 'leaves');
-      const q = query(leavesRef, orderBy('createdAt', 'desc'));
+      const targetUserId = userId || currentUser?.uid;
+
+      // Check if leave requests are already cached for this user
+      const cachedLeaveRequests =
+        get().cache.userLeaveRequests[targetUserId as string];
+      if (cachedLeaveRequests) {
+        set({ leaveRequests: cachedLeaveRequests, loading: false });
+        return;
+      }
+
+      // Log Firestore fetch
+      console.log(
+        "Fetching leave requests from Firestore for user:",
+        targetUserId
+      );
+
+      const leavesRef = collection(db, "leaves");
+      const q = query(leavesRef, orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
 
       const leaveRequests = querySnapshot.docs
         .map((doc) => ({ ...doc.data() } as LeaveRequest))
-        .filter((leave) => leave.userId === (userId || currentUser?.uid));
+        .filter((leave) => leave.userId === targetUserId);
 
-      set({ leaveRequests, loading: false });
+      // Update cache and state
+      set((state) => ({
+        leaveRequests,
+        cache: {
+          ...state.cache,
+          userLeaveRequests: {
+            ...state.cache.userLeaveRequests,
+            [targetUserId as string]: leaveRequests,
+          },
+        },
+        loading: false,
+      }));
     } catch (error) {
-      console.error('Error fetching leave requests:', error);
+      console.error("Error fetching leave requests:", error);
       set({ error: (error as Error).message, loading: false });
     }
   },
 
+  // Fetch all leave requests
   fetchAllLeaveRequests: async () => {
     try {
       set({ loading: true, error: null });
 
-      const leavesRef = collection(db, 'leaves');
-      const q = query(leavesRef, orderBy('createdAt', 'desc'));
+      // Check if all leave requests are already cached
+      const cachedAllLeaveRequests = get().cache.allLeaveRequests;
+      if (cachedAllLeaveRequests) {
+        set({ allLeaveRequests: cachedAllLeaveRequests, loading: false });
+        return;
+      }
+
+      // Log Firestore fetch
+      console.log("Fetching all leave requests from Firestore");
+
+      const leavesRef = collection(db, "leaves");
+      const q = query(leavesRef, orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
 
       const leaveRequests = querySnapshot.docs.map((doc) => ({
         ...doc.data(),
       })) as LeaveRequest[];
 
-      set({ leaveRequests, allLeaveRequests: leaveRequests, loading: false });
+      // Update cache and state
+      set({
+        allLeaveRequests: leaveRequests,
+        cache: { ...get().cache, allLeaveRequests: leaveRequests },
+        loading: false,
+      });
     } catch (error) {
-      console.error('Error fetching all leave requests:', error);
+      console.error("Error fetching all leave requests:", error);
       set({ error: (error as Error).message, loading: false });
     }
   },
 
+  // Update leave status
   updateLeaveStatus: async (leaveId, status) => {
     try {
       set({ loading: true, error: null });
 
-      const leaveRef = doc(db, 'leaves', leaveId);
+      const leaveRef = doc(db, "leaves", leaveId);
       await updateDoc(leaveRef, { status });
+
+      // Invalidate cache for all leave requests
+      set((state) => ({
+        cache: {
+          ...state.cache,
+          allLeaveRequests: null, // Invalidate cache for all leave requests
+        },
+      }));
 
       await get().fetchAllLeaveRequests();
     } catch (error) {
-      console.error('Error updating leave status:', error);
+      console.error("Error updating leave status:", error);
       set({ error: (error as Error).message });
       throw error;
     } finally {
@@ -122,18 +221,33 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
     }
   },
 
+  // Cancel leave request
   cancelLeaveRequest: async (leaveId) => {
     try {
       set({ loading: true, error: null });
       const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('User not authenticated');
+      if (!currentUser) throw new Error("User not authenticated");
 
-      const leaveRef = doc(db, 'leaves', leaveId);
+      const leaveRef = doc(db, "leaves", leaveId);
       await deleteDoc(leaveRef);
+
+      // Invalidate cache for the user's leave requests
+      const state = get();
+      set({
+        cache: {
+          ...state.cache,
+          userLeaveRequests: {
+            ...state.cache.userLeaveRequests,
+            [currentUser.uid]: undefined, // Invalidate cache for this user
+          } as {
+            [userId: string]: LeaveRequest[];
+          },
+        },
+      });
 
       await get().fetchUserLeaveRequests();
     } catch (error) {
-      console.error('Error canceling leave request:', error);
+      console.error("Error canceling leave request:", error);
       set({ error: (error as Error).message });
       throw error;
     } finally {
@@ -141,19 +255,27 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
     }
   },
 
-  // New function to update leave dates
+  // Update leave dates
   updateDate: async (leaveId, startDate, endDate) => {
     try {
       set({ loading: true, error: null });
 
-      const leaveRef = doc(db, 'leaves', leaveId);
+      const leaveRef = doc(db, "leaves", leaveId);
       await updateDoc(leaveRef, { startDate, endDate });
+
+      // Invalidate cache for all leave requests
+      set((state) => ({
+        cache: {
+          ...state.cache,
+          allLeaveRequests: null, // Invalidate cache for all leave requests
+        },
+      }));
 
       // Refresh the leave requests after updating
       await get().fetchUserLeaveRequests();
       await get().fetchAllLeaveRequests();
     } catch (error) {
-      console.error('Error updating leave dates:', error);
+      console.error("Error updating leave dates:", error);
       set({ error: (error as Error).message });
       throw error;
     } finally {
