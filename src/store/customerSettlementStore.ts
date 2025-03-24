@@ -242,15 +242,11 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
   editPayment: async (settlementId, paymentIndex, payment, totalAmount) => {
     try {
       set({ loading: true, error: null });
+      const settlement = get().settlement;
 
-      // Get the fresh data from Firestore
-      const settlementDoc = await getDoc(
-        doc(db, "customerSettlement", settlementId)
-      );
-      if (!settlementDoc.exists()) throw new Error("Settlement not found");
-
-      const settlement = settlementDoc.data() as CusSettlement;
-      settlement.id = settlementDoc.id; // Make sure to include the document ID
+      if (!settlement || settlement.id !== settlementId) {
+        throw new Error("Settlement not found in cache");
+      }
 
       const newPayments = [...settlement.amounts_paid];
       newPayments[paymentIndex] = {
@@ -259,39 +255,29 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
       };
 
       const totalPaid = newPayments.reduce((sum, p) => sum + p.amount, 0);
-      const status =
-        totalPaid >= totalAmount
-          ? "completed"
-          : totalPaid > 0
-          ? "partial"
-          : "pending";
+      const status = totalPaid >= totalAmount ? "completed" : totalPaid > 0 ? "partial" : "pending";
 
-      // Update in Firestore
       await updateDoc(doc(db, "customerSettlement", settlementId), {
         amounts_paid: newPayments,
         status,
         updated_at: new Date().toISOString(),
       });
 
-      // Update the local state
-      set((state) => {
-        const newCache = new Map(state.cache);
-        newCache.set(settlementId, {
+      // Update local state immediately
+      set((state) => ({
+        settlement: {
           ...settlement,
           amounts_paid: newPayments,
           status,
           updated_at: new Date().toISOString(),
-        });
-        return {
-          settlement: {
-            ...settlement,
-            amounts_paid: newPayments,
-            status,
-            updated_at: new Date().toISOString(),
-          },
-          cache: newCache,
-        };
-      });
+        },
+        cache: new Map(state.cache).set(settlementId, {
+          ...settlement,
+          amounts_paid: newPayments,
+          status,
+          updated_at: new Date().toISOString(),
+        }),
+      }));
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -304,52 +290,37 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
   deletePayment: async (settlementId, paymentIndex, totalAmount) => {
     try {
       set({ loading: true, error: null });
-      const settlementDoc = await getDoc(doc(db, "customerSettlement", settlementId));
-      if (!settlementDoc.exists()) throw new Error("Settlement not found");
-      
-      const settlement = settlementDoc.data() as CusSettlement;
-      settlement.id = settlementDoc.id; // Make sure to include the document ID
-  
-      const newPayments = settlement.amounts_paid.filter(
-        (_, index) => index !== paymentIndex
-      );
-  
+      const settlement = get().settlement;
+
+      if (!settlement || settlement.id !== settlementId) {
+        throw new Error("Settlement not found in cache");
+      }
+
+      const newPayments = settlement.amounts_paid.filter((_, index) => index !== paymentIndex);
       const totalPaid = newPayments.reduce((sum, p) => sum + p.amount, 0);
-  
-      // Explicitly type the status to match CusSettlement type
-      const status: "pending" | "partial" | "completed" =
-        totalPaid >= totalAmount
-          ? "completed"
-          : totalPaid > 0
-          ? "partial"
-          : "pending";
-  
-      // Update in Firestore
+      const status = totalPaid >= totalAmount ? "completed" : totalPaid > 0 ? "partial" : "pending";
+
       await updateDoc(doc(db, "customerSettlement", settlementId), {
         amounts_paid: newPayments,
         status,
         updated_at: new Date().toISOString(),
       });
-  
-      // Also update local state with proper typing
-      set((state) => {
-        const newCache = new Map(state.cache);
-        newCache.set(settlementId, {
+
+      // Update local state immediately
+      set((state) => ({
+        settlement: {
           ...settlement,
           amounts_paid: newPayments,
           status,
           updated_at: new Date().toISOString(),
-        });
-        return {
-          settlement: {
-            ...settlement,
-            amounts_paid: newPayments,
-            status,
-            updated_at: new Date().toISOString(),
-          },
-          cache: newCache,
-        };
-      });
+        },
+        cache: new Map(state.cache).set(settlementId, {
+          ...settlement,
+          amounts_paid: newPayments,
+          status,
+          updated_at: new Date().toISOString(),
+        }),
+      }));
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
