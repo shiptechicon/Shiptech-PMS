@@ -247,9 +247,15 @@ export default function Attendance() {
         session: "forenoon"
       });
       toast.success("Leave request submitted successfully");
+      
+      // Calculate duration and send single notification
       if (userData?.role !== "admin") {
+        const start = new Date(leaveForm.startDate);
+        const end = new Date(leaveForm.endDate || leaveForm.startDate);
+        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
         await addNotification(
-          `${userData?.fullName || "User"} requested **leave**`,
+          `${userData?.fullName || "User"} requested ${leaveForm.leaveType} leave for ${days} day${days > 1 ? 's' : ''}`,
           `/dashboard/attendance`,
           user?.uid as string
         );
@@ -262,43 +268,34 @@ export default function Attendance() {
 
   const handleRequestWorkFromHome = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
-      // If no end date is set, use start date as end date
-      const endDate = showEndDateInput
-        ? workFromForm.endDate
-        : workFromForm.startDate;
-
-      // Validate dates and reason
+      const endDate = showEndDateInput ? workFromForm.endDate : workFromForm.startDate;
+      
       if (!workFromForm.startDate) {
         throw new Error("Start date is required");
       }
-
       if (showEndDateInput && !endDate) {
-        throw new Error(
-          "End date is required when setting a different end date"
-        );
+        throw new Error("End date is required when setting a different end date");
       }
-
       if (!workFromForm.reason.trim()) {
         throw new Error("Reason is required");
       }
 
-      // Make the request
-      await requestWorkFrom(
-        workFromForm.startDate,
-        endDate,
-        workFromForm.reason
-      );
+      await requestWorkFrom(workFromForm.startDate, endDate, workFromForm.reason);
 
-      // Reset form and close modal on success
       setShowWorkFromModal(false);
       setWorkFromForm({ startDate: "", endDate: "", reason: "" });
       setShowEndDateInput(false);
       toast.success("Work from home request submitted successfully");
+      
+      // Send single notification for WFH request
       if (userData?.role !== "admin") {
+        const start = new Date(workFromForm.startDate);
+        const end = new Date(endDate);
+        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
         await addNotification(
-          `${userData?.fullName || "User"} requested **work from home**`,
+          `${userData?.fullName || "User"} requested work from home for ${days} day${days > 1 ? 's' : ''}`,
           `/dashboard/attendance`,
           user?.uid as string
         );
@@ -306,32 +303,25 @@ export default function Attendance() {
     } catch (error) {
       console.error("Work from home request error:", error);
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to submit work from home request"
+        error instanceof Error ? error.message : "Failed to submit work from home request"
       );
     }
   };
 
   const handleRequestOOO = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
+      const endDate = showEndDateInput ? oooForm.endDate : oooForm.startDate;
+      
       if (!oooForm.startDate) {
         throw new Error("Start date is required");
       }
-
-      if (showEndDateInput && !oooForm.endDate) {
-        throw new Error(
-          "End date is required when setting a different end date"
-        );
+      if (showEndDateInput && !endDate) {
+        throw new Error("End date is required when setting a different end date");
       }
-
       if (!oooForm.reason.trim()) {
         throw new Error("Reason is required");
       }
-
-      const endDate = showEndDateInput ? oooForm.endDate : oooForm.startDate;
 
       await requestOOO(oooForm.startDate, endDate, oooForm.reason);
 
@@ -339,9 +329,15 @@ export default function Attendance() {
       setOOOForm({ startDate: "", endDate: "", reason: "" });
       setShowEndDateInput(false);
       toast.success("Out-of-Office request submitted successfully");
+      
+      // Send single notification for OOO request
       if (userData?.role !== "admin") {
+        const start = new Date(oooForm.startDate);
+        const end = new Date(endDate);
+        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
         await addNotification(
-          `${userData?.fullName || "User"} requested **out-of-office**`,
+          `${userData?.fullName || "User"} requested out-of-office for ${days} day${days > 1 ? 's' : ''}`,
           `/dashboard/attendance`,
           user?.uid as string
         );
@@ -349,9 +345,7 @@ export default function Attendance() {
     } catch (error) {
       console.error("OOO request error:", error);
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to submit Out-of-Office request"
+        error instanceof Error ? error.message : "Failed to submit Out-of-Office request"
       );
     }
   };
