@@ -27,10 +27,6 @@ interface WorkFromState {
   error: string | null;
   workFromRequests: WorkFromRequest[];
   allWorkFromRequests: WorkFromRequest[];
-  cache: {
-    userWorkFromRequests: { [userId: string]: WorkFromRequest[] }; // Cache for user-specific requests
-    allWorkFromRequests: WorkFromRequest[] | null; // Cache for all requests
-  };
   requestWorkFrom: (
     startDate: string,
     endDate: string,
@@ -50,10 +46,6 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
   error: null,
   workFromRequests: [],
   allWorkFromRequests: [],
-  cache: {
-    userWorkFromRequests: {}, // Initialize cache for user-specific requests
-    allWorkFromRequests: null, // Initialize cache for all requests
-  },
 
   // Request work-from-home
   requestWorkFrom: async (startDate, endDate, reason) => {
@@ -76,21 +68,6 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
       };
 
       await setDoc(newWorkFromDoc, workFromRequest);
-
-      // Invalidate cache for the user's work-from-home requests
-      const state = get();
-      set({
-        cache: {
-          ...state.cache,
-          userWorkFromRequests: {
-            ...state.cache.userWorkFromRequests,
-            [user.uid]: undefined, // Invalidate cache for this user
-          } as {
-            [userId: string]: WorkFromRequest[];
-          },
-        },
-      });
-
       await get().fetchUserWorkFromRequests();
     } catch (error) {
       console.error("Error requesting work from:", error);
@@ -110,19 +87,17 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
 
       const targetUserId = userId || user?.uid;
 
-      // Check if requests are already cached for this user
-      const cachedRequests =
-        get().cache.userWorkFromRequests[targetUserId as string];
-      if (cachedRequests) {
-        set({ workFromRequests: cachedRequests, loading: false });
-        return;
+      //check if it already exists
+      if (get().workFromRequests.length > 0) {
+        const userRequests = get().workFromRequests.filter(
+          (request) => request.userId === targetUserId
+        );
+        if (userRequests.length > 0) {
+          set({ loading: false });
+          return;
+        }
       }
-
-      // Log Firestore fetch
-      console.log(
-        "Fetching work-from-home requests from Firestore for user:",
-        targetUserId
-      );
+      
 
       const workFromRef = collection(db, "workfrom");
       const q = query(workFromRef, orderBy("createdAt", "desc"));
@@ -132,18 +107,7 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
         .map((doc) => ({ ...doc.data() } as WorkFromRequest))
         .filter((request) => request.userId === targetUserId);
 
-      // Update cache and state
-      set((state) => ({
-        workFromRequests,
-        cache: {
-          ...state.cache,
-          userWorkFromRequests: {
-            ...state.cache.userWorkFromRequests,
-            [targetUserId as string]: workFromRequests,
-          },
-        },
-        loading: false,
-      }));
+      set({ workFromRequests, loading: false });
     } catch (error) {
       console.error("Error fetching work-from-home requests:", error);
       set({ error: (error as Error).message, loading: false });
@@ -155,15 +119,11 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      // Check if all requests are already cached
-      const cachedAllRequests = get().cache.allWorkFromRequests;
-      if (cachedAllRequests) {
-        set({ allWorkFromRequests: cachedAllRequests, loading: false });
+      //check if it already exists
+      if (get().allWorkFromRequests.length > 0) {
+        set({ loading: false });
         return;
       }
-
-      // Log Firestore fetch
-      console.log("Fetching all work-from-home requests from Firestore");
 
       const workFromRef = collection(db, "workfrom");
       const q = query(workFromRef, orderBy("createdAt", "desc"));
@@ -173,12 +133,7 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
         ...doc.data(),
       })) as WorkFromRequest[];
 
-      // Update cache and state
-      set({
-        allWorkFromRequests: workFromRequests,
-        cache: { ...get().cache, allWorkFromRequests: workFromRequests },
-        loading: false,
-      });
+      set({ allWorkFromRequests: workFromRequests, loading: false });
     } catch (error) {
       console.error("Error fetching all work-from-home requests:", error);
       set({ error: (error as Error).message, loading: false });
@@ -193,15 +148,15 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
       const workFromRef = doc(db, "workfrom", requestId);
       await updateDoc(workFromRef, { status });
 
-      // Invalidate cache for all requests
       set((state) => ({
-        cache: {
-          ...state.cache,
-          allWorkFromRequests: null, // Invalidate cache for all requests
-        },
+        workFromRequests: state.workFromRequests.map((request) =>
+          request.id === requestId ? { ...request, status } : request
+        ),
+        allWorkFromRequests: state.allWorkFromRequests.map((request) =>
+          request.id === requestId ? { ...request, status } : request
+        ),
       }));
 
-      await get().fetchAllWorkFromRequests();
     } catch (error) {
       console.error("Error updating work-from-home status:", error);
       set({ error: (error as Error).message });
@@ -221,21 +176,15 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
       const workFromRef = doc(db, "workfrom", requestId);
       await deleteDoc(workFromRef);
 
-      // Invalidate cache for the user's requests
-      const state = get();
-      set({
-        cache: {
-          ...state.cache,
-          userWorkFromRequests: {
-            ...state.cache.userWorkFromRequests,
-            [user.uid]: undefined, // Invalidate cache for this user
-          } as {
-            [userId: string]: WorkFromRequest[];
-          },
-        },
-      });
+      set((state) => ({
+        workFromRequests: state.workFromRequests.filter(
+          (request) => request.id !== requestId
+        ),
+        allWorkFromRequests: state.allWorkFromRequests.filter(
+          (request) => request.id !== requestId
+        ),
+      }));
 
-      await get().fetchUserWorkFromRequests();
     } catch (error) {
       console.error("Error canceling work-from-home request:", error);
       set({ error: (error as Error).message });
