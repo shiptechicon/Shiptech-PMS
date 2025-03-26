@@ -101,23 +101,22 @@ const EnquiriesList = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredEnquiries.map((enquiry) => (
                 <tr
-                  onClick={() => navigate(`${enquiry.id}`)}
                   key={enquiry.id}
                   className="hover:bg-gray-50 hover:cursor-pointer"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     E-{enquiry.enquiryNumber}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {enquiry.name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {enquiry.customerName}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(enquiry.createdAt).toLocaleDateString()}
                   </td>
-                  <td
+                  <td onClick={() => navigate(`${enquiry.id}`)}
                     className={`px-6 py-4 whitespace-nowrap text-sm text-white`}
                   >
                     <div
