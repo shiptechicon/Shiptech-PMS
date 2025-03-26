@@ -68,6 +68,11 @@ export const useOOOStore = create<OOOState>((set, get) => ({
       };
 
       await setDoc(newOOODoc, oooRequest);
+
+      const currentLeaveRequests = get().oooRequests;
+      const updatedLeaveRequests = [...currentLeaveRequests, oooRequest];
+      set({ oooRequests: updatedLeaveRequests });
+
       await get().fetchUserOOORequests();
     } catch (error) {
       console.error("Error requesting OOO:", error);

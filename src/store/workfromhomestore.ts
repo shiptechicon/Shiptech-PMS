@@ -68,7 +68,12 @@ export const useWorkFromStore = create<WorkFromState>((set, get) => ({
       };
 
       await setDoc(newWorkFromDoc, workFromRequest);
-      await get().fetchUserWorkFromRequests();
+
+      const currentLeaveRequests = get().workFromRequests;
+      const updatedLeaveRequests = [...currentLeaveRequests, workFromRequest];
+      set({ workFromRequests: updatedLeaveRequests });
+
+      // await get().fetchUserWorkFromRequests();
     } catch (error) {
       console.error("Error requesting work from:", error);
       set({ error: (error as Error).message });
