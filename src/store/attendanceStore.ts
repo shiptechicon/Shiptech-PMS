@@ -15,6 +15,7 @@ interface AttendanceRecord {
 }
 
 interface AttendanceState {
+  hasAttendance : boolean;
   loading: boolean;
   error: string | null;
   records: AttendanceRecord[];
@@ -31,6 +32,7 @@ interface AttendanceState {
 }
 
 export const useAttendanceStore = create<AttendanceState>((set, get) => ({
+  hasAttendance:true,
   loading: false,
   error: null,
   records: [],
@@ -49,6 +51,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       if (!attendanceDoc.exists()) return false;
 
       const attendanceData = attendanceDoc.data();
+      set({ hasAttendance : !!attendanceData.attendance[currentUser.uid] })
       return !!attendanceData.attendance[currentUser.uid];
     } catch (error) {
       console.error('Error checking attendance:', error);
@@ -88,9 +91,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
           }
         });
       }
-
       // Invalidate the cache
-      set({ cache: {} });
+      set({ cache: {}, hasAttendance: true });
 
       // Refresh records after marking attendance
       await get().fetchAttendanceRecords();

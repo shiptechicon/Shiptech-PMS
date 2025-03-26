@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { Loader2 } from 'lucide-react';
 

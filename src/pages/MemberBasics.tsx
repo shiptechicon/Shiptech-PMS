@@ -18,7 +18,7 @@ export default function MemberBasics() {
   const { fetchUserTasks, tasks: userTasks } = useTaskStore();
   const { loading: tasksLoading, projects } = useProjectStore();
   const { user, userData } = useAuthStore();
-  const { checkAttendance } = useAttendanceStore();
+  const { checkAttendance, hasAttendance } = useAttendanceStore();
   const { todos, loading: todosLoading, fetchUserTodos } = useTodoStore();
   const [hasMarkedAttendance, setHasMarkedAttendance] = React.useState(true);
 
@@ -33,8 +33,8 @@ export default function MemberBasics() {
 
   useEffect(() => {
     const checkUserAttendance = async () => {
-      const marked = await checkAttendance();
-      setHasMarkedAttendance(marked);
+      await checkAttendance();
+      setHasMarkedAttendance(hasAttendance);
     };
     checkUserAttendance();
   }, [checkAttendance]);
