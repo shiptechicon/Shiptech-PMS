@@ -71,7 +71,7 @@ export default function Todos() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">My Todos</h1>
+        <h1 className="text-2xl font-bold">My To do</h1>
         <button
           onClick={() => {
             setFormData({ title: '', description: '', endDate: '' });
