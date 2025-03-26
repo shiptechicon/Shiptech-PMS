@@ -31,9 +31,10 @@ function TeamsList() {
         }
       });
     });
-  }, [fetchTeams, fetchTeamSettlements]);
+  }, [teams]);
 
   const determinePaymentStatus = (settlements: Settlement[]): string => {
+    if (settlements.length === 0) return "No payments";
     if (settlements.some((s) => s.status === "pending"))
       return "Pending payment";
     if (settlements.some((s) => s.status === "partial"))
