@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useProjectStore } from "../store/projectStore";
 import { useAttendanceStore } from "../store/attendanceStore";
 import { useTodoStore } from "../store/todoStore";
@@ -9,17 +9,15 @@ import {
   AlertCircle,
   UserCheck,
   ListTodo,
+  CheckCheck,
 } from "lucide-react";
 import { useTaskStore } from "../store/taskStore";
 import { useAuthStore } from "@/store/authStore";
 export default function MemberBasics() {
   const navigate = useNavigate();
-  const { fetchUserTasks , tasks : userTasks } = useTaskStore();
-  const {
-    loading: tasksLoading,
-    projects,
-  } = useProjectStore();
-  const { user , userData } = useAuthStore();
+  const { fetchUserTasks, tasks: userTasks } = useTaskStore();
+  const { loading: tasksLoading, projects } = useProjectStore();
+  const { user, userData } = useAuthStore();
   const { checkAttendance } = useAttendanceStore();
   const { todos, loading: todosLoading, fetchUserTodos } = useTodoStore();
   const [hasMarkedAttendance, setHasMarkedAttendance] = React.useState(true);
@@ -50,10 +48,13 @@ export default function MemberBasics() {
     .slice(0, 2);
 
   // Get upcoming tasks (nearest 2 by deadline that aren't completed)
-  const upcomingTasks = userTasks?.filter(
-    (task) =>
-      !task.completed && task.deadline && new Date(task.deadline) >= new Date()
-  ) ?? [];
+  const upcomingTasks =
+    userTasks?.filter(
+      (task) =>
+        !task.completed &&
+        task.deadline &&
+        new Date(task.deadline) >= new Date()
+    ) ?? [];
 
   const handleTaskClick = (projectId: string, taskid: string) => {
     navigate(`/dashboard/projects/${projectId}/task/${taskid}`);
@@ -167,55 +168,87 @@ export default function MemberBasics() {
               <AlertCircle className="h-12 w-12 text-gray-400" />
             </div>
             <p>No tasks assigned to you yet.</p>
+            <div className="mt-4">
+              <Link
+                to="/dashboard/mytasks"
+                className="text-blue-600 hover:text-blue-800"
+              >
+                View All My Tasks
+              </Link>
+            </div>
           </div>
         ) : (
-          <div className="divide-y">
-            {upcomingTasks.map((task) => (
-              <div
-                key={task.id}
-                onClick={() =>
-                  handleTaskClick(task.projectId as string, task.id as string)
-                }
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-gray-900">{task.name}</h3>
-                    {task.description && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        {task.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                      {task.hours && (
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          <span>{task.hours} hours</span>
-                        </div>
-                      )}
-                      {task.deadline && (
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          <span>
-                            {new Date(task.deadline).toLocaleDateString()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div
-                    className={`px-2 py-1 rounded text-sm ${
-                      task.completed
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
+          <>
+            {upcomingTasks.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">
+                <div className="flex justify-center mb-4">
+                  <CheckCheck className="h-12 w-12 text-gray-400" />
+                </div>
+                <p>All your tasks are completed.</p>
+                <div className="mt-4">
+                  <Link
+                    to="/dashboard/mytasks"
+                    className="text-blue-600 hover:text-blue-800"
                   >
-                    {task.completed ? "Completed" : "In Progress"}
-                  </div>
+                    View All My Tasks
+                  </Link>
                 </div>
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="divide-y">
+                {upcomingTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    onClick={() =>
+                      handleTaskClick(
+                        task.projectId as string,
+                        task.id as string
+                      )
+                    }
+                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {task.name}
+                        </h3>
+                        {task.description && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            {task.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          {task.hours && (
+                            <div className="flex items-center">
+                              <Clock className="h-4 w-4 mr-1" />
+                              <span>{task.hours} hours</span>
+                            </div>
+                          )}
+                          {task.deadline && (
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 mr-1" />
+                              <span>
+                                {new Date(task.deadline).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div
+                        className={`px-2 py-1 rounded text-sm ${
+                          task.completed
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {task.completed ? "Completed" : "In Progress"}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

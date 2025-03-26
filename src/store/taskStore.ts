@@ -127,13 +127,19 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     try {
       set({ loading: true, error: null });
 
+      // Check if tasks are already fetched
+      if (get().tasks.length > 0) {
+        set({ loading: false });
+        return; // No need to fetch from Firebase
+      }
+
       const q = query(
         collection(db, "tasks"),
         where("assignedTo", "array-contains", {
           id: user.id,
           name: user.name,
           email: user.email,
-        })
+        }),
       );
       const querySnapshot = await getDocs(q);
 
@@ -141,12 +147,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         (doc) => ({ id: doc.id, ...doc.data() } as Task)
       );
 
-      // if(userTasks.length == 0){
-      //   console.log("user dont have tasks")
-      // }
-
-      // console.log("user have tasks")
-      // console.log("userTasks",userTasks)
+      console.log("userTasks", userTasks);
 
       set({ tasks: userTasks, loading: false });
     } catch (error) {

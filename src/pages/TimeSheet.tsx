@@ -364,12 +364,11 @@ const TimeSheet = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {task.timeEntries
-                          ? task.timeEntries.reduce(
-                              (total, entry) => total + entry.duration,
-                              0
-                            )
+                          ? task.timeEntries
+                              .filter(entry => entry.userId === user?.uid) // Filter by user ID
+                              .reduce((total, entry) => total + entry.duration, 0) / 60 // Convert to hours
                           : 0}{" "}
-                        minutes
+                        hours
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {task.completed ? "completed" : "incomplete"}

@@ -29,6 +29,7 @@ import Documents from "./Documents";
 import Currencies from "./Currencies";
 import TimeSheet from "./TimeSheet";
 import Settings from "./Settings";
+import MyTasks from "./MyTasks";
 // Remove NewTeam and TeamDetails imports as they'll be handled in index.tsx
 
 export default function Dashboard() {
@@ -194,6 +195,7 @@ export default function Dashboard() {
             <Route path="/currencies" element={<Currencies />} />
             <Route path="/timesheet" element={<TimeSheet />} />
             <Route path="/settings" element={<Settings/>} />
+            <Route path="/mytasks" element={<MyTasks/>} />
           </Routes>
         </div>
 
