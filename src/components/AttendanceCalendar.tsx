@@ -48,12 +48,7 @@ export default function AttendanceCalendar({
   const [selectedStatus, setSelectedStatus] = useState<any>(null);
   const [isApproving, setIsApproving] = useState(false);
   const [requestUserName, setRequestUserName] = useState<string>("");
-  const {
-    oooRequests,
-    fetchUserOOORequests,
-    cancelOOORequest,
-    updateOOOStatus,
-  } = useOOOStore();
+  const { oooRequests, cancelOOORequest, updateOOOStatus } = useOOOStore();
   const [showUpdateAttendanceModal, setShowUpdateAttendanceModal] =
     useState(false);
   const [selectedAttendanceDate, setSelectedAttendanceDate] =
@@ -72,6 +67,8 @@ export default function AttendanceCalendar({
 
   // Generate calendar days for the current month
   useEffect(() => {
+    console.log("useEffect 1");
+
     const generateCalendar = () => {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -272,6 +269,8 @@ export default function AttendanceCalendar({
   };
 
   useEffect(() => {
+    console.log("useEffect 2");
+
     if (selectedStatus) {
       if (
         approveFromDate != selectedStatus.startDate ||
@@ -348,21 +347,18 @@ export default function AttendanceCalendar({
           await updateLeaveStatus(selectedStatus.id, "rejected");
           await updateDate(selectedStatus.id, approveFromDate, approveToDate);
         }
-        await fetchUserLeaveRequests(selectedUser as string);
       } else if (selectedStatus.type === "workfrom") {
         if (action === "approve") {
           await updateWorkFromStatus(selectedStatus.id, "approved");
         } else {
           await updateWorkFromStatus(selectedStatus.id, "rejected");
         }
-        await fetchUserWorkFromRequests(selectedUser as string);
       } else if (selectedStatus.type === "ooo") {
         if (action === "approve") {
           await updateOOOStatus(selectedStatus.id, "approved");
         } else {
           await updateOOOStatus(selectedStatus.id, "rejected");
         }
-        await fetchUserOOORequests(selectedUser as string);
       }
     } finally {
       setIsApproving(false);
@@ -454,6 +450,10 @@ export default function AttendanceCalendar({
     const userData = userDoc.data();
     return userData?.fullName || "Unknown User";
   };
+
+  useEffect(() => {
+    console.log("Leves" , leaves);
+  }, [leaves]);
 
   const handleUpdateAttendance = async (action: "update" | "remove") => {
     try {
@@ -714,28 +714,29 @@ export default function AttendanceCalendar({
               </div>
 
               {/* Date Range Inputs for Admin */}
-              {userData?.role == "admin" && selectedStatus?.type === "leave" && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Approve Leave From:
-                  </label>
-                  <input
-                    type="date"
-                    value={approveFromDate}
-                    onChange={(e) => setApproveFromDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
-                    To:
-                  </label>
-                  <input
-                    type="date"
-                    value={approveToDate}
-                    onChange={(e) => setApproveToDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              )}
+              {userData?.role == "admin" &&
+                selectedStatus?.type === "leave" && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Approve Leave From:
+                    </label>
+                    <input
+                      type="date"
+                      value={approveFromDate}
+                      onChange={(e) => setApproveFromDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
+                      To:
+                    </label>
+                    <input
+                      type="date"
+                      value={approveToDate}
+                      onChange={(e) => setApproveToDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
 
               <p className="mb-6">
                 Are you sure you want to cancel this request?

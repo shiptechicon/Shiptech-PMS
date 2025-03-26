@@ -28,10 +28,6 @@ interface LeaveState {
   error: string | null;
   leaveRequests: LeaveRequest[];
   allLeaveRequests: LeaveRequest[];
-  cache: {
-    userLeaveRequests: { [userId: string]: LeaveRequest[] }; // Cache for user-specific leave requests
-    allLeaveRequests: LeaveRequest[] | null; // Cache for all leave requests
-  };
   requestLeave: (
     startDate: string,
     endDate: string,
@@ -58,10 +54,6 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
   error: null,
   leaveRequests: [],
   allLeaveRequests: [],
-  cache: {
-    userLeaveRequests: {}, // Initialize cache for user-specific leave requests
-    allLeaveRequests: null, // Initialize cache for all leave requests
-  },
 
   // Request leave
   requestLeave: async (startDate, endDate, reason, leaveType, session) => {
@@ -86,21 +78,6 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
       };
 
       await setDoc(newLeaveDoc, leaveRequest);
-
-      // Invalidate cache for the user's leave requests
-      const state = get();
-      set({
-        cache: {
-          ...state.cache,
-          userLeaveRequests: {
-            ...state.cache.userLeaveRequests,
-            [currentUser.uid]: undefined, // Invalidate cache for this user
-          } as {
-            [userId: string]: LeaveRequest[];
-          },
-        },
-      });
-
       await get().fetchUserLeaveRequests();
     } catch (error) {
       console.error("Error requesting leave:", error);
@@ -120,20 +97,19 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
 
       const targetUserId = userId || currentUser?.uid;
 
-      // Check if leave requests are already cached for this user
-      const cachedLeaveRequests =
-        get().cache.userLeaveRequests[targetUserId as string];
-      if (cachedLeaveRequests) {
-        set({ leaveRequests: cachedLeaveRequests, loading: false });
+      //check it already exists
+      if (get().leaveRequests.length > 0) {
+        const leaveRequest = get().leaveRequests.filter(
+          (request) => request.userId === targetUserId
+        );
+
+       if(leaveRequest.length > 0) {
+        set({ leaveRequests: leaveRequest, loading: false });
         return;
-      }
+       }
+      }   
 
-      // Log Firestore fetch
-      console.log(
-        "Fetching leave requests from Firestore for user:",
-        targetUserId
-      );
-
+      console.log("Fetching user leave requests from Firestore");
       const leavesRef = collection(db, "leaves");
       const q = query(leavesRef, orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
@@ -142,18 +118,7 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
         .map((doc) => ({ ...doc.data() } as LeaveRequest))
         .filter((leave) => leave.userId === targetUserId);
 
-      // Update cache and state
-      set((state) => ({
-        leaveRequests,
-        cache: {
-          ...state.cache,
-          userLeaveRequests: {
-            ...state.cache.userLeaveRequests,
-            [targetUserId as string]: leaveRequests,
-          },
-        },
-        loading: false,
-      }));
+      set({ leaveRequests, loading: false });
     } catch (error) {
       console.error("Error fetching leave requests:", error);
       set({ error: (error as Error).message, loading: false });
@@ -165,16 +130,13 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      // Check if all leave requests are already cached
-      const cachedAllLeaveRequests = get().cache.allLeaveRequests;
-      if (cachedAllLeaveRequests) {
-        set({ allLeaveRequests: cachedAllLeaveRequests, loading: false });
+      // Check if requests are already cached
+      if (get().allLeaveRequests.length > 0) {
+        set({ loading: false });
         return;
-      }
+      } 
 
-      // Log Firestore fetch
       console.log("Fetching all leave requests from Firestore");
-
       const leavesRef = collection(db, "leaves");
       const q = query(leavesRef, orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
@@ -183,38 +145,49 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
         ...doc.data(),
       })) as LeaveRequest[];
 
-      // Update cache and state
-      set({
-        allLeaveRequests: leaveRequests,
-        cache: { ...get().cache, allLeaveRequests: leaveRequests },
-        loading: false,
-      });
+      set({ allLeaveRequests: leaveRequests, loading: false });
     } catch (error) {
       console.error("Error fetching all leave requests:", error);
       set({ error: (error as Error).message, loading: false });
     }
   },
 
-  // Update leave status
   updateLeaveStatus: async (leaveId, status) => {
     try {
       set({ loading: true, error: null });
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("User not authenticated");
 
+      // Update Firestore
       const leaveRef = doc(db, "leaves", leaveId);
       await updateDoc(leaveRef, { status });
 
-      // Invalidate cache for all leave requests
-      set((state) => ({
-        cache: {
-          ...state.cache,
-          allLeaveRequests: null, // Invalidate cache for all leave requests
-        },
-      }));
+      const leaveRequest = get().leaveRequests;
+      
+      const fillteredLeaveRequests = leaveRequest.map((request) =>
+        request.id === leaveId ? { ...request, status } : request
+      );
 
-      await get().fetchAllLeaveRequests();
+      console.log("fillteredLeaveRequests", fillteredLeaveRequests);
+      
+      
+
+      // Update state
+      set({
+        leaveRequests: fillteredLeaveRequests,
+        allLeaveRequests: fillteredLeaveRequests,
+      });
+
     } catch (error) {
       console.error("Error updating leave status:", error);
       set({ error: (error as Error).message });
+      
+      // Revert by refetching
+      await Promise.all([
+        get().fetchUserLeaveRequests(),
+        get().fetchAllLeaveRequests()
+      ]);
+      
       throw error;
     } finally {
       set({ loading: false });
@@ -231,21 +204,14 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
       const leaveRef = doc(db, "leaves", leaveId);
       await deleteDoc(leaveRef);
 
-      // Invalidate cache for the user's leave requests
-      const state = get();
-      set({
-        cache: {
-          ...state.cache,
-          userLeaveRequests: {
-            ...state.cache.userLeaveRequests,
-            [currentUser.uid]: undefined, // Invalidate cache for this user
-          } as {
-            [userId: string]: LeaveRequest[];
-          },
-        },
-      });
+      const fillteredLeaveRequests = get().leaveRequests.filter(
+        (request) => request.id !== leaveId
+      );
 
-      await get().fetchUserLeaveRequests();
+      set({
+        leaveRequests: fillteredLeaveRequests,
+        allLeaveRequests: fillteredLeaveRequests,
+      });
     } catch (error) {
       console.error("Error canceling leave request:", error);
       set({ error: (error as Error).message });
@@ -263,17 +229,15 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
       const leaveRef = doc(db, "leaves", leaveId);
       await updateDoc(leaveRef, { startDate, endDate });
 
-      // Invalidate cache for all leave requests
-      set((state) => ({
-        cache: {
-          ...state.cache,
-          allLeaveRequests: null, // Invalidate cache for all leave requests
-        },
-      }));
+      const leaveRequest = get().leaveRequests.map((request) =>
+        request.id === leaveId ? { ...request, startDate, endDate } : request
+      );
 
-      // Refresh the leave requests after updating
-      await get().fetchUserLeaveRequests();
-      await get().fetchAllLeaveRequests();
+      set({
+        leaveRequests: leaveRequest,
+        allLeaveRequests: leaveRequest,
+      });
+
     } catch (error) {
       console.error("Error updating leave dates:", error);
       set({ error: (error as Error).message });

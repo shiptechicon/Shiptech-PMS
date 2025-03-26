@@ -27,10 +27,6 @@ interface OOOState {
   error: string | null;
   oooRequests: OOORequest[];
   allOOORequests: OOORequest[];
-  cache: {
-    userOOORequests: { [userId: string]: OOORequest[] }; // Cache for user-specific OOO requests
-    allOOORequests: OOORequest[] | null; // Cache for all OOO requests
-  };
   requestOOO: (
     startDate: string,
     endDate: string,
@@ -50,10 +46,6 @@ export const useOOOStore = create<OOOState>((set, get) => ({
   error: null,
   oooRequests: [],
   allOOORequests: [],
-  cache: {
-    userOOORequests: {}, // Initialize cache for user-specific OOO requests
-    allOOORequests: null, // Initialize cache for all OOO requests
-  },
 
   // Request OOO
   requestOOO: async (startDate, endDate, reason) => {
@@ -76,21 +68,6 @@ export const useOOOStore = create<OOOState>((set, get) => ({
       };
 
       await setDoc(newOOODoc, oooRequest);
-
-      // Invalidate cache for the user's OOO requests
-      const state = get();
-      set({
-        cache: {
-          ...state.cache,
-          userOOORequests: {
-            ...state.cache.userOOORequests,
-            [user.uid]: undefined, // Invalidate cache for this user
-          } as {
-            [userId: string]: OOORequest[];
-          },
-        },
-      });
-
       await get().fetchUserOOORequests();
     } catch (error) {
       console.error("Error requesting OOO:", error);
@@ -110,19 +87,13 @@ export const useOOOStore = create<OOOState>((set, get) => ({
 
       const targetUserId = userId || user?.uid;
 
-      // Check if OOO requests are already cached for this user
-      const cachedOOORequests =
-        get().cache.userOOORequests[targetUserId as string];
-      if (cachedOOORequests) {
-        set({ oooRequests: cachedOOORequests, loading: false });
-        return;
+      //check if exists
+      if(get().oooRequests.length > 0) {
+        if(get().oooRequests[0].userId === targetUserId) {
+          set({ loading: false });
+          return;
+        }
       }
-
-      // Log Firestore fetch
-      console.log(
-        "Fetching OOO requests from Firestore for user:",
-        targetUserId
-      );
 
       const oooRef = collection(db, "ooo");
       const q = query(oooRef, orderBy("createdAt", "desc"));
@@ -132,18 +103,7 @@ export const useOOOStore = create<OOOState>((set, get) => ({
         .map((doc) => ({ ...doc.data() } as OOORequest))
         .filter((request) => request.userId === targetUserId);
 
-      // Update cache and state
-      set((state) => ({
-        oooRequests,
-        cache: {
-          ...state.cache,
-          userOOORequests: {
-            ...state.cache.userOOORequests,
-            [targetUserId as string]: oooRequests,
-          },
-        },
-        loading: false,
-      }));
+      set({ oooRequests, loading: false });
     } catch (error) {
       console.error("Error fetching OOO requests:", error);
       set({ error: (error as Error).message, loading: false });
@@ -155,15 +115,12 @@ export const useOOOStore = create<OOOState>((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      // Check if all OOO requests are already cached
-      const cachedAllOOORequests = get().cache.allOOORequests;
-      if (cachedAllOOORequests) {
-        set({ allOOORequests: cachedAllOOORequests, loading: false });
+      //check if exists
+
+      if(get().allOOORequests.length > 0) {
+        set({ loading: false });
         return;
       }
-
-      // Log Firestore fetch
-      console.log("Fetching all OOO requests from Firestore");
 
       const oooRef = collection(db, "ooo");
       const q = query(oooRef, orderBy("createdAt", "desc"));
@@ -173,12 +130,7 @@ export const useOOOStore = create<OOOState>((set, get) => ({
         ...doc.data(),
       })) as OOORequest[];
 
-      // Update cache and state
-      set({
-        allOOORequests: oooRequests,
-        cache: { ...get().cache, allOOORequests: oooRequests },
-        loading: false,
-      });
+      set({ allOOORequests: oooRequests, loading: false });
     } catch (error) {
       console.error("Error fetching all OOO requests:", error);
       set({ error: (error as Error).message, loading: false });
@@ -193,15 +145,16 @@ export const useOOOStore = create<OOOState>((set, get) => ({
       const oooRef = doc(db, "ooo", requestId);
       await updateDoc(oooRef, { status });
 
-      // Invalidate cache for all OOO requests
+      // Update local state
       set((state) => ({
-        cache: {
-          ...state.cache,
-          allOOORequests: null, // Invalidate cache for all OOO requests
-        },
+        oooRequests: state.oooRequests.map(request => 
+          request.id === requestId ? { ...request, status } : request
+        ),
+        allOOORequests: state.allOOORequests.map(request =>
+          request.id === requestId ? { ...request, status } : request
+        ),
       }));
 
-      await get().fetchAllOOORequests();
     } catch (error) {
       console.error("Error updating OOO status:", error);
       set({ error: (error as Error).message });
@@ -221,21 +174,16 @@ export const useOOOStore = create<OOOState>((set, get) => ({
       const oooRef = doc(db, "ooo", requestId);
       await deleteDoc(oooRef);
 
-      // Invalidate cache for the user's OOO requests
-      const state = get();
-      set({
-        cache: {
-          ...state.cache,
-          userOOORequests: {
-            ...state.cache.userOOORequests,
-            [user.uid]: undefined, // Invalidate cache for this user
-          } as {
-            [userId: string]: OOORequest[];
-          },
-        },
-      });
+      // Update local state
+      set((state) => ({
+        oooRequests: state.oooRequests.filter(
+          (request) => request.id !== requestId
+        ),
+        allOOORequests: state.allOOORequests.filter(
+          (request) => request.id !== requestId
+        ),
+      }));
 
-      await get().fetchUserOOORequests();
     } catch (error) {
       console.error("Error canceling OOO request:", error);
       set({ error: (error as Error).message });
