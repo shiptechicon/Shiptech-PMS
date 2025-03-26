@@ -78,7 +78,13 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
       };
 
       await setDoc(newLeaveDoc, leaveRequest);
-      await get().fetchUserLeaveRequests();
+      
+      // Update the state of leaveRequests
+      const currentLeaveRequests = get().leaveRequests;
+      const updatedLeaveRequests = [...currentLeaveRequests, leaveRequest];
+      set({ leaveRequests: updatedLeaveRequests });
+
+      // await get().fetchUserLeaveRequests();
     } catch (error) {
       console.error("Error requesting leave:", error);
       set({ error: (error as Error).message });
