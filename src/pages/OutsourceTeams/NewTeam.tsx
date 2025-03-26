@@ -59,7 +59,6 @@ export default function NewTeam() {
             value={formData.gst}
             onChange={e => setFormData(prev => ({ ...prev, gst: e.target.value }))}
             className="w-full p-2 border rounded"
-            required
           />
         </div>
 

@@ -10,7 +10,7 @@ import {
   ListTodo,
   Users,
   DollarSign,
-  TimerIcon
+  TimerIcon,
 } from "lucide-react";
 import Enquiries from "./Enquiries";
 import Projects from "./Projects";
@@ -28,6 +28,7 @@ import OutsourceTeams from "./OutsourceTeams";
 import Documents from "./Documents";
 import Currencies from "./Currencies";
 import TimeSheet from "./TimeSheet";
+import Settings from "./Settings";
 // Remove NewTeam and TeamDetails imports as they'll be handled in index.tsx
 
 export default function Dashboard() {
@@ -162,18 +163,6 @@ export default function Dashboard() {
               {!isCollapsed && <span>Outsource Teams</span>}
             </NavLink>
             <NavLink
-              to="/dashboard/currencies/"
-              className={({ isActive }) =>
-                `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${isActive
-                  ? "bg-black/90 text-white"
-                  : "text-gray-700 hover:bg-gray-50"
-                } ${isCollapsed ? "justify-center p-2" : " p-4"}`
-              }
-            >
-              <DollarSign size={20} />
-              {!isCollapsed && <span>Currencies</span>}
-            </NavLink>
-            <NavLink
               to="/dashboard/timesheet"
               className={({ isActive }) =>
                 `flex items-center space-x-3 transition-all duration-500 rounded-xl mt-2 ${isActive
@@ -204,6 +193,7 @@ export default function Dashboard() {
             <Route path="/projects/:projectId/documents/*" element={<Documents />} />
             <Route path="/currencies" element={<Currencies />} />
             <Route path="/timesheet" element={<TimeSheet />} />
+            <Route path="/settings" element={<Settings/>} />
           </Routes>
         </div>
 

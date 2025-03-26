@@ -39,6 +39,7 @@ export interface Project {
   project_start_date?: string | null;
   endClient: string;
   settlement: string;
+  total_amount : number;
 }
 
 interface PathItem {
@@ -58,6 +59,7 @@ interface ProjectState {
   };
   setCurrentPath: (path: PathItem[]) => void;
   fetchProjects: () => Promise<void>;
+  fetchCustomerProjects: (id: string) => Promise<void>;
   fetchProject: (id: string) => Promise<Project | null>;
   createProject: (
     project: Omit<Project, "id" | "__id" | "createdAt" | "project_due_date">
@@ -93,6 +95,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       const querySnapshot = await getDocs(collection(db, "projects"));
+      const projects = querySnapshot.docs.map((doc) => ({
+        ...doc.data(),
+        id: doc.id,
+      })) as Project[];
+      
+      set({ projects, loading: false });
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      set({ error: (error as Error).message, loading: false });
+    }
+  },
+
+  fetchCustomerProjects: async (id : string) => {
+    try {
+      set({ loading: true, error: null });
+      const querySnapshot = await getDocs(query(
+        collection(db, "projects"),
+        where("customer_id", "==", id)
+      ));
       const projects = querySnapshot.docs.map((doc) => ({
         ...doc.data(),
         id: doc.id,
@@ -146,8 +167,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         status: "not-started" as const,
         projectNumber:`${projectData.projectNumber}`,
         endClient: projectData.endClient,
-        settlement: "not-defined"
-
+        settlement: "not-defined",
+        total_amount : 0,
       };
       const docRef = await addDoc(collection(db, "projects"), newProject);
       const projectWithId = { ...newProject, id: docRef.id };
@@ -211,7 +232,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         project_due_date: projectData.project_due_date || currentProject.project_due_date || null,
         project_start_date: projectData.project_start_date || currentProject.project_start_date || null,
         endClient: projectData.endClient || currentProject.endClient,
-        settlement: "not-defined"
+        settlement: "not-defined",
+        total_amount: 0,
       };
 
       // console.log('Cleaned project data:', cleanProjectData);

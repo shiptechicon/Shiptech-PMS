@@ -31,9 +31,10 @@ function TeamsList() {
         }
       });
     });
-  }, [fetchTeams, fetchTeamSettlements]);
+  }, [teams]);
 
   const determinePaymentStatus = (settlements: Settlement[]): string => {
+    if (settlements.length === 0) return "No payments";
     if (settlements.some((s) => s.status === "pending"))
       return "Pending payment";
     if (settlements.some((s) => s.status === "partial"))
@@ -77,7 +78,7 @@ function TeamsList() {
             {teams.map((team) => (
               <tr key={team.id} className="border-b">
                 <td className="px-6 py-4">{team.name}</td>
-                <td className="px-6 py-4">{team.gst}</td>
+                <td className="px-6 py-4">{team.gst ? team.gst : "Not provided"}</td>
                 <td className="px-6 py-4">
                   {team.contactPersons.map((person, index) => (
                     <div key={index}>

@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, User } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -22,6 +22,7 @@ export default function Navbar() {
   // const [isCustomer, setIsCustomer] = React.useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const { userData, user } = useAuthStore();
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = React.useState(false);
 
   React.useEffect(() => {
     const checkUserRole = async () => {
@@ -52,6 +53,10 @@ export default function Navbar() {
     } else {
       navigate("/login");
     }
+  };
+
+  const handleProfileClick = () => {
+    setIsProfileDropdownOpen(!isProfileDropdownOpen);
   };
 
   return (
@@ -168,22 +173,22 @@ export default function Navbar() {
               </Link>
             )}
 
-            {user ? (
-              <button
-                onClick={handleSignOut}
-                className="flex items-center space-x-1 px-3 py-2 rounded-full text-sm font-medium text-gray-700 hover:text-black transition-all"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </button>
-            ) : (
-              <Link
-                to="/login"
-                className="px-3 py-2 rounded-full text-sm font-medium text-gray-700 hover:text-black transition-all"
-              >
-                Sign In
-              </Link>
-            )}
+            <button onClick={handleProfileClick} className="relative">
+              <User className="h-6 w-6" />
+              {isProfileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-lg z-50 flex flex-col">
+                  <div className="p-2 text-gray-800 flex gap-2 justify-center items-center"><User className="h-4 w-4" />{userData?.fullName}</div>
+                  <Link to="/dashboard/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="block w-full text-center px-4 py-2 text-sm text-white hover:bg-gray-100 hover:text-red-500 border-2 hover:border-red-500 bg-red-500"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </button>
+
             {userData?.role === "admin" && <NotificationDropdown />}
           </div>
 

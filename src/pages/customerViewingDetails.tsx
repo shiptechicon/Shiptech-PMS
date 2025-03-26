@@ -18,7 +18,7 @@ export default function CustomerViewingDetails() {
   const navigate = useNavigate();
   const { fetchCustomerByUserId, loading } = useCustomerStore();
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const { projects, fetchProjects } = useProjectStore();
+  const { projects, fetchCustomerProjects } = useProjectStore();
 
   useEffect(() => {
     const loadCustomerData = async () => {
@@ -27,7 +27,7 @@ export default function CustomerViewingDetails() {
         const customerData = await fetchCustomerByUserId(user.uid);
         if (customerData) {
           setCustomer(customerData);
-          await fetchProjects();
+          await fetchCustomerProjects(customerData.id as string);
         } else {
           toast.error("Customer not found");
           navigate("/customer");
@@ -39,12 +39,7 @@ export default function CustomerViewingDetails() {
     };
 
     loadCustomerData();
-  }, [fetchCustomerByUserId, fetchProjects, navigate]);
-
-  // Filter projects for this customer
-  const customerProjects = projects.filter(
-    project => project.customer?.id === customer?.id
-  );
+  }, [fetchCustomerByUserId, fetchCustomerProjects, navigate]);
 
   if (loading) {
     return (
@@ -92,9 +87,9 @@ export default function CustomerViewingDetails() {
               )}
               <div>
                 <h2 className="text-3xl font-bold">{customer.name}</h2>
-                <p className="mt-1 text-blue-100">
+                {/* <p className="mt-1 text-blue-100">
                   {customer.endClient ? `End Client: ${customer.endClient}` : "No end client specified"}
-                </p>
+                </p> */}
               </div>
             </div>
             <div className="mt-4 md:mt-0 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg">
@@ -134,13 +129,13 @@ export default function CustomerViewingDetails() {
                     <p className="text-gray-600">{customer.email}</p>
                   </div>
                 </div>
-                <div className="flex items-start">
+                {/* <div className="flex items-start">
                   <Briefcase className="h-5 w-5 text-gray-500 mt-0.5 mr-3" />
                   <div>
                     <p className="font-medium text-gray-700">End Client</p>
                     <p className="text-gray-600">{customer.endClient || "Not specified"}</p>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -182,7 +177,7 @@ export default function CustomerViewingDetails() {
             <h3 className="text-lg font-medium text-gray-900">Projects</h3>
           </div>
           <div className="px-6 py-4">
-            {customerProjects.length === 0 ? (
+            {projects.length === 0 ? (
               <div className="text-center py-4 text-gray-500">No projects found for this customer</div>
             ) : (
               <div className="overflow-x-auto">
@@ -197,7 +192,7 @@ export default function CustomerViewingDetails() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {customerProjects.map((project) => (
+                    {projects.map((project) => (
                       <tr 
                         key={project.id}
                         onClick={() => navigate(`/customer/projects/${project.id}`)}

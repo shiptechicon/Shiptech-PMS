@@ -33,7 +33,6 @@ interface NotificationStore {
 }
 
 export const useNotificationStore = create<NotificationStore>()(
-  persist(
     (set, get) => ({
       notifications: [],
       loading: false,
@@ -125,10 +124,9 @@ export const useNotificationStore = create<NotificationStore>()(
 
       clearAllNotifications: async (userId: string) => {
         try {
+          console.log("userID",userId)
           // console.log('Clearing all notifications for user:', userId);
-          const q = query(collection(db, 'notifications'), where('userId', '==', userId));
-          const querySnapshot = await getDocs(q);
-          
+          const querySnapshot = await getDocs(collection(db, 'notifications'));
           const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
           await Promise.all(deletePromises);
           
@@ -140,9 +138,4 @@ export const useNotificationStore = create<NotificationStore>()(
         }
       },
     }),
-    {
-      name: 'notification-storage',
-      partialize: (state) => ({ notifications: state.notifications }),
-    }
-  )
 ); 
