@@ -59,6 +59,7 @@ interface ProjectState {
   };
   setCurrentPath: (path: PathItem[]) => void;
   fetchProjects: () => Promise<void>;
+  fetchCustomerProjects: (id: string) => Promise<void>;
   fetchProject: (id: string) => Promise<Project | null>;
   createProject: (
     project: Omit<Project, "id" | "__id" | "createdAt" | "project_due_date">
@@ -94,6 +95,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       const querySnapshot = await getDocs(collection(db, "projects"));
+      const projects = querySnapshot.docs.map((doc) => ({
+        ...doc.data(),
+        id: doc.id,
+      })) as Project[];
+      
+      set({ projects, loading: false });
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      set({ error: (error as Error).message, loading: false });
+    }
+  },
+
+  fetchCustomerProjects: async (id : string) => {
+    try {
+      set({ loading: true, error: null });
+      const querySnapshot = await getDocs(query(
+        collection(db, "projects"),
+        where("customer_id", "==", id)
+      ));
       const projects = querySnapshot.docs.map((doc) => ({
         ...doc.data(),
         id: doc.id,

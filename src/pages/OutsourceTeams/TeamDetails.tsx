@@ -373,7 +373,7 @@ export default function TeamDetails() {
       <div className="bg-white rounded-lg shadow p-6 space-y-6 mb-6">
         <div>
           <h2 className="text-lg font-semibold mb-2">GST Number</h2>
-          <p>{team.gst}</p>
+          <p>{team.gst ? team.gst : "Not provided"}</p>
         </div>
 
         <div>
