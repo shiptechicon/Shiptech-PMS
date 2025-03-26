@@ -5,13 +5,17 @@ import { Loader2, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import toast from "react-hot-toast";
-import { Project } from "../store/projectStore"; // Import the Project type
 
 export default function Projects() {
   const { projects, loading, deleteProject, fetchProjects } = useProjectStore();
-  const { fetchSettlement } = useCustomerSettlementStore();
+  const { 
+    fetchAllSettlements, 
+    settlements, 
+    loading: settlementsLoading 
+  } = useCustomerSettlementStore();
   const navigate = useNavigate();
-  const [updatedProjects, setUpdatedProjects] = useState<Project[]>([]); // Now Project type is recognized
+
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const handleDeleteProject = async (projectId: string) => {
     if (!window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
@@ -27,36 +31,39 @@ export default function Projects() {
     }
   };
 
-  useEffect(() => {
-    if (projects.length === 0) {
-      fetchProjects();
+  // Get settlement status for a project's customer
+  const getSettlementStatus = (customerId: string) => {
+    if (settlementsLoading) return "Loading...";
+    
+    const settlement = settlements.find(s => s.customer_id === customerId);
+    if (!settlement) return "No settlement";
+    
+    // Customize this based on your status display preferences
+    switch(settlement.status) {
+      case "completed":
+        return "Paid";
+      case "partial":
+        return "Partial";
+      case "pending":
+        return "Pending";
+      default:
+        return settlement.status;
     }
-  }, [projects]);
+  };
 
   useEffect(() => {
-    const fetchSettlements = async () => {
-      const updatedProjects = await Promise.all(
-        projects.map(async (project) => {
-          try {
-            await fetchSettlement(project.customer_id);
-            const settlement = useCustomerSettlementStore.getState().settlement;
-            return {
-              ...project,
-              settlement: settlement.status,
-            };
-          } catch (error) {
-            console.error('Error fetching settlement:', error);
-            return project;
-          }
-        })
-      );
-      setUpdatedProjects(updatedProjects);
+    const fetchData = async () => {
+      if (projects.length === 0) {
+        await fetchProjects();
+      }
+      await fetchAllSettlements();
+      setIsInitialLoad(false);
     };
+    
+    fetchData();
+  }, []);
 
-    if (projects.length > 0) {
-      fetchSettlements();
-    }
-  }, [projects]);
+  const isLoading = isInitialLoad || loading || settlementsLoading;
 
   return (
     <div className="p-6">
@@ -71,11 +78,11 @@ export default function Projects() {
         </button>
       </h2>
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
         </div>
-      ) : updatedProjects.length === 0 ? (
+      ) : projects.length === 0 ? (
         <div className="bg-white rounded-lg shadow">
           <div className="p-6">
             <p className="text-gray-500">No active projects</p>
@@ -111,8 +118,12 @@ export default function Projects() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {updatedProjects.map((project) => (
-                  <tr onClick={() => navigate(`/dashboard/projects/${project.id}`)} key={project.id} className="hover:bg-gray-50 hover:cursor-pointer">
+                {projects.map((project) => (
+                  <tr 
+                    onClick={() => navigate(`/dashboard/projects/${project.id}`)} 
+                    key={project.id} 
+                    className="hover:bg-gray-50 hover:cursor-pointer"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       P-{project.projectNumber}
                     </td>
@@ -125,7 +136,7 @@ export default function Projects() {
                       {project.customer.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {project.settlement}
+                      {getSettlementStatus(project.customer_id)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(project.createdAt).toLocaleDateString()}
@@ -143,11 +154,15 @@ export default function Projects() {
                         <Link
                           to={`/dashboard/projects/${project.id}`}
                           className="text-black/90 hover:text-black/80"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <ExternalLink size={18} />
                         </Link>
                         <button
-                          onClick={() => handleDeleteProject(project.id!)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProject(project.id!);
+                          }}
                           className="text-red-600 hover:text-red-800"
                           title="Delete project"
                         >

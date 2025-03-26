@@ -31,6 +31,7 @@ export interface CusSettlement {
 
 interface SettlementState {
   settlement: CusSettlement; // Single settlement for a customer
+  settlements: CusSettlement[]; // All settlements
   loading: boolean;
   error: string | null;
   cache: Map<string, CusSettlement>; // Use Map for caching
@@ -46,6 +47,7 @@ interface SettlementState {
   ) => Promise<void>;
   deleteSettlement: (id: string) => Promise<void>;
   fetchSettlement: DebouncedFunc<(customerId: string) => Promise<void>>;
+  fetchAllSettlements: () => Promise<void>;
   addPayment: (
     settlementId: string,
     payment: number,
@@ -56,6 +58,7 @@ interface SettlementState {
 
 export const useCustomerSettlementStore = create<SettlementState>((set, get) => ({
   settlement: {} as CusSettlement,
+  settlements: [] as CusSettlement[],
   loading: false,
   error: null,
   cache: new Map(), // Initialize cache as a Map
@@ -90,12 +93,13 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
 
       await setDoc(newSettlementDoc, newSettlement);
 
-      // Update cache
+      // Update cache and settlements list
       set((state) => {
         const newCache = new Map(state.cache);
         newCache.set(settlement.customer_id, newSettlement);
         return {
           settlement: newSettlement,
+          settlements: [...state.settlements, newSettlement],
           cache: newCache,
         };
       });
@@ -119,18 +123,26 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
       };
       await updateDoc(settlementRef, updates);
 
-      // Update cache if the settlement is cached
+      // Update cache and settlements list if the settlement is present
       set((state) => {
         const cachedSettlement = state.cache.get(state.settlement.customer_id);
+        const updatedSettlements = state.settlements.map((s) =>
+          s.id === id ? { ...s, ...updates } : s
+        );
+
         if (cachedSettlement && cachedSettlement.id === id) {
           const newCache = new Map(state.cache);
           newCache.set(state.settlement.customer_id, updates as CusSettlement);
           return {
             settlement: updates as CusSettlement,
+            settlements: updatedSettlements,
             cache: newCache,
           };
         }
-        return { settlement: updates as CusSettlement };
+        return {
+          settlement: updates as CusSettlement,
+          settlements: updatedSettlements,
+        };
       });
     } catch (error) {
       console.error("Error updating settlement:", error);
@@ -147,7 +159,7 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
       set({ loading: true, error: null });
       await deleteDoc(doc(db, "customerSettlement", id));
 
-      // Remove from cache
+      // Remove from cache and settlements list
       set((state) => {
         const customerId = state.settlement.customer_id;
         const newCache = new Map(state.cache);
@@ -155,6 +167,7 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
 
         return {
           settlement: {} as CusSettlement,
+          settlements: state.settlements.filter((s) => s.id !== id),
           cache: newCache,
         };
       });
@@ -168,7 +181,7 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
   },
 
   // Fetch settlement for a customer
-  fetchSettlement: debounce(async (customerId : string) => {
+  fetchSettlement: debounce(async (customerId: string) => {
     try {
       set({ loading: true, error: null });
 
@@ -180,7 +193,6 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
       }
 
       console.log("Fetching customer settlement from Firestore...");
-      
 
       // Fetch from Firestore if not cached
       const querySnapshot = await getDocs(
@@ -214,6 +226,40 @@ export const useCustomerSettlementStore = create<SettlementState>((set, get) => 
       set({ loading: false });
     }
   }, 300), // Debounce Firestore queries
+
+  // Fetch all settlements
+  fetchAllSettlements: async () => {
+    try {
+      set({ loading: true, error: null });
+      
+      const querySnapshot = await getDocs(collection(db, "customerSettlement"));
+      
+      const settlements: CusSettlement[] = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as CusSettlement[];
+      
+
+      // Update cache with all fetched settlements
+      set((state) => {
+        const newCache = new Map(state.cache);
+        settlements.forEach((settlement) => {
+          newCache.set(settlement.customer_id, settlement);
+        });
+        
+        return {
+          settlements,
+          cache: newCache,
+        };
+      });
+    } catch (error) {
+      console.error("Error fetching all settlements:", error);
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
 
   // Add a payment to a settlement
   addPayment: async (settlementId, payment, totalAmount, paymentRef) => {
