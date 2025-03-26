@@ -374,7 +374,7 @@ const TimeSheet = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {task.completed ? "completed" : "incomplete"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex justify-center items-center">
+                      <td className=" py-4 whitespace-nowrap text-sm text-gray-500 flex justify-end items-center pr-12">
                         <button
                           onClick={() => toggleRowExpansion(task.id)}
                           className="text-gray-600 hover:text-gray-900"
