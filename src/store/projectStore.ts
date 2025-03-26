@@ -38,7 +38,6 @@ export interface Project {
   project_due_date?: string | null;
   project_start_date?: string | null;
   endClient: string;
-  settlement: string;
   total_amount : number;
 }
 
@@ -167,7 +166,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         status: "not-started" as const,
         projectNumber:`${projectData.projectNumber}`,
         endClient: projectData.endClient,
-        settlement: "not-defined",
         total_amount : 0,
       };
       const docRef = await addDoc(collection(db, "projects"), newProject);
@@ -232,7 +230,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         project_due_date: projectData.project_due_date || currentProject.project_due_date || null,
         project_start_date: projectData.project_start_date || currentProject.project_start_date || null,
         endClient: projectData.endClient || currentProject.endClient,
-        settlement: "not-defined",
         total_amount: 0,
       };
 
