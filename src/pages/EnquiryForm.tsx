@@ -81,9 +81,10 @@ export default function EnquiryForm() {
     fetchEnquiry,
     loading: storeLoading,
   } = useEnquiryStore();
-  const { customers, fetchCustomer } = useCustomerStore();
+  const { customers, fetchCustomer, fetchCustomers } = useCustomerStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [ShouldWork, setShouldWork] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
@@ -102,6 +103,11 @@ export default function EnquiryForm() {
     currency: undefined,
     endClient: "",
   });
+
+  useEffect(() => {
+    fetchCustomers()
+  }, [])
+  
 
   useEffect(() => {
     const loadData = async () => {
@@ -143,6 +149,73 @@ export default function EnquiryForm() {
     loadData();
   }, [id, fetchEnquiry, fetchCustomer]);
 
+  useEffect(() => {
+    // Load data from localStorage on component mount
+    const savedData = localStorage.getItem("enquiryFormData");
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        // Ensure the parsed data matches the expected structure
+        if (parsedData && typeof parsedData === 'object') {
+          // Process deliverables and scopeOfWork to convert HTML strings to RichTextEditor values
+          const processedDeliverables = parsedData.deliverables.map((d: any) => ({
+            ...d,
+            description: d.description
+              ? RichTextEditor.createValueFromString(d.description, "html")
+              : RichTextEditor.createEmptyValue(),
+            hours: d.hours ?? 0,
+            costPerHour: d.costPerHour ?? 0,
+          }));
+
+          const processedScopeOfWork = parsedData.scopeOfWork
+            ? RichTextEditor.createValueFromString(parsedData.scopeOfWork, "html")
+            : RichTextEditor.createEmptyValue();
+
+          setFormData((prev) => ({
+            ...prev,
+            ...parsedData,
+            deliverables: processedDeliverables,
+            scopeOfWork: processedScopeOfWork,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to parse enquiry form data from localStorage:", error);
+        // Optionally, you can reset the formData to default values if parsing fails
+        setFormData((prev) => ({
+          ...prev,
+          enquiryNumber: "",
+          name: "",
+          description: "",
+          customer_id: "",
+          deliverables: [] as Deliverable[],
+          exclusions: [] as string[],
+          charges: [] as string[],
+          scopeOfWork: RichTextEditor.createEmptyValue(),
+          inputsRequired: [] as string[],
+          status: "draft",
+          currency: undefined,
+          endClient: "",
+        }));
+      }
+    }
+    setShouldWork(true)
+  }, []);
+
+  useEffect(() => {
+    // Prepare formData for localStorage similar to how it's prepared for Firestore
+    if(ShouldWork){
+      const dataToStore = {
+        ...formData,
+        scopeOfWork: formData.scopeOfWork.toString("html"),
+        deliverables: formData.deliverables.map((d) => ({
+          ...d,
+          description: d.description.toString("html"),
+        })),
+      };
+      localStorage.setItem("enquiryFormData", JSON.stringify(dataToStore));
+    }
+  }, [formData]);
+
   const handleCustomerSelect = (customer: Customer) => {
     setSelectedCustomer(customer);
     setFormData((prev) => ({
@@ -182,6 +255,7 @@ export default function EnquiryForm() {
         await createEnquiry(submitData);
         toast.success("Enquiry created successfully");
       }
+      clearDraft()
       navigate("/dashboard/enquiries");
     } catch (error) {
       console.error("Error submitting enquiry:", error);
@@ -330,6 +404,24 @@ export default function EnquiryForm() {
     }));
   };
 
+  const clearDraft = () => {
+    setFormData({
+      enquiryNumber: "",
+      name: "",
+      description: "",
+      customer_id: "",
+      deliverables: [] as Deliverable[],
+      exclusions: [] as string[],
+      charges: [] as string[],
+      scopeOfWork: RichTextEditor.createEmptyValue(),
+      inputsRequired: [] as string[],
+      status: "draft",
+      currency: undefined,
+      endClient: "",
+    });
+    localStorage.removeItem("enquiryFormData"); // Clear from localStorage
+  };
+
   return (
     <form onSubmit={handleSubmit} className=" p-6 space-y-8 ">
       <div className="flex justify-between items-center">
@@ -364,6 +456,13 @@ export default function EnquiryForm() {
             ) : (
               "Create Enquiry"
             )}
+          </button>
+          <button
+            type="button"
+            onClick={clearDraft}
+            className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            Clear Draft
           </button>
         </div>
       </div>
