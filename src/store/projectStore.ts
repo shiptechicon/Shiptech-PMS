@@ -229,7 +229,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         type: "project" as const,
         project_due_date: projectData.project_due_date || currentProject.project_due_date || null,
         project_start_date: projectData.project_start_date || currentProject.project_start_date || null,
-        endClient: projectData.endClient || currentProject.endClient,
+        endClient: projectData.endClient || currentProject.endClient || "",
         total_amount: 0,
       };
 
@@ -272,6 +272,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   deleteProject: async (projectId: string) => {
     try {
       set({ loading: true, error: null });
+      
+      // Delete all tasks associated with the project
+      const tasksQuery = query(collection(db, "tasks"), where("projectId", "==", projectId));
+      const tasksSnapshot = await getDocs(tasksQuery);
+      const taskIds = tasksSnapshot.docs.map(doc => doc.id);
+
+      // Delete each task and its associated settlements
+      for (const taskId of taskIds) {
+        // Delete settlements associated with the task
+        const settlementsQuery = query(collection(db, "settlements"), where("task_id", "==", taskId));
+        const settlementsSnapshot = await getDocs(settlementsQuery);
+        for (const settlementDoc of settlementsSnapshot.docs) {
+          await deleteDoc(doc(db, "settlements", settlementDoc.id));
+        }
+        // Delete the task itself
+        await deleteDoc(doc(db, "tasks", taskId));
+      }
+
+      // Delete the project
       await deleteDoc(doc(db, "projects", projectId));
 
       // Update local state
