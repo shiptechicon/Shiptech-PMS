@@ -436,6 +436,7 @@ export default function Attendance() {
     }
 
     // Reset the form fields
+    setShowHolidayMarker(false);
     setHolidayName("");
     setHolidayStartDate("");
     setHolidayEndDate("");
