@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import CompletionSummaryModal from "./CompletionSummaryModal";
 import { toast } from "react-hot-toast";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
 const statusOptions = [
   {
@@ -36,6 +37,7 @@ const ProjectStatusSelect = ({
   tasks = [],
 }: ProjectStatusSelectProps) => {
   const { fetchAllTasksWithChildren } = useTaskStore();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -123,8 +125,8 @@ const ProjectStatusSelect = ({
               />
             )}
           </div>
-          {project.status === "completed" && (
-            <button onClick={()=>setShowCompletionModal(!showCompletionModal)} className="px-3 py-2 bg-blue-600 rounded-2xl text-white">
+          {window.location.pathname !== "/dashboard/projects" && project.status === "completed" && (
+            <button onClick={() => setShowCompletionModal(!showCompletionModal)} className="px-3 py-2 bg-blue-600 rounded-2xl text-white">
               Show Time Status
             </button>
           )}
