@@ -109,7 +109,7 @@ const ProjectStatusSelect = ({
           <div
             className={`${
               updateProjectStatus ? "cursor-pointer text-base" : "text-[12px]"
-            } flex items-center gap-1 justify-center px-4 rounded-2xl text-sm text-center transition-all ${
+            } flex items-center gap-1 justify-center px-4 py-2 rounded-2xl text-sm text-center transition-all ${
               selected.color
             }`}
             onClick={() => {

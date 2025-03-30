@@ -8,17 +8,20 @@ import {
   FileText,
   User,
   Mail,
+  AlertTriangle,
 } from "lucide-react";
 import { useCustomerStore, Customer } from "@/store/customerStore";
 import toast from "react-hot-toast";
 import { useProjectStore } from "@/store/projectStore";
 import { auth } from "@/lib/firebase";
+import { useAuthStore } from "@/store/authStore";
 
 export default function CustomerViewingDetails() {
   const navigate = useNavigate();
   const { fetchCustomerByUserId, loading } = useCustomerStore();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const { projects, fetchCustomerProjects } = useProjectStore();
+  const { userData } = useAuthStore();
 
   useEffect(() => {
     const loadCustomerData = async () => {
@@ -45,6 +48,18 @@ export default function CustomerViewingDetails() {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (userData && !userData.verified) {
+    return (
+      <div className="flex items-center justify-center h-screen p-6 bg-gradient-to-r from-red-200 to-red-400">
+        <div className="bg-white shadow-lg border border-red-400 text-red-700 px-6 py-4 rounded-lg relative max-w-md w-full">
+          <AlertTriangle className="inline-block h-8 w-8 mr-2" />
+          <strong className="font-bold text-lg">Warning!</strong>
+          <span className="block sm:inline text-md"> Your account is not verified. Please contact ShipTech-ICON team.</span>
+        </div>
       </div>
     );
   }
