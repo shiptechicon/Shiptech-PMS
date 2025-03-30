@@ -622,9 +622,6 @@ export default function ProjectDetails() {
                       updateProjectStatus={updateProjectStatus}
                       tasks={tasks}
                     />
-                    {project.status === "completed" && (
-                      <button>Show Time Status</button>
-                    )}
                   </td>
                 </tr>
                 <tr>

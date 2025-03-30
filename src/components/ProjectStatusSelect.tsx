@@ -62,7 +62,6 @@ const ProjectStatusSelect = ({
   }, [project]);
 
   const handleStatusChange = async (option: (typeof statusOptions)[0]) => {
-
     if (option.value === "completed") {
       // Check if all tasks are completed
 
@@ -102,25 +101,32 @@ const ProjectStatusSelect = ({
 
   return (
     <>
-      <div className="relative inline-block w-40" ref={dropdownRef}>
+      <div className="relative inline-block" ref={dropdownRef}>
         {/* Selected Status (Badge) */}
-        <div
-          className={`${
-            updateProjectStatus ? "cursor-pointer text-base" : "text-[12px]"
-          } flex items-center gap-1 w-fit min-w-28 justify-center  px-4 py-2 rounded-full text-sm text-center transition-all ${
-            selected.color
-          }`}
-          onClick={() => {
-            if (updateProjectStatus) setIsOpen(!isOpen);
-          }}
-        >
-          {selected.label}
+        <div className="flex gap-3">
+          <div
+            className={`${
+              updateProjectStatus ? "cursor-pointer text-base" : "text-[12px]"
+            } flex items-center gap-1 justify-center px-4 rounded-2xl text-sm text-center transition-all ${
+              selected.color
+            }`}
+            onClick={() => {
+              if (updateProjectStatus) setIsOpen(!isOpen);
+            }}
+          >
+            {selected.label}
 
-          {updateProjectStatus && (
-            <ChevronDown
-              className={`${isOpen ? "rotate-180" : ""} transition-all`}
-              size={20}
-            />
+            {updateProjectStatus && (
+              <ChevronDown
+                className={`${isOpen ? "rotate-180" : ""} transition-all`}
+                size={20}
+              />
+            )}
+          </div>
+          {project.status === "completed" && (
+            <button onClick={()=>setShowCompletionModal(!showCompletionModal)} className="px-3 py-2 bg-blue-600 rounded-2xl text-white">
+              Show Time Status
+            </button>
           )}
         </div>
 
