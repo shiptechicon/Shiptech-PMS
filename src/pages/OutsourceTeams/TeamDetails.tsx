@@ -158,8 +158,10 @@ const PaymentModal = ({
                   value={amount}
                   onChange={(e) => {
                     const value = e.target.value;
-                    if (parseFloat(value) <= balance) {
+                    if (Number(value) <= balance) {
                       setAmount(value);
+                    }else{
+                      toast.error("Amount cannot exceed balance");
                     }
                   }}
                   max={balance}
@@ -457,7 +459,7 @@ export default function TeamDetails() {
                     </span>
                     <button
                       onClick={() => setSelectedSettlement(settlement)}
-                      className={`mt-2 px-3 py-1 text-sm rounded hover:bg-opacity-80 ${
+                      className={`mt-2 px-3 py-1 text-xs rounded hover:bg-opacity-80 ml-2 ${
                         settlement.status === "completed"
                           ? "bg-gray-100 text-gray-700"
                           : "bg-blue-600 text-white"
