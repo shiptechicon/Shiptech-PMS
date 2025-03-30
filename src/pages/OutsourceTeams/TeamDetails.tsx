@@ -36,6 +36,7 @@ const PaymentModal = ({
     null
   );
 
+
   const totalPaid = settlement.amounts_paid.reduce(
     (sum, payment) => sum + parseFloat(payment.amount),
     0

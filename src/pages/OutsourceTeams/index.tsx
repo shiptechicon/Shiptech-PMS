@@ -33,6 +33,7 @@ function TeamsList() {
     });
   }, [teams]);
 
+
   const determinePaymentStatus = (settlements: Settlement[]): string => {
     if (settlements.length === 0) return "No payments";
     if (settlements.some((s) => s.status === "pending"))
