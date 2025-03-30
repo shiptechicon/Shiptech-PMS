@@ -70,18 +70,20 @@ export default function ProjectDetails() {
   const calculateCompletedPercentage = (task: Task): number => {
     if (!task.children || task.children.length === 0) {
       // If the task has no children, return the percentage based on its own completion status
-      return task.completed ? (task.percentage || 100) : 0;
+      return task.completed ? task.percentage || 100 : 0;
     }
-  
-    const totalAssignedToChildren = task.children.reduce((sum, child) => 
-      sum + (child.percentage || 0), 0);
-  
+
+    const totalAssignedToChildren = task.children.reduce(
+      (sum, child) => sum + (child.percentage || 0),
+      0
+    );
+
     if (totalAssignedToChildren === 0) return 0;
-  
+
     const completedSum = task.children.reduce((sum, subtask) => {
-      return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
+      return sum + (subtask.completed ? subtask.percentage || 0 : 0);
     }, 0);
-  
+
     const comp = Math.round((completedSum / totalAssignedToChildren) * 100);
     return Number(((comp * (task.percentage || 100)) / 100).toFixed(1));
   };
@@ -91,7 +93,7 @@ export default function ProjectDetails() {
 
     const rootTasks = tasks;
     // console.log(rootTasks, "rootTasks");
-    
+
     let sum = 0;
 
     rootTasks.forEach((task) => {
@@ -113,7 +115,7 @@ export default function ProjectDetails() {
         const p = await fetchProject(id);
         const data = p;
         if (data) {
-          await fetchAllTasksWithChildren(id , undefined , true);
+          await fetchAllTasksWithChildren(id, undefined, true);
           if (data.project_due_date) {
             setTempDueDate(data.project_due_date);
           }
@@ -141,19 +143,16 @@ export default function ProjectDetails() {
       }
     };
 
-
     loadProject();
     checkUserRole();
   }, [id, user, fetchProject, navigate]);
 
   useEffect(() => {
     if (project) {
-      fetchCustomer(project.customer_id).then(
-        (customer) => {
-          // console.log("customer detail : ",customer)
-          setCustomerDetails(customer);
-        }
-      );
+      fetchCustomer(project.customer_id).then((customer) => {
+        // console.log("customer detail : ",customer)
+        setCustomerDetails(customer);
+      });
     }
   }, [project]);
 
@@ -291,7 +290,6 @@ export default function ProjectDetails() {
     setIsEditingDueDate(false);
   };
 
-
   useEffect(() => {
     const projectCompletionPercentage = calculateProjectCompletion();
     setCompletedPercentage(projectCompletionPercentage);
@@ -342,7 +340,6 @@ export default function ProjectDetails() {
   //   console.log(tasks, "tasks on project details");
   // }, [tasks]);
 
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -374,8 +371,9 @@ export default function ProjectDetails() {
               <button
                 onClick={() => {
                   const customer = customers.find(
-                    c => c.name === project.customer.name && 
-                    c.contactPersons[0]?.phone === project.customer.phone
+                    (c) =>
+                      c.name === project.customer.name &&
+                      c.contactPersons[0]?.phone === project.customer.phone
                   );
                   setCustomerEmail(customer?.email || "");
                   setShowCredentialsModal(true);
@@ -418,7 +416,6 @@ export default function ProjectDetails() {
               Edit Project
             </button>
           )}
-          
         </div>
       </div>
 
@@ -625,6 +622,9 @@ export default function ProjectDetails() {
                       updateProjectStatus={updateProjectStatus}
                       tasks={tasks}
                     />
+                    {project.status === "completed" && (
+                      <button>Show Time Status</button>
+                    )}
                   </td>
                 </tr>
                 <tr>
@@ -660,52 +660,70 @@ export default function ProjectDetails() {
                 {customerDetails.logoUrl && (
                   <div className="col-span-2">
                     <p className="text-sm font-medium text-gray-500">Logo</p>
-                    <img 
-                      src={customerDetails.logoUrl} 
-                      alt="Customer Logo" 
+                    <img
+                      src={customerDetails.logoUrl}
+                      alt="Customer Logo"
                       className="mt-1 max-h-20 object-contain"
                     />
                   </div>
                 )}
                 <div>
                   <p className="text-sm font-medium text-gray-500">Name</p>
-                  <p className="mt-1">{customerDetails.name || project.customer.name}</p>
+                  <p className="mt-1">
+                    {customerDetails.name || project.customer.name}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Email</p>
                   <p className="mt-1">{customerDetails.email}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">GST Number</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    GST Number
+                  </p>
                   <p className="mt-1">{customerDetails.gstNumber}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">End Client</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    End Client
+                  </p>
                   <p className="mt-1">{project.endClient}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-sm font-medium text-gray-500">Address</p>
-                  <p className="mt-1">{customerDetails.address || project.customer.address}</p>
+                  <p className="mt-1">
+                    {customerDetails.address || project.customer.address}
+                  </p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-sm font-medium text-gray-500">Billing Address</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Billing Address
+                  </p>
                   <p className="mt-1">{customerDetails.billingAddress}</p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-sm font-medium text-gray-500">Contact Persons</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Contact Persons
+                  </p>
                   <div className="mt-1 space-y-2">
                     {customerDetails.contactPersons.map((person, index) => (
                       <div key={index} className="flex items-center space-x-4">
-                        <span className="text-sm text-gray-700">{person.name}</span>
+                        <span className="text-sm text-gray-700">
+                          {person.name}
+                        </span>
                         <span className="text-sm text-gray-500">-</span>
-                        <span className="text-sm text-gray-700">{person.phone}</span>
+                        <span className="text-sm text-gray-700">
+                          {person.phone}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No customer details found.</p>
+              <p className="text-sm text-gray-500">
+                No customer details found.
+              </p>
             )}
           </div>
         </div>
@@ -727,7 +745,9 @@ export default function ProjectDetails() {
         />
 
         {/* Comments Section */}
-        <div className="mt-6">{id && <ProjectComments projectData={project} projectId={id} />}</div>
+        <div className="mt-6">
+          {id && <ProjectComments projectData={project} projectId={id} />}
+        </div>
       </div>
 
       <TaskModal
