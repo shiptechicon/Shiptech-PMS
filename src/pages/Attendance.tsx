@@ -114,6 +114,12 @@ export default function Attendance() {
   const [selectedAttendanceDate, setSelectedAttendanceDate] =
     useState<Date | null>(null);
 
+
+  useEffect(() => {
+    console.log("Attendance Records:", records.filter((record) => record.date === "2025-03-29"));
+    
+  }, [records]);
+
   useEffect(() => {
     const checkUserRole = async () => {
       if (user) {
@@ -430,6 +436,7 @@ export default function Attendance() {
     }
 
     // Reset the form fields
+    setShowHolidayMarker(false);
     setHolidayName("");
     setHolidayStartDate("");
     setHolidayEndDate("");

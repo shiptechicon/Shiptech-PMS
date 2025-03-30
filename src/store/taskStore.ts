@@ -10,6 +10,7 @@ import {
   query,
   getDoc,
   increment,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
@@ -334,25 +335,60 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   deleteTask: async (id) => {
     try {
       set({ loading: true, error: null });
-      const taskRef = doc(db, "tasks", id);
-      const taskSnapshot = await getDoc(taskRef);
-      if (taskSnapshot.exists()) {
-        const taskData = taskSnapshot.data() as Task;
-        if (taskData.parentId === null) {
-          const projectId = taskData.projectId;
-          const costPerHour = taskData.costPerHour || 0;
-          const hours = taskData.hours || 0;
-          const totalReduction = costPerHour * hours;
 
-          const projectRef = doc(db, "projects", projectId);
-          await updateDoc(projectRef, {
-            total_amount: increment(-totalReduction),
-          });
+      const currentTask = get().tasks.find((task) => task.id === id);
+      const parentId = currentTask?.parentId;
+
+  
+      // Get all task IDs to delete (including children) from local state
+      const getAllTaskIds = (taskId: string): string[] => {
+        const ids = [taskId];
+        const children = get().taskNodes.filter(task => task.parentId === taskId);
+        
+        for (const child of children) {
+          ids.push(...getAllTaskIds(child.id));
         }
+        
+        return ids;
+      };
+  
+      const taskIdsToDelete = getAllTaskIds(id);
+      const tasksToDelete = get().taskNodes.filter(task => taskIdsToDelete.includes(task.id));
+  
+      // Process deletions in a batch
+      const batch = writeBatch(db);
+      
+      // Handle project amount reduction if deleting a root task
+      const rootTask = get().taskNodes.find(task => task.id === id);
+      if (rootTask?.parentId === null || rootTask?.parentId === "") {
+        const projectId = rootTask.projectId;
+        const totalReduction = tasksToDelete.reduce((sum, task) => {
+          return sum + ((task.costPerHour || 0) * (task.hours || 0));
+        }, 0);
+  
+        const projectRef = doc(db, "projects", projectId);
+        batch.update(projectRef, {
+          total_amount: increment(-totalReduction),
+        });
       }
-      await deleteDoc(taskRef);
-      set({ taskNodes: get().taskNodes.filter((task) => task.id !== id) });
-      set({ tasks: get().convertNodesToTree(get().taskNodes) });
+  
+      // Add all task deletions to batch
+      for (const taskId of taskIdsToDelete) {
+        const taskRef = doc(db, "tasks", taskId);
+        batch.delete(taskRef);
+      }
+  
+      await batch.commit();
+      
+      // Update local state
+      const remainingTasks = get().taskNodes.filter(task => !taskIdsToDelete.includes(task.id));
+      set({ 
+        taskNodes: remainingTasks,
+        tasks: get().convertNodesToTree(remainingTasks),
+        task: parentId ? get().searchTaskFromTree(parentId, remainingTasks) : null
+      });
+      
+      set({ loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
