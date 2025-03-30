@@ -223,18 +223,22 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       const { comments, cache } = get();
       const commentToDelete = comments.find((comment) => comment.id === commentId);
 
+      
       if (commentToDelete) {
         let attachmentsDeleted = true;
-
+        
         // Delete attachments from GitHub if they exist
         if (commentToDelete.attachments) {
           for (const attachment of commentToDelete.attachments) {
+            // const projectDocPath = `Projects/${projectId}/${doc.fileName}`;
             const projectDocPath = attachment.url.split("raw.githubusercontent.com/NoTimeInnovations/shiptech-data/main/")[1];
+            console.log("commentToDelete",projectDocPath.replace(/%20/g, ' '))
+            
             try {
               const response = await fetch('https://ship-backend-black.vercel.app/api/delete-file', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: projectDocPath }),
+                body: JSON.stringify({ path: projectDocPath.replace(/\\/g, '/').replace(/%20/g, ' ') }),
               });
 
               if (!response.ok) {
