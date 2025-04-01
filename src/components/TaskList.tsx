@@ -27,11 +27,12 @@ export default function TaskList({
   const [sortedTasks , setSortedTasks] = useState<Task[]>([]);
 
   useEffect(() => {
-    setSortedTasks(tasks.sort((a, b) => {
-      if (a.createdAt && !b.createdAt) return 1;
-      if (!a.createdAt && b.createdAt) return -1;
-      return 0;
-    }));
+      setSortedTasks([...tasks].sort((a, b) => {
+        if (!a.createdAt && !b.createdAt) return 0;
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }));
   }, [tasks]);
 
   const calculateCompletedPercentage = (task: Task): number => {
