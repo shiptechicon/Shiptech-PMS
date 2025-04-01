@@ -227,18 +227,21 @@ export default function AdminPanel() {
                           ) : (
                             <>
                               <button
-                                onClick={() => unverifyUser(user.id)}
+                                onClick={() => {
+                                  user.verified ? unverifyUser(user.id) : verifyUser(user.id);
+                                }}
                                 disabled={processingUser === user.id}
-                                className="text-red-600 hover:text-red-900 flex items-center space-x-1"
+                                className={`flex items-center space-x-1 ${user.verified ? 'text-red-600 hover:text-red-900' : 'text-blue-600 hover:text-blue-900'}`}
                               >
                                 {processingUser === user.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
                                   <UserX className="h-4 w-4" />
                                 )}
-                                <span>Unverify</span>
+                                <span>{user.verified ? 'Unverify' : 'Verify'}</span>
                               </button>
-                              <button
+                              {user.verified && (
+                                <button
                                 onClick={() => {
                                   setSelectedUser(user);
                                   setIsDesignationModalOpen(true);
@@ -247,6 +250,7 @@ export default function AdminPanel() {
                               >
                                 Change Designation
                               </button>
+                              )}
                             </>
                           )}
                         </div>
