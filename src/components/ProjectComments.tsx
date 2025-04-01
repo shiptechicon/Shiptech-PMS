@@ -195,11 +195,8 @@ export default function ProjectComments({ projectId,projectData }: ProjectCommen
     return null;
   };
 
-  const handleDownload = (url: string, fileName: string) => {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.click();
+  const handleDownload = (url: string) => {
+    window.open(url, "_blank");
   };
 
   const handleRemoveFile = (fileName: string) => {
@@ -398,7 +395,6 @@ export default function ProjectComments({ projectId,projectData }: ProjectCommen
                                   onClick={() =>
                                     handleDownload(
                                       attachment.url,
-                                      attachment.name
                                     )
                                   }
                                   className="text-white hover:text-white/80"

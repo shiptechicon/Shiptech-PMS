@@ -10,6 +10,7 @@ import {
   query,
   getDoc,
   increment,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
@@ -139,7 +140,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           id: user.id,
           name: user.name,
           email: user.email,
-        }),
+        })
       );
       const querySnapshot = await getDocs(q);
 
@@ -161,7 +162,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     forceFetch = false
   ) => {
     try {
-
       if (!forceFetch) {
         if (
           get().tasks.length > 0 &&
@@ -297,13 +297,22 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       const { id: _, ...updatesWithoutId } = updates;
 
       const currentTask = get().tasks.find((task) => task.id === id);
-      if (updatesWithoutId && updatesWithoutId.costPerHour && updatesWithoutId.hours && updatesWithoutId.projectId && currentTask && currentTask.costPerHour && currentTask.hours) {
+      if (
+        updatesWithoutId &&
+        updatesWithoutId.costPerHour &&
+        updatesWithoutId.hours &&
+        updatesWithoutId.projectId &&
+        currentTask &&
+        currentTask.costPerHour &&
+        currentTask.hours
+      ) {
         const oldTotalAmount = currentTask.costPerHour * currentTask.hours;
-        const newTotalAmount = updatesWithoutId.costPerHour * updatesWithoutId.hours;
+        const newTotalAmount =
+          updatesWithoutId.costPerHour * updatesWithoutId.hours;
         const projectRef = doc(db, "projects", updatesWithoutId.projectId);
-        
+
         await updateDoc(projectRef, {
-          total_amount: increment(newTotalAmount-oldTotalAmount),
+          total_amount: increment(newTotalAmount - oldTotalAmount),
         });
       }
 
@@ -334,25 +343,78 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   deleteTask: async (id) => {
     try {
       set({ loading: true, error: null });
-      const taskRef = doc(db, "tasks", id);
-      const taskSnapshot = await getDoc(taskRef);
-      if (taskSnapshot.exists()) {
-        const taskData = taskSnapshot.data() as Task;
-        if (taskData.parentId === null) {
-          const projectId = taskData.projectId;
-          const costPerHour = taskData.costPerHour || 0;
-          const hours = taskData.hours || 0;
-          const totalReduction = costPerHour * hours;
 
-          const projectRef = doc(db, "projects", projectId);
-          await updateDoc(projectRef, {
-            total_amount: increment(-totalReduction),
-          });
+      const currentTask = get().tasks.find((task) => task.id === id);
+      const parentId = currentTask?.parentId;
+
+      // Get all task IDs to delete (including children) from local state
+      const getAllTaskIds = (taskId: string): string[] => {
+        const ids = [taskId];
+        const children = get().taskNodes.filter(
+          (task) => task.parentId === taskId
+        );
+
+        for (const child of children) {
+          ids.push(...getAllTaskIds(child.id));
         }
+
+        return ids;
+      };
+
+      const taskIdsToDelete = getAllTaskIds(id);
+      const tasksToDelete = get().taskNodes.filter((task) =>
+        taskIdsToDelete.includes(task.id)
+      );
+
+      // Process deletions in a batch
+      const batch = writeBatch(db);
+
+      // Handle project amount reduction if deleting a root task
+      const rootTask = get().taskNodes.find((task) => task.id === id);
+      if (rootTask?.parentId === null || rootTask?.parentId === "") {
+        const projectId = rootTask.projectId;
+        const totalReduction = tasksToDelete.reduce((sum, task) => {
+          return sum + (task.costPerHour || 0) * (task.hours || 0);
+        }, 0);
+
+        const projectRef = doc(db, "projects", projectId);
+        batch.update(projectRef, {
+          total_amount: increment(-totalReduction),
+        });
       }
-      await deleteDoc(taskRef);
-      set({ taskNodes: get().taskNodes.filter((task) => task.id !== id) });
-      set({ tasks: get().convertNodesToTree(get().taskNodes) });
+
+      // Add all task deletions to batch
+      for (const taskId of taskIdsToDelete) {
+        const taskRef = doc(db, "tasks", taskId);
+        batch.delete(taskRef);
+      }
+
+      // Delete all settlements associated with these tasks
+      const settlementsQuery = query(
+        collection(db, "settlements"),
+        where("task_id", "in", taskIdsToDelete)
+      );
+      const settlementsSnapshot = await getDocs(settlementsQuery);
+
+      settlementsSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+
+      // Update local state
+      const remainingTasks = get().taskNodes.filter(
+        (task) => !taskIdsToDelete.includes(task.id)
+      );
+      set({
+        taskNodes: remainingTasks,
+        tasks: get().convertNodesToTree(remainingTasks),
+        task: parentId
+          ? get().searchTaskFromTree(parentId, remainingTasks)
+          : null,
+      });
+
+      set({ loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
@@ -469,7 +531,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   getTaskPath: async (taskId: string, projectId: string) => {
-    const projectTasks = await get().fetchAllTasksWithChildren(projectId , undefined , true);
+    const projectTasks = await get().fetchAllTasksWithChildren(
+      projectId,
+      undefined,
+      true
+    );
     const task = get().searchTaskFromTree(taskId, projectTasks);
     const path: string[] = [];
 

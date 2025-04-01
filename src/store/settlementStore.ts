@@ -72,9 +72,12 @@ export const useSettlementStore = create<SettlementState>((set, get) => ({
         settlements: [...state.settlements, newSettlement],
         cache: {
           ...state.cache,
-          settlements: null, // Invalidate cache for all settlements
+          settlements: null,
+          teamSettlements: {}, 
+          teamTaskSettlements: {} 
         },
       }));
+      
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -175,24 +178,44 @@ export const useSettlementStore = create<SettlementState>((set, get) => ({
   addPayment: async (settlementId, payment) => {
     try {
       set({ loading: true, error: null });
-      const settlement = get().settlements.find((s) => s.id === settlementId);
-      if (!settlement) throw new Error('Settlement not found');
+    const settlement = get().settlements.find((s) => s.id === settlementId);
+    if (!settlement) throw new Error('Settlement not found');
 
-      const newPayments = [...settlement.amounts_paid, payment];
-      const totalPaid = newPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-      const totalAmount = parseFloat(settlement.total_amount);
+    const newPayments = [...settlement.amounts_paid, payment];
+    const totalPaid = newPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const totalAmount = parseFloat(settlement.total_amount);
 
-      const status =
-        totalPaid >= totalAmount
-          ? 'completed'
-          : totalPaid > 0
-          ? 'partial'
-          : 'pending';
+    const status =
+      totalPaid >= totalAmount
+        ? 'completed'
+        : totalPaid > 0
+        ? 'partial'
+        : 'pending';
 
-      await get().updateSettlement(settlementId, {
-        amounts_paid: newPayments,
-        status,
+    const updatedSettlement = {
+      ...settlement,
+      amounts_paid: newPayments,
+      status,
+      updated_at: new Date().toISOString()
+    };
+
+    // Update Firestore
+    await updateDoc(doc(db, 'settlements', settlementId), updatedSettlement);
+     
+
+    const state = get();
+      set({
+        settlements: state.settlements.map((s) =>
+          s.id === settlementId ? updatedSettlement : s
+        ) as Settlement[],
+        cache: {
+          ...state.cache,
+          settlements: null, // Invalidate cache for all settlements
+          teamSettlements: {}, // Invalidate team-specific caches
+          teamTaskSettlements: {} // Invalidate team-task-specific caches
+        }
       });
+
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -207,23 +230,42 @@ export const useSettlementStore = create<SettlementState>((set, get) => ({
       set({ loading: true, error: null });
       const settlement = get().settlements.find((s) => s.id === settlementId);
       if (!settlement) throw new Error('Settlement not found');
-
+  
       const newPayments = [...settlement.amounts_paid];
       newPayments[paymentIndex] = payment;
-
+  
       const totalPaid = newPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
       const totalAmount = parseFloat(settlement.total_amount);
-
+  
       const status =
         totalPaid >= totalAmount
           ? 'completed'
           : totalPaid > 0
           ? 'partial'
           : 'pending';
-
-      await get().updateSettlement(settlementId, {
+  
+      const updatedSettlement = {
+        ...settlement,
         amounts_paid: newPayments,
         status,
+        updated_at: new Date().toISOString()
+      };
+  
+      // Update Firestore
+      await updateDoc(doc(db, 'settlements', settlementId), updatedSettlement);
+  
+      // Update state
+      const state = get();
+      set({
+        settlements: state.settlements.map((s) =>
+          s.id === settlementId ? updatedSettlement : s
+        ) as Settlement[],
+        cache: {
+          ...state.cache,
+          settlements: null,
+          teamSettlements: {}, 
+          teamTaskSettlements: {} 
+        }
       });
     } catch (error) {
       set({ error: (error as Error).message });
@@ -237,24 +279,43 @@ export const useSettlementStore = create<SettlementState>((set, get) => ({
   deletePayment: async (settlementId, paymentIndex) => {
     try {
       set({ loading: true, error: null });
-      const settlement = get().settlements.find((s) => s.id === settlementId);
-      if (!settlement) throw new Error('Settlement not found');
+    const settlement = get().settlements.find((s) => s.id === settlementId);
+    if (!settlement) throw new Error('Settlement not found');
 
-      const newPayments = settlement.amounts_paid.filter((_, index) => index !== paymentIndex);
-      const totalPaid = newPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-      const totalAmount = parseFloat(settlement.total_amount);
+    const newPayments = settlement.amounts_paid.filter((_, index) => index !== paymentIndex);
+    const totalPaid = newPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const totalAmount = parseFloat(settlement.total_amount);
 
-      const status =
-        totalPaid >= totalAmount
-          ? 'completed'
-          : totalPaid > 0
-          ? 'partial'
-          : 'pending';
+    const status =
+      totalPaid >= totalAmount
+        ? 'completed'
+        : totalPaid > 0
+        ? 'partial'
+        : 'pending';
 
-      await get().updateSettlement(settlementId, {
-        amounts_paid: newPayments,
-        status,
-      });
+    const updatedSettlement = {
+      ...settlement,
+      amounts_paid: newPayments,
+      status,
+      updated_at: new Date().toISOString()
+    };
+
+    // Update Firestore
+    await updateDoc(doc(db, 'settlements', settlementId), updatedSettlement);
+
+    // Update state
+    const state = get();
+    set({
+      settlements: state.settlements.map((s) =>
+        s.id === settlementId ? updatedSettlement : s
+      ) as Settlement[],
+      cache: {
+        ...state.cache,
+        settlements: null,
+        teamSettlements: {}, 
+        teamTaskSettlements: {}
+      }
+    });
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;

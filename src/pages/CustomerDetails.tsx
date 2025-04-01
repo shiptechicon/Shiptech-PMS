@@ -106,7 +106,7 @@ export default function CustomerDetails() {
   return (
     <div className="p-6 min-h-screen">
 
-      <CustomerSettlementModal isOpen={isSettlementModalOpen} setOpen={setSettlementModalOpen} projects={projects} customer={customer} enquiries={customerEnquiries} />
+      <CustomerSettlementModal isOpen={isSettlementModalOpen} setOpen={setSettlementModalOpen} projects={customerProjects} customer={customer} enquiries={customerEnquiries} />
 
       {/* Header with back button and actions */}
       <div className="flex justify-between items-center mb-6">
