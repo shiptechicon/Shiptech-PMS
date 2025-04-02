@@ -132,10 +132,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       set({ loading: true, error: null });
 
       // Check if tasks are already fetched
-      if (get().tasks.length > 0) {
-        set({ loading: false });
-        return; // No need to fetch from Firebase
-      }
+      // if (get().tasks.length > 0) {
+      //   set({ loading: false });
+      //   return; // No need to fetch from Firebase
+      // }
 
       const q = query(
         collection(db, "tasks"),

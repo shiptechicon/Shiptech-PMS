@@ -41,14 +41,17 @@ export default function MemberBasics() {
 
   // Get upcoming todos (nearest 2 by due date that aren't completed)
   const upcomingTodos = todos
-    .filter((todo) => !todo.completed && new Date(todo.endDate) >= new Date())
+    .filter((todo) => !todo.completed)
     .sort(
       (a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
     )
     .slice(0, 2);
 
   // Get upcoming tasks (nearest 2 by deadline that aren't completed)
-  const upcomingTasks = userTasks?.filter((task) => !task.completed) ?? [];
+  const upcomingTasks = userTasks
+    ?.filter((task) => !task.completed)
+    .sort((a, b) => new Date(a.deadline as string).getTime() - new Date(b.deadline as string).getTime())
+    .slice(0, 5) ?? [];
 
   const handleTaskClick = (projectId: string, taskid: string) => {
     navigate(`/dashboard/projects/${projectId}/task/${taskid}`);
@@ -114,7 +117,7 @@ export default function MemberBasics() {
       {upcomingTodos.length > 0 && (
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">Upcoming Todos</h2>
+            <h2 className="text-2xl font-bold">My To do</h2>
             <button
               onClick={() => navigate("/dashboard/todos")}
               className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
@@ -154,7 +157,15 @@ export default function MemberBasics() {
       )}
 
       {/* Existing Tasks Section */}
-      <h2 className="text-2xl font-bold mb-6">My Tasks</h2>
+      <div className="flex justify-between">
+        <h2 className="text-2xl font-bold mb-6">My Tasks</h2>
+        <Link
+          to="/dashboard/mytasks"
+          className="text-blue-600 hover:text-blue-800"
+        >
+          View All My Tasks
+        </Link>
+      </div>
       <div className="bg-white rounded-lg shadow">
         {userTasks.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
