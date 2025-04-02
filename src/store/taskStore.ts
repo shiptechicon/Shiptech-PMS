@@ -50,6 +50,7 @@ interface TaskState {
   tasks: Task[];
   taskNodes: Task[];
   task: Task | null;
+  selectedTaskForEdit:Task | null;
   loading: boolean;
   error: string | null;
   fetchTask: (taskId: string) => Promise<Task | null>;
@@ -89,12 +90,14 @@ interface TaskState {
   ) => Promise<Task[]>;
   getTaskPath: (taskId: string, projectId: string) => Promise<string>;
   fetchTasksByOutsourceTeam: (teamId: string) => Promise<Task[]>;
+  SetSelectedTaskForEdit: (task: Task) => Promise<void>;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   taskNodes: [],
   task: null,
+  selectedTaskForEdit:null,
   loading: false,
   error: null,
 
@@ -572,4 +575,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       set({ loading: false });
     }
   },
+
+  SetSelectedTaskForEdit: async (task : Task) => {
+    console.log("task",task)
+    set({ selectedTaskForEdit : task })
+  }
 }));

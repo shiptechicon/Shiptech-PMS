@@ -1,6 +1,6 @@
-import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Task } from '../store/taskStore';
-import { useEffect, useState } from 'react';
+import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Task, useTaskStore } from "../store/taskStore";
+import { useEffect, useState } from "react";
 
 interface TaskListProps {
   tasks: Task[];
@@ -10,7 +10,7 @@ interface TaskListProps {
   onTaskClick: (task: Task) => void;
   isAdmin: boolean;
   currentUserId?: string;
-  parentAccess? : boolean;
+  parentAccess?: boolean;
 }
 
 export default function TaskList({
@@ -20,19 +20,22 @@ export default function TaskList({
   onDeleteClick,
   onTaskClick,
   isAdmin,
-  parentAccess
+  parentAccess,
 }: TaskListProps) {
-
-
-  const [sortedTasks , setSortedTasks] = useState<Task[]>([]);
+  const [sortedTasks, setSortedTasks] = useState<Task[]>([]);
+  const { SetSelectedTaskForEdit } = useTaskStore();
 
   useEffect(() => {
-      setSortedTasks([...tasks].sort((a, b) => {
+    setSortedTasks(
+      [...tasks].sort((a, b) => {
         if (!a.createdAt && !b.createdAt) return 0;
         if (!a.createdAt) return 1;
         if (!b.createdAt) return -1;
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      }));
+        return (
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      })
+    );
   }, [tasks]);
 
   const calculateCompletedPercentage = (task: Task): number => {
@@ -40,13 +43,15 @@ export default function TaskList({
       return task.completed ? 100 : 0;
     }
 
-    const totalAssignedToChildren = task.children.reduce((sum, child) => 
-      sum + (child.percentage || 0), 0);
+    const totalAssignedToChildren = task.children.reduce(
+      (sum, child) => sum + (child.percentage || 0),
+      0
+    );
 
     if (totalAssignedToChildren === 0) return 0;
 
     const completedSum = task.children.reduce((sum, subtask) => {
-      return sum + (subtask.completed ? (subtask.percentage || 0) : 0);
+      return sum + (subtask.completed ? subtask.percentage || 0 : 0);
     }, 0);
 
     return Math.round((completedSum / totalAssignedToChildren) * 100);
@@ -54,10 +59,10 @@ export default function TaskList({
 
   // Helper function to get color based on percentage
   const getProgressColor = (percentage: number) => {
-    if (percentage >= 75) return 'bg-green-600';
-    if (percentage >= 50) return 'bg-yellow-500';
-    if (percentage >= 25) return 'bg-orange-500';
-    return 'bg-red-600';
+    if (percentage >= 75) return "bg-green-600";
+    if (percentage >= 50) return "bg-yellow-500";
+    if (percentage >= 25) return "bg-orange-500";
+    return "bg-red-600";
   };
 
   return (
@@ -87,7 +92,7 @@ export default function TaskList({
               return (
                 <div key={task.id} className="p-4">
                   <div className="flex items-center justify-between">
-                    <div 
+                    <div
                       className="flex items-center cursor-pointer flex-1"
                       onClick={() => onTaskClick(task)}
                     >
@@ -98,15 +103,26 @@ export default function TaskList({
                             <span className="text-sm text-gray-500">
                               Target: {assignedPercentage}%
                             </span>
-                            <span className={`text-sm ${getProgressColor(completedPercentage).replace('bg-', 'text-')}`}>
-                              Completed: {((completedPercentage * assignedPercentage) / 100).toFixed(1)}%
+                            <span
+                              className={`text-sm ${getProgressColor(
+                                completedPercentage
+                              ).replace("bg-", "text-")}`}
+                            >
+                              Completed:{" "}
+                              {(
+                                (completedPercentage * assignedPercentage) /
+                                100
+                              ).toFixed(1)}
+                              %
                             </span>
                           </div>
                         </div>
                         {/* Progress bar */}
                         <div className="w-full bg-gray-200 rounded-full h-1.5">
                           <div
-                            className={`h-1.5 rounded-full transition-all duration-150 ${getProgressColor(completedPercentage)}`}
+                            className={`h-1.5 rounded-full transition-all duration-150 ${getProgressColor(
+                              completedPercentage
+                            )}`}
                             style={{ width: `${completedPercentage}%` }}
                           />
                         </div>
@@ -120,14 +136,22 @@ export default function TaskList({
                     {(isAdmin || parentAccess) && (
                       <div className="flex items-center space-x-2 ml-4">
                         <button
-                          onClick={() => onEditClick(task)}
+                          onClick={() => {
+                            // console.log("current task : ",task)
+                            SetSelectedTaskForEdit(task)
+                            onEditClick(task);
+                          }}
                           className="text-gray-600 hover:text-gray-900"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this task and all its subtasks?')) {
+                            if (
+                              window.confirm(
+                                "Are you sure you want to delete this task and all its subtasks?"
+                              )
+                            ) {
                               onDeleteClick(task.id);
                             }
                           }}

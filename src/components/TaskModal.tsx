@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useParams } from "react-router-dom";
-import { useProjectStore, User } from "../store/projectStore";
+import { Project, useProjectStore, User } from "../store/projectStore";
 import { Task, useTaskStore } from "../store/taskStore";
 import toast from "react-hot-toast";
 
@@ -11,6 +11,7 @@ interface TaskModalProps {
   onSubmit: (data: Task) => Promise<void>;
   initialData?: Task;
   tasks: Task[];
+  project:Project;
 }
 
 export default function TaskModal({
@@ -19,10 +20,12 @@ export default function TaskModal({
   onSubmit,
   initialData,
   tasks,
+  project,
 }: TaskModalProps) {
   const { id: projectId } = useParams();
   const { users, fetchUsers } = useProjectStore();
   const [siblingTasks, setSiblingTasks] = useState<Task[]>([]);
+  const { tasks: allTasks, task, searchTaskFromTree, selectedTaskForEdit } = useTaskStore();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -35,11 +38,35 @@ export default function TaskModal({
   });
 
   const [availablePercentage, setAvailablePercentage] = useState(0);
+  const [ParentTask, setParentTask] = useState<Task | null>(null);
+
+  const getParentTask = () => {
+    if(selectedTaskForEdit){
+      console.log("through task list")
+      const parentId = selectedTaskForEdit?.parentId;
+      const parentTask = parentId ? searchTaskFromTree(parentId, allTasks) : null;
+      console.log("parentTask",parentTask)
+      setParentTask(parentTask)
+      return parentTask;
+    }
+    else{
+      console.log("through item details")
+      const parentId = task?.parentId;
+      const parentTask = parentId ? searchTaskFromTree(parentId, allTasks) : null;
+      console.log("parentTask",parentTask)
+      setParentTask(parentTask)
+      return parentTask;
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
     fetchUsers();
   }, [isOpen]);
+
+  useEffect(() => {
+    getParentTask()
+  }, [tasks])
 
   useEffect(() => {
     if (initialData) {
@@ -290,6 +317,11 @@ export default function TaskModal({
                       }))
                     }
                     className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    max={
+                      // ParentTask && ParentTask.deadline
+                      //   ? ParentTask.deadline as string // Ensure it's treated as a string
+                        project?.project_due_date as string // Ensure it's treated as a string
+                    } // Set maximum date based on ParentTask or project due date
                   />
                 </div>
 

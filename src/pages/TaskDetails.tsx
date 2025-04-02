@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useProjectStore } from "../store/projectStore";
+import { Project, useProjectStore } from "../store/projectStore";
 import {
   Loader2,
   ArrowLeft,
@@ -28,7 +28,7 @@ export default function TaskDetails() {
   const taskId = taskPath?.split("/")[taskPath.split("/").length - 1];
 
   const navigate = useNavigate();
-  const { loading, setCurrentPath } = useProjectStore();
+  const { loading, setCurrentPath, fetchProject, project } = useProjectStore();
   const {
     tasks,
     addTask,
@@ -39,6 +39,7 @@ export default function TaskDetails() {
     getTaskTimeEntries,
     startTimer,
     stopTimer,
+    searchTaskFromTree
   } = useTaskStore();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,6 +78,10 @@ export default function TaskDetails() {
   const getChildTasks = (parentId: string) => {
     return tasks.filter((task) => task.parentId === parentId);
   };
+
+  useEffect(() => {
+    fetchProject(projectId as string)
+  }, [])
 
   const loadTask = async () => {
     if (!projectId || !taskPath) {
@@ -686,6 +691,7 @@ export default function TaskDetails() {
         }}
         onSubmit={editingTask ? handleEditTask : handleAddTask}
         initialData={editingTask || undefined}
+        project={project as Project}
       />
 
       {showManualEntry && (

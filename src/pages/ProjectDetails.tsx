@@ -756,6 +756,7 @@ export default function ProjectDetails() {
         }}
         onSubmit={editingTask ? handleEditTask : handleAddTask}
         initialData={editingTask || undefined}
+        project={project}
       />
     </div>
   );
