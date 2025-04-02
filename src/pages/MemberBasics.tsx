@@ -51,7 +51,7 @@ export default function MemberBasics() {
   const upcomingTasks = userTasks
     ?.filter((task) => !task.completed)
     .sort((a, b) => new Date(a.deadline as string).getTime() - new Date(b.deadline as string).getTime())
-    .slice(0, 5) ?? [];
+    // .slice(0, 5) ?? [];
 
   const handleTaskClick = (projectId: string, taskid: string) => {
     navigate(`/dashboard/projects/${projectId}/task/${taskid}`);
