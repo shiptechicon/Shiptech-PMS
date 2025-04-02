@@ -83,8 +83,8 @@ export default function TaskModal({
       setFormData({
         name: "",
         description: "",
-        hours: undefined,
-        costPerHour: undefined,
+        hours: 0,
+        costPerHour: 0,
         assignedTo: [],
         deadline: "",
         percentage: 0,
@@ -136,7 +136,7 @@ export default function TaskModal({
       updatedAt: new Date().toISOString(),
     };
 
-    if(!formData.name || !formData.description || !formData.hours || !formData.costPerHour || !formData.assignedTo || !formData.deadline || !formData.percentage) {
+    if(!formData.name || !formData.description ) {
       toast.error("Please fill all the fields");
       return;
     }

@@ -251,7 +251,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
       console.log("docRef", docRef);
 
-      if (task.parentId === null && task.costPerHour && task.hours) {
+      if (task.parentId === null && task.costPerHour  && task.hours) {
         const totalAmount = task.costPerHour * task.hours;
         const projectRef = doc(db, "projects", task.projectId);
         await updateDoc(projectRef, {
