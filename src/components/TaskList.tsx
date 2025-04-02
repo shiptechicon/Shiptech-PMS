@@ -23,7 +23,7 @@ export default function TaskList({
   parentAccess,
 }: TaskListProps) {
   const [sortedTasks, setSortedTasks] = useState<Task[]>([]);
-  const { SetSelectedTaskForEdit } = useTaskStore();
+  const { SetaddOrPencilEdit } = useTaskStore();
 
   useEffect(() => {
     setSortedTasks(
@@ -71,7 +71,10 @@ export default function TaskList({
         <h3 className="text-lg font-medium">Tasks</h3>
         {(isAdmin || parentAccess) && (
           <button
-            onClick={onAddClick}
+            onClick={()=>{
+              SetaddOrPencilEdit(true)
+              onAddClick()
+            }}
             className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-black/90"
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -138,7 +141,7 @@ export default function TaskList({
                         <button
                           onClick={() => {
                             // console.log("current task : ",task)
-                            SetSelectedTaskForEdit(task)
+                            SetaddOrPencilEdit(true)
                             onEditClick(task);
                           }}
                           className="text-gray-600 hover:text-gray-900"

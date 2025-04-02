@@ -5,9 +5,9 @@ import './index.css';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  // <StrictMode>
     <Router>
       <App />
     </Router>
-  </StrictMode>
+  // </StrictMode>
 );

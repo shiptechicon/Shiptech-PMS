@@ -48,13 +48,7 @@ export default function MemberBasics() {
     .slice(0, 2);
 
   // Get upcoming tasks (nearest 2 by deadline that aren't completed)
-  const upcomingTasks =
-    userTasks?.filter(
-      (task) =>
-        !task.completed &&
-        task.deadline &&
-        new Date(task.deadline) >= new Date()
-    ) ?? [];
+  const upcomingTasks = userTasks?.filter((task) => !task.completed) ?? [];
 
   const handleTaskClick = (projectId: string, taskid: string) => {
     navigate(`/dashboard/projects/${projectId}/task/${taskid}`);

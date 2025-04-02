@@ -50,7 +50,7 @@ interface TaskState {
   tasks: Task[];
   taskNodes: Task[];
   task: Task | null;
-  selectedTaskForEdit:Task | null;
+  addOrPencilEdit : boolean;
   loading: boolean;
   error: string | null;
   fetchTask: (taskId: string) => Promise<Task | null>;
@@ -90,14 +90,14 @@ interface TaskState {
   ) => Promise<Task[]>;
   getTaskPath: (taskId: string, projectId: string) => Promise<string>;
   fetchTasksByOutsourceTeam: (teamId: string) => Promise<Task[]>;
-  SetSelectedTaskForEdit: (task: Task) => Promise<void>;
+  SetaddOrPencilEdit: (check : boolean) => Promise<void>;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   taskNodes: [],
   task: null,
-  selectedTaskForEdit:null,
+  addOrPencilEdit: false,
   loading: false,
   error: null,
 
@@ -576,8 +576,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
 
-  SetSelectedTaskForEdit: async (task : Task) => {
-    console.log("task",task)
-    set({ selectedTaskForEdit : task })
-  }
+  SetaddOrPencilEdit: async (check : boolean) => {
+    set({ addOrPencilEdit : check })
+  },
 }));

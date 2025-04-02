@@ -11,7 +11,7 @@ interface TaskModalProps {
   onSubmit: (data: Task) => Promise<void>;
   initialData?: Task;
   tasks: Task[];
-  project:Project;
+  project: Project;
 }
 
 export default function TaskModal({
@@ -25,7 +25,13 @@ export default function TaskModal({
   const { id: projectId } = useParams();
   const { users, fetchUsers } = useProjectStore();
   const [siblingTasks, setSiblingTasks] = useState<Task[]>([]);
-  const { tasks: allTasks, task, searchTaskFromTree, selectedTaskForEdit } = useTaskStore();
+  const {
+    tasks: allTasks,
+    task,
+    searchTaskFromTree,
+    SetaddOrPencilEdit,
+    addOrPencilEdit,
+  } = useTaskStore();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -40,19 +46,24 @@ export default function TaskModal({
   const [availablePercentage, setAvailablePercentage] = useState(0);
   const [ParentTask, setParentTask] = useState<Task | null>(null);
 
+  const SetaddOrPencilEditTofalse = () => {
+    setParentTask(null);
+    SetaddOrPencilEdit(false);
+  };
+
   const getParentTask = () => {
-    if(selectedTaskForEdit){
-      const parentId = selectedTaskForEdit?.parentId;
-      const parentTask = parentId ? searchTaskFromTree(parentId, allTasks) : null;
-      setParentTask(parentTask)
-      return parentTask;
+    setParentTask(null);
+    if (addOrPencilEdit) {
+      const parentId = task?.id;
+      const parentTask = parentId
+        ? searchTaskFromTree(parentId, allTasks)
+        : null;
+      setParentTask(parentTask);
+      return;
     }
-    else{
-      const parentId = task?.parentId;
-      const parentTask = parentId ? searchTaskFromTree(parentId, allTasks) : null;
-      setParentTask(parentTask)
-      return parentTask;
-    }
+    const parentId = task?.parentId;
+    const parentTask = parentId ? searchTaskFromTree(parentId, allTasks) : null;
+    setParentTask(parentTask);
   };
 
   useEffect(() => {
@@ -61,8 +72,8 @@ export default function TaskModal({
   }, [isOpen]);
 
   useEffect(() => {
-    getParentTask()
-  }, [tasks,selectedTaskForEdit])
+    getParentTask();
+  }, [tasks, addOrPencilEdit]);
 
   useEffect(() => {
     if (initialData) {
@@ -112,7 +123,7 @@ export default function TaskModal({
     return () => {
       setSiblingTasks([]);
     };
-  }, [isOpen, initialData , tasks]);
+  }, [isOpen, initialData, tasks]);
 
   useEffect(() => {
     if (siblingTasks) {
@@ -132,12 +143,26 @@ export default function TaskModal({
       updatedAt: new Date().toISOString(),
     };
 
-    if(!formData.name || !formData.description ) {
-      toast.error("Please fill all the fields");
+    if (!formData.name) {
+      toast.error("Please fill in the task name");
       return;
     }
-    
+    if (!formData.deadline) {
+      toast.error("Please fill in the deadline");
+      return;
+    }
+    if (formData.percentage == 0) {
+      toast.error("Please set a percentage greater than 0");
+      return;
+    }
+    if (formData.assignedTo.length == 0) {
+      toast.error("Please assign the task to at least one user");
+      return;
+    }
+
+    setParentTask(null);
     onSubmit(taskData as Task);
+    SetaddOrPencilEditTofalse();
     onClose();
   };
   const handleAssignedToChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -178,7 +203,10 @@ export default function TaskModal({
                   {initialData ? "Edit Task" : "Add Task"}
                 </h2>
                 <button
-                  onClick={onClose}
+                  onClick={() => {
+                    SetaddOrPencilEditTofalse();
+                    onClose();
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X className="w-5 h-5" />
@@ -315,8 +343,8 @@ export default function TaskModal({
                     className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     max={
                       ParentTask && ParentTask.deadline
-                        ? ParentTask.deadline as string // Ensure it's treated as a string
-                        : project?.project_due_date as string // Ensure it's treated as a string
+                        ? (ParentTask.deadline as string) // Ensure it's treated as a string
+                        : (project?.project_due_date as string) // Ensure it's treated as a string
                     } // Set maximum date based on ParentTask or project due date
                   />
                 </div>
@@ -381,6 +409,11 @@ export default function TaskModal({
                       className="w-20 p-1 text-sm border rounded text-center"
                     />
                   </div>
+                  {availablePercentage === 0 && (
+                    <span className="text-red-500 text-sm flex justify-center text-center mt-3 border-2 border-red-500 p-1 ">
+                      You cant allocate any more percentage! Reduce percentage of other tasks first
+                    </span>
+                  )}
                 </div>
               </form>
             </div>
@@ -390,7 +423,10 @@ export default function TaskModal({
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => {
+                    SetaddOrPencilEditTofalse();
+                    onClose();
+                  }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancel

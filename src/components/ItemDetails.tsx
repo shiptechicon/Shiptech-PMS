@@ -7,7 +7,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import ItemStatusBadge from "./ItemStatusBadge";
-import { Task } from "@/store/taskStore";
+import { Task, useTaskStore } from "@/store/taskStore";
 import { useAuthStore } from "@/store/authStore";
 
 interface ItemDetailsProps {
@@ -86,7 +86,9 @@ export default function ItemDetails({
             <div className="flex items-center space-x-4">
               {(isAdmin || exceptionCase) && onEditClick && (
                 <button
-                  onClick={onEditClick}
+                  onClick={()=>{
+                    onEditClick()
+                  }}
                   className="px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700"
                 >
                   Edit Details
