@@ -42,18 +42,14 @@ export default function TaskModal({
 
   const getParentTask = () => {
     if(selectedTaskForEdit){
-      console.log("through task list")
       const parentId = selectedTaskForEdit?.parentId;
       const parentTask = parentId ? searchTaskFromTree(parentId, allTasks) : null;
-      console.log("parentTask",parentTask)
       setParentTask(parentTask)
       return parentTask;
     }
     else{
-      console.log("through item details")
       const parentId = task?.parentId;
       const parentTask = parentId ? searchTaskFromTree(parentId, allTasks) : null;
-      console.log("parentTask",parentTask)
       setParentTask(parentTask)
       return parentTask;
     }
@@ -66,7 +62,7 @@ export default function TaskModal({
 
   useEffect(() => {
     getParentTask()
-  }, [tasks])
+  }, [tasks,selectedTaskForEdit])
 
   useEffect(() => {
     if (initialData) {
@@ -318,9 +314,9 @@ export default function TaskModal({
                     }
                     className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     max={
-                      // ParentTask && ParentTask.deadline
-                      //   ? ParentTask.deadline as string // Ensure it's treated as a string
-                        project?.project_due_date as string // Ensure it's treated as a string
+                      ParentTask && ParentTask.deadline
+                        ? ParentTask.deadline as string // Ensure it's treated as a string
+                        : project?.project_due_date as string // Ensure it's treated as a string
                     } // Set maximum date based on ParentTask or project due date
                   />
                 </div>
