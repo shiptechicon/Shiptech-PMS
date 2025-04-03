@@ -4,6 +4,7 @@ import { collection, getDocs, updateDoc, doc, query, where } from 'firebase/fire
 import { Users, UserCheck, Loader2, UserX } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ChangeDesignationModal from '../components/ChangeDesignationModal';
+import ChangeJoinDateModal from '../components/ChangeJoinDateModal';
 
 interface User {
   id: string;
@@ -23,6 +24,7 @@ export default function AdminPanel() {
   const [processingUser, setProcessingUser] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDesignationModalOpen, setIsDesignationModalOpen] = useState(false);
+  const [isJoinDateModalOpen, setIsJoinDateModalOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -46,14 +48,14 @@ export default function AdminPanel() {
   };
 
   const updateUserState = (userId: string, verified: boolean) => {
-    setUsers(prevUsers => 
-      prevUsers.map(user => 
+    setUsers(prevUsers =>
+      prevUsers.map(user =>
         user.id === userId ? { ...user, verified } : user
       )
     );
 
-    setCustomers(prevCustomers => 
-      prevCustomers.map(customer => 
+    setCustomers(prevCustomers =>
+      prevCustomers.map(customer =>
         customer.id === userId ? { ...customer, verified } : customer
       )
     );
@@ -90,9 +92,17 @@ export default function AdminPanel() {
   };
 
   const handleDesignationChange = (newDesignation: string) => {
-    setUsers(users.map(user => 
-      user.id === selectedUser?.id 
+    setUsers(users.map(user =>
+      user.id === selectedUser?.id
         ? { ...user, designation: newDesignation }
+        : user
+    ));
+  };
+
+  const handleJoinDateChange = (newJoinDate: string) => {
+    setUsers(users.map(user =>
+      user.id === selectedUser?.id
+        ? { ...user, createdAt: newJoinDate }
         : user
     ));
   };
@@ -101,7 +111,7 @@ export default function AdminPanel() {
     ? customers
     : customers.filter(customer => !customer.verified);
 
-  const displayedUsers = activeTab === 'all' 
+  const displayedUsers = activeTab === 'all'
     ? users.filter(user => user.verified)
     : activeTab === 'unverified'
       ? users.filter(user => !user.verified)
@@ -151,27 +161,29 @@ export default function AdminPanel() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-center px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-center px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Designation
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {activeTab !== 'customers' && (
+                      <th className="text-center px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Designation
+                      </th>
+                    )}
+                    <th className="text-center px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
                     </th>
                     {activeTab === 'customers' && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="text-center px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
                     )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-center px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Joined
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="text-center px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -179,31 +191,33 @@ export default function AdminPanel() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(activeTab === 'customers' ? displayedCustomers : displayedUsers).map((user) => (
                     <tr key={user.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="text-center px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {user.fullName}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="text-center px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{user.email}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{user.designation ?? "User"}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      {activeTab !== 'customers' && (
+                        <td className="text-center px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{user.designation ?? "User"}</div>
+                        </td>
+                      )}
+                      <td className="text-center px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{user.role}</div>
                       </td>
                       {activeTab === 'customers' && (
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="text-center px-6 py-4 whitespace-nowrap">
                           <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
                             {user.verified ? 'Verified' : 'Unverified'}
                           </span>
                         </td>
                       )}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="text-center px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-center">
                         <div className="flex justify-end gap-2">
                           {activeTab === 'customers' ? (
                             <>
@@ -225,7 +239,7 @@ export default function AdminPanel() {
                               </button>
                             </>
                           ) : (
-                            <>
+                            <div className='flex gap-6'>
                               <button
                                 onClick={() => {
                                   user.verified ? unverifyUser(user.id) : verifyUser(user.id);
@@ -242,16 +256,27 @@ export default function AdminPanel() {
                               </button>
                               {user.verified && (
                                 <button
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setIsDesignationModalOpen(true);
-                                }}
-                                className="text-blue-600 hover:text-blue-900"
-                              >
-                                Change Designation
-                              </button>
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setIsDesignationModalOpen(true);
+                                  }}
+                                  className="text-white hover:text-blue-900 hover:bg-white border-2 py-1 px-2 border-blue-600 bg-blue-500 duration-300 rounded-2xl"
+                                >
+                                  Change <br /> Designation
+                                </button>
                               )}
-                            </>
+                              {user.verified && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setIsJoinDateModalOpen(true);
+                                  }}
+                                  className="text-white hover:text-purple-900 hover:bg-white border-2 py-1 px-2 border-purple-600 bg-purple-500 duration-300 rounded-2xl"
+                                >
+                                  Change <br /> Join Date
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -264,18 +289,30 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      {/* Add the modal at the end of your JSX */}
+      {/* Add both modals at the end of your JSX */}
       {selectedUser && (
-        <ChangeDesignationModal
-          isOpen={isDesignationModalOpen}
-          onClose={() => {
-            setIsDesignationModalOpen(false);
-            setSelectedUser(null);
-          }}
-          userId={selectedUser.id}
-          currentDesignation={selectedUser.designation || ''}
-          onDesignationChange={handleDesignationChange}
-        />
+        <>
+          <ChangeDesignationModal
+            isOpen={isDesignationModalOpen}
+            onClose={() => {
+              setIsDesignationModalOpen(false);
+              setSelectedUser(null);
+            }}
+            userId={selectedUser.id}
+            currentDesignation={selectedUser.designation || ''}
+            onDesignationChange={handleDesignationChange}
+          />
+          <ChangeJoinDateModal
+            isOpen={isJoinDateModalOpen}
+            onClose={() => {
+              setIsJoinDateModalOpen(false);
+              setSelectedUser(null);
+            }}
+            userId={selectedUser.id}
+            currentJoinDate={selectedUser.createdAt}
+            onJoinDateChange={handleJoinDateChange}
+          />
+        </>
       )}
     </div>
   );
