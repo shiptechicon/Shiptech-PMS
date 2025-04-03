@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CloudCog } from "lucide-react";
 import { MonthlyAttendance } from "@/pages/Attendance";
 import { useLeaveStore } from "@/store/leaveStore";
 import { useWorkFromStore } from "@/store/workfromhomestore";
@@ -27,6 +27,8 @@ export default function AttendanceCalendar({
   isAdmin: boolean;
 }) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [startingDate, setstartingDate] = useState<string>("");
+  const [EndingDate, setEndingDate] = useState<string>("");
   const [calendar, setCalendar] = useState<CalendarDay[]>([]);
   const { holidays, fetchHolidays } = useHolidayStore(); // Fetch holidays from the store
   const {
@@ -60,10 +62,14 @@ export default function AttendanceCalendar({
   const [approveFromDate, setApproveFromDate] = useState("");
   const [approveToDate, setApproveToDate] = useState("");
   const [dontShowReject, setDontShowReject] = useState(false);
-  // State for active analytics tab
-  const [activeTab, setActiveTab] = useState<
-    "thisMonth" | "threeMonths" | "sixMonths" | "yearly" | "overall"
-  >("thisMonth");
+  // State for active analytics tab - removing multiple tabs, keeping only overall
+  const [activeTab, setActiveTab] = useState<"overall" | "custom" | "lastYear">("overall");
+
+  // Add state for custom date range
+  const [customDateRange, setCustomDateRange] = useState({
+    startDate: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0]
+  });
 
   // Generate calendar days for the current month
   useEffect(() => {
@@ -452,7 +458,7 @@ export default function AttendanceCalendar({
   };
 
   useEffect(() => {
-    console.log("Leves" , leaves);
+    console.log("Leves", leaves);
   }, [leaves]);
 
   const handleUpdateAttendance = async (action: "update" | "remove") => {
@@ -487,10 +493,8 @@ export default function AttendanceCalendar({
     }
   };
 
-  // Function to calculate attendance metrics based on the selected time frame
-  const calculateMetrics = (
-    timeFrame: "thisMonth" | "threeMonths" | "sixMonths" | "yearly" | "overall"
-  ) => {
+  // Function to calculate attendance metrics - updated to handle custom date ranges
+  const calculateMetrics = () => {
     if (!userData) return;
 
     const createdAt = new Date(userData.createdAt);
@@ -504,32 +508,48 @@ export default function AttendanceCalendar({
     let totalWFH = 0;
     let totalOOO = 0;
 
-    const startDate = new Date();
-    if (timeFrame === "thisMonth") {
-      startDate.setFullYear(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        1
-      ); // Set to the first day of the current month
-    } else if (timeFrame === "threeMonths") {
-      startDate.setMonth(today.getMonth() - 3);
-    } else if (timeFrame === "sixMonths") {
-      startDate.setMonth(today.getMonth() - 6);
-    } else if (timeFrame === "yearly") {
-      startDate.setFullYear(today.getFullYear() - 1);
-    } else if (timeFrame === "overall") {
-      startDate.setTime(0); // Start from epoch time
+    // Set date range based on active tab
+    let startDate, endDate;
+
+    if (activeTab === "custom") {
+      startDate = new Date(customDateRange.startDate);
+      endDate = new Date(customDateRange.endDate);
+    } else if (activeTab === "lastYear") {
+      // Set end date to current year and current month's last day
+      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      // Set start date to previous year same month's first date
+      startDate = new Date(currentDate.getFullYear() - 1, currentDate.getMonth(), 1);
+    } else {
+      // Default to first day of current month for overall
+      startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      endDate = new Date();
     }
 
+    // Ensure dates are set to beginning of day for comparison
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    // console.log("startDate", startDate);
+    // console.log("endDate", endDate);
+
+
+    // setstartingDate(startDate.toLocaleDateString('en-US', {
+    //   year: 'numeric',
+    //   month: 'long',
+    //   day: 'numeric'
+    // }));
+    // setEndingDate(endDate.toLocaleDateString('en-US', {
+    //   year: 'numeric',
+    //   month: 'long',
+    //   day: 'numeric'
+    // }));
+
+    // Calculate total attendance days
     monthlyAttendance.forEach((month) => {
       month.records.forEach((record) => {
         const recordDate = new Date(record.date);
-        if (
-          recordDate >= createdAt &&
-          recordDate >= startDate &&
-          recordDate.getMonth() === currentDate.getMonth() &&
-          recordDate.getFullYear() === currentDate.getFullYear()
-        ) {
+        recordDate.setHours(0, 0, 0, 0);
+        if (recordDate >= startDate && recordDate <= endDate) {
           if (record.type === "full" || record.type === "half") {
             totalAttendanceDays++;
           }
@@ -537,47 +557,79 @@ export default function AttendanceCalendar({
       });
     });
 
-    // Calculate total leaves
+    // Calculate total leaves - accounting for date ranges
     leaves.forEach((leave) => {
       const leaveStart = new Date(leave.startDate);
       const leaveEnd = new Date(leave.endDate);
-      if (
-        leaveStart >= createdAt &&
-        leaveStart >= startDate &&
-        leaveStart.getMonth() === currentDate.getMonth() &&
-        leaveStart.getFullYear() === currentDate.getFullYear()
-      ) {
-        totalLeaves++;
+      leaveStart.setHours(0, 0, 0, 0);
+      leaveEnd.setHours(23, 59, 59, 999);
+
+      // Check if leave period overlaps with selected date range
+      if (leaveStart <= endDate && leaveEnd >= startDate) {
+        // Calculate the overlap period
+        const overlapStart = leaveStart > startDate ? leaveStart : startDate;
+        const overlapEnd = leaveEnd < endDate ? leaveEnd : endDate;
+
+        // Calculate days in the overlap period
+        const dayDiff = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 3600 * 24)) + 1;
+        totalLeaves += dayDiff;
       }
     });
 
-    // Calculate total work from home days
+    // Calculate total work from home days - accounting for date ranges
     workFromRequests.forEach((request) => {
       const requestStart = new Date(request.startDate);
       const requestEnd = new Date(request.endDate);
-      if (
-        requestStart >= createdAt &&
-        requestStart >= startDate &&
-        requestStart.getMonth() === currentDate.getMonth() &&
-        requestStart.getFullYear() === currentDate.getFullYear()
-      ) {
-        totalWFH++;
+      requestStart.setHours(0, 0, 0, 0);
+      requestEnd.setHours(23, 59, 59, 999);
+
+      // Check if WFH period overlaps with selected date range
+      if (requestStart <= endDate && requestEnd >= startDate) {
+        // Calculate the overlap period
+        const overlapStart = requestStart > startDate ? requestStart : startDate;
+        const overlapEnd = requestEnd < endDate ? requestEnd : endDate;
+
+        // Calculate days in the overlap period
+        const dayDiff = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 3600 * 24)) + 1;
+        totalWFH += dayDiff;
       }
     });
 
-    // Calculate total out-of-office days
+    // Calculate total out-of-office days - accounting for date ranges
     oooRequests.forEach((request) => {
       const requestStart = new Date(request.startDate);
       const requestEnd = new Date(request.endDate);
-      if (
-        requestStart >= createdAt &&
-        requestStart >= startDate &&
-        requestStart.getMonth() === currentDate.getMonth() &&
-        requestStart.getFullYear() === currentDate.getFullYear()
-      ) {
-        totalOOO++;
+      requestStart.setHours(0, 0, 0, 0);
+      requestEnd.setHours(23, 59, 59, 999);
+
+      // Check if OOO period overlaps with selected date range
+      if (requestStart <= endDate && requestEnd >= startDate) {
+        // Calculate the overlap period
+        const overlapStart = requestStart > startDate ? requestStart : startDate;
+        const overlapEnd = requestEnd < endDate ? requestEnd : endDate;
+
+        // Calculate days in the overlap period
+        const dayDiff = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 3600 * 24)) + 1;
+        totalOOO += dayDiff;
       }
     });
+
+    // Calculate total working days in the selected period (excluding weekends)
+    const totalWorkingDays = (() => {
+      let count = 0;
+      const currentDate = new Date(startDate);
+
+      while (currentDate <= endDate) {
+        // 0 is Sunday, 6 is Saturday
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          count++;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      return count;
+    })();
 
     return {
       totalDays,
@@ -585,10 +637,30 @@ export default function AttendanceCalendar({
       totalLeaves,
       totalWFH,
       totalOOO,
+      totalWorkingDays,
+      dateRange: {
+        start: startDate,
+        end: endDate
+      }
     };
   };
 
-  const metrics = calculateMetrics(activeTab); // Calculate metrics based on the active tab
+  const metrics = calculateMetrics();
+
+  useEffect(() => {
+    if (metrics?.dateRange) {
+      setstartingDate(metrics.dateRange.start.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }));
+      setEndingDate(metrics.dateRange.end.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }));
+    }
+  }, [metrics]);
 
   return (
     <div className="">
@@ -642,16 +714,14 @@ export default function AttendanceCalendar({
           {calendar.map((day, index) => {
             const statuses = getDateStatuses(day.date);
             const isCurrentDay = isToday(day.date);
-            const baseClasses = `min-h-[100px] p-2 ${
-              day.isCurrentMonth ? "text-gray-900" : "text-gray-400"
-            } ${isCurrentDay ? "bg-blue-100" : "bg-white"} cursor-pointer`;
+            const baseClasses = `min-h-[100px] p-2 ${day.isCurrentMonth ? "text-gray-900" : "text-gray-400"
+              } ${isCurrentDay ? "bg-blue-100" : "bg-white"} cursor-pointer`;
 
             return (
               <div key={index} className={baseClasses}>
                 <div
-                  className={`font-medium text-sm mb-1 ${
-                    isCurrentDay ? "text-blue-600" : ""
-                  }`}
+                  className={`font-medium text-sm mb-1 ${isCurrentDay ? "text-blue-600" : ""
+                    }`}
                 >
                   {day.date.getDate()}
                 </div>
@@ -922,65 +992,90 @@ export default function AttendanceCalendar({
           </h3>
           <div className="flex space-x-4 mt-4">
             <button
-              onClick={() => setActiveTab("thisMonth")}
-              className={`px-4 py-2 rounded ${
-                activeTab === "thisMonth"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              This Month
-            </button>
-            <button
-              onClick={() => setActiveTab("threeMonths")}
-              className={`px-4 py-2 rounded ${
-                activeTab === "threeMonths"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              Last 3 Months
-            </button>
-            <button
-              onClick={() => setActiveTab("sixMonths")}
-              className={`px-4 py-2 rounded ${
-                activeTab === "sixMonths"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              Last 6 Months
-            </button>
-            <button
-              onClick={() => setActiveTab("yearly")}
-              className={`px-4 py-2 rounded ${
-                activeTab === "yearly"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              Last Year
-            </button>
-            <button
               onClick={() => setActiveTab("overall")}
-              className={`px-4 py-2 rounded ${
-                activeTab === "overall"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200"
-              }`}
+              className={`px-4 py-2 rounded ${activeTab === "overall"
+                ? "bg-blue-500 text-white"
+                : "bg-gray-200"
+                }`}
             >
               Overall
             </button>
+            <button
+              onClick={() => setActiveTab("custom")}
+              className={`px-4 py-2 rounded ${activeTab === "custom"
+                ? "bg-blue-500 text-white"
+                : "bg-gray-200"
+                }`}
+            >
+              Custom Range
+            </button>
+            <button
+              onClick={() => setActiveTab("lastYear")}
+              className={`px-4 py-2 rounded ${activeTab === "lastYear"
+                ? "bg-blue-500 text-white"
+                : "bg-gray-200"
+                }`}
+            >
+              Last Year
+            </button>
           </div>
+
+          {
+            startingDate && EndingDate && (
+              <div className="bg-gray-50 p-4 rounded-lg my-4 shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-600 font-medium">From:</span>
+                    <span className="text-blue-600 font-semibold">{startingDate}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-600 font-medium">To:</span>
+                    <span className="text-blue-600 font-semibold">{EndingDate}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          {activeTab === "custom" && (
+            <div className="bg-gray-50 p-4 rounded-lg my-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customDateRange.startDate}
+                    onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customDateRange.endDate}
+                    onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {metrics && (
             <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="bg-blue-100 p-4 rounded-lg">
-                <h4 className="font-medium">Total Days Since Joining</h4>
-                <p className="text-2xl">{metrics.totalDays}</p>
-              </div>
               <div className="bg-green-100 p-4 rounded-lg">
                 <h4 className="font-medium">Total Attendance Days</h4>
                 <p className="text-2xl">{metrics.totalAttendanceDays}</p>
+                {metrics.totalWorkingDays && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    of {metrics.totalWorkingDays} working days
+                  </p>
+                )}
               </div>
               <div className="bg-yellow-100 p-4 rounded-lg">
                 <h4 className="font-medium">Total Leaves Taken</h4>
