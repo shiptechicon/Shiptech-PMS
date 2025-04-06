@@ -142,7 +142,11 @@ export default function MemberBasics() {
                     <div className="flex items-center mt-2 text-sm text-gray-500">
                       <Calendar className="h-4 w-4 mr-1" />
                       <span>
-                        Due: {new Date(todo.endDate).toLocaleDateString()}
+                        Due: {new Date(todo.endDate).toLocaleString('en-US', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                          hour12: true
+                        })}
                       </span>
                     </div>
                   </div>

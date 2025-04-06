@@ -1,4 +1,4 @@
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, CloudCog } from "lucide-react";
 import { Task, useTaskStore } from "../store/taskStore";
 import { useEffect, useState } from "react";
 
@@ -38,6 +38,21 @@ export default function TaskList({
     );
   }, [tasks]);
 
+  const calculateProgress = (children : Task[]) => {
+    // console.log("tasks", tasks);
+    
+    if (!children.length) return 0;
+
+    const completedProgress = children.reduce((acc, task) => {
+      if (task.completed) {
+        return acc + (task.percentage || 0);
+      }
+      return acc;
+    }, 0);
+
+    return Math.round(completedProgress);
+  };
+
   const calculateCompletedPercentage = (task: Task): number => {
     if (!task.children || task.children.length === 0) {
       return task.completed ? 100 : 0;
@@ -54,7 +69,8 @@ export default function TaskList({
       return sum + (subtask.completed ? subtask.percentage || 0 : 0);
     }, 0);
 
-    return Math.round((completedSum / totalAssignedToChildren) * 100);
+    return completedSum;
+    // return Math.round((completedSum / totalAssignedToChildren) * 100);
   };
 
   // Helper function to get color based on percentage
@@ -89,7 +105,8 @@ export default function TaskList({
         ) : (
           <div className="divide-y divide-gray-200">
             {sortedTasks.map((task) => {
-              const completedPercentage = calculateCompletedPercentage(task);
+              
+              const completedPercentage = !task.children?.length ? (task.completed ? 100 : 0) : calculateProgress(task.children as Task[]);
               const assignedPercentage = task.percentage || 0;
 
               return (
@@ -111,9 +128,10 @@ export default function TaskList({
                                 completedPercentage
                               ).replace("bg-", "text-")}`}
                             >
-                              Completed:{" "}
+                              {task.completed ? "Completed" : "In Progress"}
+                              :{" "}
                               {(
-                                (completedPercentage * assignedPercentage) /
+                                (completedPercentage * 100) /
                                 100
                               ).toFixed(1)}
                               %

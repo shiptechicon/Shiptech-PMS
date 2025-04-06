@@ -207,7 +207,7 @@ export default function TaskDetails() {
         completed: !task.completed,
       });
       toast.success(
-        task.completed ? "Task marked as complete" : "Task marked as incomplete"
+        !task.completed ? "Task marked as complete" : "Task marked as incomplete"
       );
     } catch (error) {
       console.error("Error toggling task completion:", error);

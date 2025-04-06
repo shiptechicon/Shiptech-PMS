@@ -192,6 +192,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         id: doc.id,
         ...doc.data(),
       })) as User[];
+
+      console.log("Fetched users:", users);
+      
       set({ users });
       return users;
     } catch (error) {

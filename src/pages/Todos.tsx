@@ -81,7 +81,7 @@ export default function Todos() {
           className="px-4 py-2 bg-black/90 text-white rounded-md hover:bg-black/80 flex items-center gap-2"
         >
           <Plus className="h-5 w-5" />
-          Add Todo
+          Add To do
         </button>
       </div>
 
@@ -100,7 +100,14 @@ export default function Todos() {
                 </h3>
                 <p className="text-gray-600 mt-1">{todo.description}</p>
                 <p className="text-sm text-gray-500 mt-2">
-                  Due: {new Date(todo.endDate).toLocaleDateString()}
+                  Due: {new Date(todo.endDate).toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -154,13 +161,12 @@ export default function Todos() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full p-2 border rounded"
                   rows={3}
-                  required
                 />
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">End Date</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={formData.endDate}
                   onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                   className="w-full p-2 border rounded"

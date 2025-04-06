@@ -94,22 +94,22 @@ export default function Projects() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Customer
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created At
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Created On
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Payment Status
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -122,23 +122,23 @@ export default function Projects() {
                   <tr 
                     onClick={() => navigate(`/dashboard/projects/${project.id}`)} 
                     key={project.id} 
-                    className="hover:bg-gray-50 hover:cursor-pointer"
+                    className="hover:bg-gray-50 hover:cursor-pointer text-center"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       P-{project.projectNumber}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="text-center px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {project.name.length > 40
                         ? `${project.name.slice(0, 40)}...`
                         : project.name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {project.customer.name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(project.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <ProjectStatusSelect
                         project={{
                           id: project.id as string,
@@ -146,17 +146,17 @@ export default function Projects() {
                         }}
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {getSettlementStatus(project.customer_id)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="text-center px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center space-x-3">
                         <Link
                           to={`/dashboard/projects/${project.id}`}
                           className="text-black/90 hover:text-black/80"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <ExternalLink size={18} />
+                          <ExternalLink className="text-blue-800" size={18} />
                         </Link>
                         <button
                           onClick={(e) => {

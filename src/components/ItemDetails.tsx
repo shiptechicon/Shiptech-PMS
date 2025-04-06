@@ -35,6 +35,7 @@ export default function ItemDetails({
     : true;
 
   const calculateProgress = () => {
+    
     if (!tasks.length) return 0;
 
     const completedProgress = tasks.reduce((acc, task) => {
