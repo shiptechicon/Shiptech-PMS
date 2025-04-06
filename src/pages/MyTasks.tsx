@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useTaskStore } from "@/store/taskStore";
-import { Trash2, Edit2Icon, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, Edit2Icon, ChevronDown, ChevronUp, File } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function MyTasks() {
   const { user, userData } = useAuthStore();
@@ -35,16 +36,16 @@ export default function MyTasks() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Task Name
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Time Entries
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider flex justify-end">
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider flex justify-end">
                 Actions
               </th>
             </tr>
@@ -52,7 +53,7 @@ export default function MyTasks() {
           <tbody className="bg-white divide-y divide-gray-200">
             {tasks.map((task) => (
               <React.Fragment key={task.id}>
-                <tr onClick={() => toggleTaskRowExpansion(task.id)} className="hover:bg-gray-50 hover:cursor-pointer">
+                <tr onClick={() => toggleTaskRowExpansion(task.id)} className="hover:bg-gray-50 hover:cursor-pointer text-center">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {task.name}
                   </td>
@@ -81,6 +82,7 @@ export default function MyTasks() {
                         <p>Description: {task.description}</p>
                         <p>Assigned To: {task.assignedTo?.map(user => user.name).join(", ")}</p>
                         <p>Deadline: {task.deadline || "No deadline set"}</p>
+                        <Link to={`/dashboard/projects/${task.projectId}`} className="text-blue-500 flex items-center gap-1 hover:cursor-pointer"><File size={18} /> Go to project</Link>
                       </div>
                     </td>
                   </tr>

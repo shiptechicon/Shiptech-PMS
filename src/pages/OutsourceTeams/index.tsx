@@ -68,17 +68,17 @@ function TeamsList() {
         <table className="min-w-full">
           <thead>
             <tr className="border-b">
-              <th className="px-6 py-3 text-left">Name</th>
-              <th className="px-6 py-3 text-left">GST</th>
-              <th className="px-6 py-3 text-left">Contact Persons</th>
-              <th className="px-6 py-3 text-left">Payment Status</th>
-              <th className="px-6 py-3 text-left">Actions</th>
+              <th className="px-6 py-3 text-center">Name</th>
+              <th className="px-6 py-3 text-center">GST</th>
+              <th className="px-6 py-3 text-center">Contact Persons</th>
+              <th className="px-6 py-3 text-center">Payment Status</th>
+              <th className="px-6 py-3 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {teams.map((team) => (
-              <tr key={team.id} className="border-b">
-                <td className="px-6 py-4">{team.name}</td>
+              <tr key={team.id} className="border-b text-center">
+                <td className="px-6 py-4 ">{team.name}</td>
                 <td className="px-6 py-4">{team.gst ? team.gst : "Not provided"}</td>
                 <td className="px-6 py-4">
                   {team.contactPersons.map((person, index) => (
@@ -105,7 +105,7 @@ function TeamsList() {
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex gap-3">
+                  <div className="flex justify-center gap-3">
                     <Link
                       to={`${team.id}`}
                       className="text-blue-600 hover:text-blue-800"

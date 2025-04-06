@@ -252,13 +252,13 @@ const TimeSheet = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Title
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Time Spent
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider flex justify-end">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -268,7 +268,7 @@ const TimeSheet = () => {
                 <React.Fragment key={sheet.id}>
                   <tr
                     onClick={() => toggleRowExpansion(sheet.id)}
-                    className="hover:bg-gray-50 hover:cursor-pointer"
+                    className="hover:bg-gray-50 hover:cursor-pointer text-center"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       <span className="relative group">{sheet.title}</span>
@@ -276,7 +276,7 @@ const TimeSheet = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {sheet.hours} Hours {sheet.minutes} Minutes
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex justify-end gap-3">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex justify-center gap-3">
                       <button
                         onClick={() => handleEditTimeSheet(sheet)}
                         className="text-blue-600 hover:text-blue-900 mr-2"

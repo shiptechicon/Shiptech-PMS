@@ -77,7 +77,9 @@ export default function MemberBasics() {
   return (
     <div className="p-6">
       {/* Analytics Board */}
-      <div className="mb-6 bg-white rounded-lg shadow p-4">
+      <div onClick={()=>{
+        navigate("/dashboard/projects")
+      }} className="mb-6 bg-white rounded-lg shadow p-4">
         <h2 className="text-2xl font-bold mb-4">Analytics Dashboard</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-blue-100 p-4 rounded-lg">

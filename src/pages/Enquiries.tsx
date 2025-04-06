@@ -75,25 +75,25 @@ const EnquiriesList = () => {
       ) : (
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200 overflow-x-auto">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-center">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ID
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Enquiry Number
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created At
                 </th>
 
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -104,20 +104,20 @@ const EnquiriesList = () => {
                   key={enquiry.id}
                   className="hover:bg-gray-50 hover:cursor-pointer"
                 >
-                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                     E-{enquiry.enquiryNumber}
                   </td>
-                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center">
                     {enquiry.name}
                   </td>
-                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                     {enquiry.customerName}
                   </td>
-                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td onClick={() => navigate(`${enquiry.id}`)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                     {new Date(enquiry.createdAt).toLocaleDateString()}
                   </td>
                   <td onClick={() => navigate(`${enquiry.id}`)}
-                    className={`px-6 py-4 whitespace-nowrap text-sm text-white`}
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-white text-center flex justify-center`}
                   >
                     <div
                       className={`px-3 py-2 whitespace-nowrap text-sm text-white w-max rounded-sm ${
@@ -133,8 +133,8 @@ const EnquiriesList = () => {
                       {enquiry.status || ""}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-3">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                    <div className="flex items-center justify-center space-x-3">
                       <button
                         onClick={() => navigate(`${enquiry.id}`)}
                         className="text-blue-600 hover:text-blue-900"

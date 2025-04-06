@@ -117,6 +117,30 @@ export default function AdminPanel() {
       ? users.filter(user => !user.verified)
       : users;
 
+  const updateUserRole = (userId: string, newRole: string) => {
+    setUsers(prevUsers =>
+      prevUsers.map(user =>
+        user.id === userId ? { ...user, role: newRole } : user
+      )
+    );
+  };
+
+  const toggleUserRole = async (userId: string, currentRole: string) => {
+    try {
+      setProcessingUser(userId);
+      const newRole = currentRole === 'admin' ? 'member' : 'admin';
+      await updateDoc(doc(db, 'users', userId), {
+        role: newRole
+      });
+      updateUserRole(userId, newRole);
+      toast.success(`User role changed to ${newRole}`);
+    } catch (error) {
+      toast.error('Failed to change user role');
+    } finally {
+      setProcessingUser(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-100 py-8 watermark">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -217,7 +241,7 @@ export default function AdminPanel() {
                       <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="text-center px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-center">
+                      <td className="text-center px-6 py-4 whitespace-nowrap text-right text-xs font-medium flex justify-center">
                         <div className="flex justify-end gap-2">
                           {activeTab === 'customers' ? (
                             <>
@@ -239,7 +263,7 @@ export default function AdminPanel() {
                               </button>
                             </>
                           ) : (
-                            <div className='flex gap-6'>
+                            <div className='flex gap-3'>
                               <button
                                 onClick={() => {
                                   user.verified ? unverifyUser(user.id) : verifyUser(user.id);
@@ -274,6 +298,18 @@ export default function AdminPanel() {
                                   className="text-white hover:text-purple-900 hover:bg-white border-2 py-1 px-2 border-purple-600 bg-purple-500 duration-300 rounded-2xl"
                                 >
                                   Change <br /> Join Date
+                                </button>
+                              )}
+                              {user.verified && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    toggleUserRole(user.id, user.role);
+                                  }}
+                                  className="text-white hover:text-purple-900 hover:bg-white border-2 py-1 px-1 border-purple-600 bg-purple-500 duration-300 rounded-2xl"
+                                >
+                                  {/* promote or demote like wise content for button */}
+                                  {user.role === 'admin'? 'Demote' : 'Promote'}
                                 </button>
                               )}
                             </div>
