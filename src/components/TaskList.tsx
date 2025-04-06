@@ -124,12 +124,14 @@ export default function TaskList({
                               Target: {assignedPercentage}%
                             </span>
                             <span
-                              className={`text-sm ${getProgressColor(
-                                completedPercentage
-                              ).replace("bg-", "text-")}`}
+                              className={`text-sm ${
+                                task.completed
+                                  ? getProgressColor(completedPercentage).replace("bg-", "text-")
+                                  : "text-red-600"
+                              }`}
                             >
                               {task.completed ? "Completed" : "In Progress"}
-                              :{" "}
+                              :{" "}  
                               {(
                                 (completedPercentage * 100) /
                                 100
