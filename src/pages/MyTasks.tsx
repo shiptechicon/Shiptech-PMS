@@ -3,21 +3,45 @@ import { useAuthStore } from "@/store/authStore";
 import { useTaskStore } from "@/store/taskStore";
 import { Trash2, Edit2Icon, ChevronDown, ChevronUp, File } from "lucide-react";
 import { Link } from "react-router-dom";
+// Add project store import
+import { useProjectStore } from "@/store/projectStore";
 
 export default function MyTasks() {
   const { user, userData } = useAuthStore();
   const { fetchUserTasks, tasks } = useTaskStore();
+  const { projects, fetchProjects } = useProjectStore(); // Add project store
   const [expandedTaskRows, setExpandedTaskRows] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'ongoing' | 'completed'>('ongoing');
+  const [filteredTasks, setFilteredTasks] = useState(tasks);
 
   useEffect(() => {
-    if (user && userData) {
-      fetchUserTasks({
-        id: user.uid,
-        name: userData.fullName,
-        email: userData.email,
-      });
-    }
-  }, [user, userData, fetchUserTasks]);
+    const fetchData = async () => {
+      if (user && userData) {
+        await fetchUserTasks({
+          id: user.uid,
+          name: userData.fullName,
+          email: userData.email,
+        });
+      }
+      if(projects.length === 0) {
+        await fetchProjects(); 
+      }
+    };
+    fetchData();
+  }, [user, userData, fetchUserTasks, fetchProjects]);
+
+  useEffect(() => {
+    const filtered = activeTab === 'ongoing'
+      ? tasks.filter(task => {
+          const project = projects.find(p => p.id === task.projectId);
+          return !task.completed && project?.status !== 'completed';
+        })
+      : tasks.filter(task => {
+          const project = projects.find(p => p.id === task.projectId);
+          return task.completed && project?.status !== 'completed';
+        });
+    setFilteredTasks(filtered);
+  }, [tasks, activeTab, projects]);
 
   const toggleTaskRowExpansion = (id: string) => {
     const newExpandedTaskRows = new Set(expandedTaskRows);
@@ -32,7 +56,28 @@ export default function MyTasks() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">My Tasks</h1>
-      {tasks.length > 0 ? (
+      
+      {/* Add Tab Navigation */}
+      <div className="border-b border-gray-200 mb-6">
+        <div className="flex space-x-8">
+          <button
+            onClick={() => setActiveTab('ongoing')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2
+              ${activeTab === 'ongoing' ? 'border-black/90 text-black/90' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            <span>Ongoing</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2
+              ${activeTab === 'completed' ? 'border-black/90 text-black/90' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            <span>Completed</span>
+          </button>
+        </div>
+      </div>
+
+      {filteredTasks.length > 0 ? (
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -51,7 +96,7 @@ export default function MyTasks() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {tasks.map((task) => (
+            {filteredTasks.map((task) => (
               <React.Fragment key={task.id}>
                 <tr onClick={() => toggleTaskRowExpansion(task.id)} className="hover:bg-gray-50 hover:cursor-pointer text-center">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -93,8 +138,8 @@ export default function MyTasks() {
         </table>
       ) : (
         <div className="bg-white shadow-md rounded-lg p-4 mb-4">
-          <h2 className="text-lg font-semibold">No Tasks Available</h2>
-          <p>Please add tasks to see the entries.</p>
+          <h2 className="text-lg font-semibold">No {activeTab === 'ongoing' ? 'Ongoing' : 'Completed'} Tasks</h2>
+          <p>You have no {activeTab === 'ongoing' ? 'ongoing' : 'completed'} tasks.</p>
         </div>
       )}
     </div>

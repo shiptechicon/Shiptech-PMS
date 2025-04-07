@@ -9,6 +9,7 @@ import {
 import ItemStatusBadge from "./ItemStatusBadge";
 import { Task, useTaskStore } from "@/store/taskStore";
 import { useAuthStore } from "@/store/authStore";
+import { useProjectStore, Project } from "@/store/projectStore";
 
 interface ItemDetailsProps {
   item: Task;
@@ -18,6 +19,7 @@ interface ItemDetailsProps {
   isAdmin?: boolean;
   canComplete?: boolean;
   exceptionCase?: boolean;
+  parentTaskCompleted?: boolean; // Add this
 }
 
 export default function ItemDetails({
@@ -28,8 +30,10 @@ export default function ItemDetails({
   isAdmin,
   canComplete = true,
   exceptionCase = false,
+  parentTaskCompleted = false, // Add this
 }: ItemDetailsProps) {
   const { userData } = useAuthStore();
+  const { project } = useProjectStore();
   const allChildrenComplete = tasks?.length
     ? tasks.every((child) => child.completed)
     : true;
@@ -85,7 +89,8 @@ export default function ItemDetails({
               </p>
             </div>
             <div className="flex items-center space-x-4">
-              {(isAdmin || exceptionCase) && onEditClick && (
+              {/* {!parentTaskCompleted && (isAdmin || exceptionCase) && onEditClick && project && project.status !== 'completed' &&( */}
+              {!parentTaskCompleted && (isAdmin || exceptionCase) && onEditClick && project && project.status !== 'completed' &&(
                 <button
                   onClick={()=>{
                     onEditClick()
@@ -95,7 +100,8 @@ export default function ItemDetails({
                   Edit Details
                 </button>
               )}
-              {onToggleComplete && (
+              {/* {!parentTaskCompleted && onToggleComplete && project && project.status !== 'completed' && ( */}
+              {!parentTaskCompleted && onToggleComplete && project && project.status !== 'completed' && (
                 <button
                   onClick={onToggleComplete}
                   disabled={
@@ -112,17 +118,7 @@ export default function ItemDetails({
                       : ""
                   }`}
                 >
-                  {item.completed ? (
-                    <>
-                      <AlertCircle className="h-4 w-4 mr-2" />
-                      Mark as Incomplete
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Mark as Complete
-                    </>
-                  )}
+                  {item.completed ? "Mark Incomplete" : "Mark Complete"}
                 </button>
               )}
             </div>

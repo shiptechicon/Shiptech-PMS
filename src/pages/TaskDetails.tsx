@@ -78,6 +78,20 @@ export default function TaskDetails() {
   const getChildTasks = (parentId: string) => {
     return tasks.filter((task) => task.parentId === parentId);
   };
+  const [parentTaskCompleted, setParentTaskCompleted] = useState(false);
+
+      useEffect(() => {
+        const checkParentTaskCompletion = async () => {
+          if (task?.parentId) {
+            const parentTask = await searchTaskFromTree(task.parentId,tasks);
+            setParentTaskCompleted(parentTask?.completed || false);
+          } else {
+            setParentTaskCompleted(false);
+          }
+        };
+
+        checkParentTaskCompletion();
+      }, [task?.parentId, searchTaskFromTree]);
 
   useEffect(() => {
     fetchProject(projectId as string)
@@ -628,6 +642,8 @@ export default function TaskDetails() {
         </div>
       </div>
 
+      
+
       <ItemDetails
         item={task}
         tasks={task.children}
@@ -639,6 +655,7 @@ export default function TaskDetails() {
         onToggleComplete={handleToggleComplete}
         isAdmin={isAdmin}
         canComplete={isAdmin || exceptionCase}
+        parentTaskCompleted={parentTaskCompleted} // Add this prop
       />
 
       {(task.timeEntries?.length ?? 0) > 0 && (

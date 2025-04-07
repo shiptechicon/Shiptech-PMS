@@ -314,10 +314,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ loading: true, error: null });
       const docRef = doc(db, "projects", id);
       await updateDoc(docRef, { status });
-      set((state) => ({
-        project: { ...state.project, status } as Project,
-        loading: false,
-      }));
+      
+      // Update both the current project and the project in the projects array
+      set((state): Partial<ProjectState> => {
+        const updatedProjects = state.projects.map(project => 
+          project.id === id ? { ...project, status } : project
+        );
+        
+        return {
+          projects: updatedProjects as Project[],
+          project: state.project?.id === id ? { ...state.project, status } as Project : state.project,
+          loading: false,
+        };
+      });
     } catch (error) {
       console.error("Error updating project status:", error);
       set({ error: (error as Error).message, loading: false });
