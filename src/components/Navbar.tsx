@@ -188,8 +188,10 @@ export default function Navbar() {
                 </div>
               )}
             </button>
-
-            <NotificationDropdown />
+              {
+                userData?.role !== "customer" &&
+                (<NotificationDropdown />)
+              }
           </div>
 
           

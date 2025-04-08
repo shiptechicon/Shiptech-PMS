@@ -27,7 +27,7 @@ export default function NotificationDropdown() {
         }
       }
     };
-
+    
     fetchData();
     // Set up an interval to fetch notifications every minute
     // const interval = setInterval(fetchData, 60000);

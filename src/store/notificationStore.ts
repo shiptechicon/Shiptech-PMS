@@ -12,8 +12,9 @@ import {
     orderBy,
     onSnapshot,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { useAuthStore } from '@/store/authStore';
+import { CloudCog } from 'lucide-react';
 
 interface Notification {
   id: string;
@@ -96,11 +97,11 @@ export const useNotificationStore = create<NotificationStore>()(
             );
           }
     
-          if (user) {
-            console.log(`Fetching notifications for ${userData?.role} user:`, userData?.id);
-          } else {
-            console.warn('User is null, cannot fetch notifications.');
-          }
+          // if (user) {
+          //   console.log(`Fetching notifications for ${userData?.role} user:`, userData?.id);
+          // } else {
+          //   console.warn('User is null, cannot fetch notifications.');
+          // }
     
           // Set up real-time listener
           onSnapshot(q, (snapshot) => {
@@ -118,13 +119,34 @@ export const useNotificationStore = create<NotificationStore>()(
             });
     
             // For regular users, you might want to filter further if needed
-            if (userData?.role !== 'admin') {
+            if (userData?.role == 'member') {
               const filteredNotifications = notifications.filter(notification => 
                 ['task', 'todo'].includes(notification.type) // Only show tasks and todos
               );
+              
               set({ notifications: filteredNotifications, loading: false });
             } else {
-              set({ notifications, loading: false });
+              console.log("user",user);
+              console.log("current user",auth.currentUser?.uid);
+              
+              
+              // Filter notifications containing "Todo" to check assignedTo
+              // Filter todo notifications where user is the creator
+              const todoNotifications = notifications.filter(notification => 
+                notification.content.toLowerCase().includes('todo') && 
+                notification.userId === auth.currentUser?.uid
+              );
+
+              // Filter non-todo notifications
+              const nonTodoNotifications = notifications.filter(notification => 
+                !notification.content.toLowerCase().includes('todo')
+              );
+
+              // Combine both arrays
+              const filteredNotifications = [...todoNotifications, ...nonTodoNotifications];
+              console.log(filteredNotifications);
+              
+              set({ notifications: filteredNotifications, loading: false });
             }
           }, (error) => {
             console.error('Error in notification listener:', error);
