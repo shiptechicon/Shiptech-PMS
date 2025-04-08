@@ -1071,11 +1071,6 @@ export default function AttendanceCalendar({
               <div className="bg-green-100 p-4 rounded-lg">
                 <h4 className="font-medium">Total Attendance Days</h4>
                 <p className="text-2xl">{metrics.totalAttendanceDays}</p>
-                {metrics.totalWorkingDays && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    of {metrics.totalWorkingDays} working days
-                  </p>
-                )}
               </div>
               <div className="bg-yellow-100 p-4 rounded-lg">
                 <h4 className="font-medium">Total Leaves Taken</h4>
