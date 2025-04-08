@@ -189,7 +189,7 @@ export default function Navbar() {
               )}
             </button>
 
-            {userData?.role === "admin" && <NotificationDropdown />}
+            <NotificationDropdown />
           </div>
 
           

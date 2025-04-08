@@ -13,6 +13,7 @@ import {
     onSnapshot,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuthStore } from '@/store/authStore';
 
 interface Notification {
   id: string;
@@ -20,6 +21,7 @@ interface Notification {
   url: string;
   createdAt: Date;
   userId: string;
+  assignedTo?: Array<string>;
 }
 
 interface NotificationStore {
@@ -45,6 +47,7 @@ export const useNotificationStore = create<NotificationStore>()(
             url,
             userId,
             createdAt: serverTimestamp(),
+            assignedTo: [],
           };
 
           const docRef = await addDoc(collection(db, 'notifications'), notificationData);
@@ -55,6 +58,7 @@ export const useNotificationStore = create<NotificationStore>()(
             url,
             userId,
             createdAt: new Date(),
+            assignedTo: [],
           };
 
           set(state => ({
@@ -68,18 +72,36 @@ export const useNotificationStore = create<NotificationStore>()(
         }
       },
 
-      fetchNotifications: async () => {
+      fetchNotifications: async () => {  
+        const user = useAuthStore.getState().user;
+        const userData = useAuthStore.getState().userData;
+
         set({ loading: true, error: null });
         
         try {
-          const q = query(
-            collection(db, 'notifications'),
-            orderBy('createdAt', 'desc')
-          );
-
-          console.log('Fetching notification ...');
+          let q;
           
-
+          if (userData?.role === 'admin') {
+            // Admin query - get all notifications
+            q = query(
+              collection(db, 'notifications'),
+              orderBy('createdAt', 'desc')
+            );
+          } else {
+            // Regular user query - only get notifications assigned to them
+            q = query(
+              collection(db, 'notifications'),
+              where('assignedTo', 'array-contains', userData?.id || ''),
+              orderBy('createdAt', 'desc')
+            );
+          }
+    
+          if (user) {
+            console.log(`Fetching notifications for ${userData?.role} user:`, userData?.id);
+          } else {
+            console.warn('User is null, cannot fetch notifications.');
+          }
+    
           // Set up real-time listener
           onSnapshot(q, (snapshot) => {
             const notifications = snapshot.docs.map(doc => {
@@ -90,23 +112,31 @@ export const useNotificationStore = create<NotificationStore>()(
                 url: data.url,
                 userId: data.userId,
                 createdAt: data.createdAt?.toDate() || new Date(),
+                assignedTo: data.assignedTo || [],
+                type: data.type || 'task' // Assuming notifications have a type field
               };
             });
-
-            // console.log('Fetched notifications:', notifications);
-
-            set({ notifications, loading: false });
+    
+            // For regular users, you might want to filter further if needed
+            if (userData?.role !== 'admin') {
+              const filteredNotifications = notifications.filter(notification => 
+                ['task', 'todo'].includes(notification.type) // Only show tasks and todos
+              );
+              set({ notifications: filteredNotifications, loading: false });
+            } else {
+              set({ notifications, loading: false });
+            }
           }, (error) => {
             console.error('Error in notification listener:', error);
             set({ error: 'Failed to fetch notifications', loading: false });
           });
-
+    
         } catch (error) {
           console.error('Error setting up notification listener:', error);
           set({ error: 'Failed to fetch notifications', loading: false });
         }
       },
-
+      
       deleteNotification: async (id: string) => {
         try {
           // console.log('Deleting notification:', id);
