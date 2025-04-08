@@ -129,7 +129,7 @@ export default function TaskModal({
     if (siblingTasks) {
       calculateAvailablePercentage();
     }
-  }, [siblingTasks]);
+  }, [siblingTasks , initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,7 +360,7 @@ export default function TaskModal({
                         Current: {formData.percentage}%
                       </span>
                       <span className="text-sm text-gray-500">
-                        Available: {availablePercentage}%
+                        Available: {(availablePercentage - formData.percentage) < 0 ? 0 : (availablePercentage - formData.percentage)}%
                       </span>
                     </div>
                     <input
@@ -397,7 +397,7 @@ export default function TaskModal({
                     <input
                       type="number"
                       min="0"
-                      max={availablePercentage}
+                      max={availablePercentage + formData.percentage}
                       value={formData.percentage}
                       onChange={(e) => {
                         const value = Math.min(
